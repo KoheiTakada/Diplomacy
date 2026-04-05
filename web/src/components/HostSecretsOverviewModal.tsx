@@ -190,7 +190,7 @@ export function HostSecretsOverviewModal(props: HostSecretsOverviewModalProps) {
       lines.push('■ 参加用（シークレットは URL に含めない）');
       lines.push(`サイト: ${origin}/`);
       lines.push(
-        'トップのオンライン → Continue で卓IDと上記の各国シークレットを入力。',
+        'トップで Join room を選び、卓IDと上記の各国シークレットを入力。',
       );
     }
     return lines.join('\n');

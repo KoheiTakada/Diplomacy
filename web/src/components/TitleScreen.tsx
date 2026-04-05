@@ -2,17 +2,14 @@
  * タイトル画面（ログイン相当の入口）
  *
  * 概要:
- *   「オンライン」と「ローカル操作」の2ブロックに分け、
- *   オンラインは Continue（ロール・卓ID・シークレット）と New Game、
- *   ローカルは Continue / New Game を提供する。
+ *   オンライン卓のみを提供する。Join room（卓ID・ロール・シークレット）と
+ *   Create room（新規卓作成）の2導線を持つ。
  *
  * 主な機能:
- *   - オンライン Continue: ボタン押下後にロール・卓ID・シークレット欄を表示し、再度 Continue で参加
- *   - オンライン New Game: ローカル New Game と同じパネル構成（始める／キャンセル）で Supabase に新規卓を作成
- *   - ローカル Continue / New Game: IndexedDB に保存した世界線の再開・新規
+ *   - Join room: ボタン押下後にフォームを表示し、送信でオンライン参加
+ *   - Create room: 世界線名入力後に Supabase へ新規卓を作成
  *
  * 想定される制限事項:
- *   - ローカル保存はこのブラウザの IndexedDB のみ。
  *   - オンライン卓は Supabase 環境変数と DB マイグレーションが必要。
  *   - シークレットは URL クエリに載るため HTTPS 前提。
  */
@@ -20,10 +17,6 @@
 'use client';
 
 import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
-import {
-  listWorldlineSaveSummariesInAppStorage,
-  type WorldlineSaveSummary,
-} from '@/lib/appSaveStorage';
 import { POWERS } from '@/miniMap';
 import type { PowerId } from '@/domain';
 import { POWER_META } from '@/diplomacy/gameHelpers';
@@ -35,45 +28,14 @@ import { useEffect, useRef, useState } from 'react';
 type OnlineJoinRole = 'host' | PowerId;
 
 /**
- * ISO 時刻を一覧用の日本語表記にする。
- *
- * @param iso - ISO 8601 文字列
- * @returns 表示用テキスト、欠損・不正時は null
- */
-function formatSavedAtForList(iso: string | null): string | null {
-  if (iso == null || iso.length === 0) {
-    return null;
-  }
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) {
-    return null;
-  }
-  return d.toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' });
-}
-
-/**
  * タイトル UI。
  */
 export function TitleScreen() {
-  const {
-    loadSaveFromAppStorageByStem,
-    startNewGame,
-    startNewOnlineGame,
-    joinOnlineGame,
-  } = useDiplomacyGame();
-  const worldlineInputRef = useRef<HTMLInputElement>(null);
+  const { startNewOnlineGame, joinOnlineGame } = useDiplomacyGame();
   const onlineWorldlineInputRef = useRef<HTMLInputElement>(null);
 
-  const [busy, setBusy] = useState(false);
-  const [newGameOpen, setNewGameOpen] = useState(false);
-  const [worldlineDraft, setWorldlineDraft] = useState('');
-  const [continueOpen, setContinueOpen] = useState(false);
-  const [savedSummaries, setSavedSummaries] = useState<WorldlineSaveSummary[]>(
-    [],
-  );
-
   const [onlineBusy, setOnlineBusy] = useState(false);
-  const [onlineContinueOpen, setOnlineContinueOpen] = useState(false);
+  const [joinRoomFormOpen, setJoinRoomFormOpen] = useState(false);
   const [onlineStemDraft, setOnlineStemDraft] = useState('');
   const [onlineNewGameOpen, setOnlineNewGameOpen] = useState(false);
   const [joinRoomId, setJoinRoomId] = useState('');
@@ -85,16 +47,6 @@ export function TitleScreen() {
   );
 
   useEffect(() => {
-    if (!newGameOpen) {
-      return;
-    }
-    const id = window.requestAnimationFrame(() => {
-      worldlineInputRef.current?.focus();
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [newGameOpen]);
-
-  useEffect(() => {
     if (!onlineNewGameOpen) {
       return;
     }
@@ -103,21 +55,6 @@ export function TitleScreen() {
     });
     return () => window.cancelAnimationFrame(id);
   }, [onlineNewGameOpen]);
-
-  useEffect(() => {
-    if (!continueOpen) {
-      return;
-    }
-    let cancelled = false;
-    void listWorldlineSaveSummariesInAppStorage().then((rows) => {
-      if (!cancelled) {
-        setSavedSummaries(rows);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [continueOpen]);
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-gradient-to-b from-zinc-100 to-zinc-200 px-4 py-8 font-sans text-zinc-900">
@@ -128,7 +65,6 @@ export function TitleScreen() {
           </h1>
         </header>
 
-        {/* オンライン */}
         <section
           className="flex flex-col gap-3"
           aria-labelledby="title-online-heading"
@@ -137,21 +73,21 @@ export function TitleScreen() {
             id="title-online-heading"
             className="text-center text-xs font-semibold uppercase tracking-widest text-zinc-600"
           >
-            — オンライン —
+            — Online —
           </h2>
 
-          {!onlineContinueOpen ? (
+          {!joinRoomFormOpen ? (
             <button
               type="button"
-              disabled={busy || onlineBusy}
-              onClick={() => setOnlineContinueOpen(true)}
+              disabled={onlineBusy}
+              onClick={() => setJoinRoomFormOpen(true)}
               className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-violet-900/20 transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-zinc-400"
             >
-              Continue
+              Join room
             </button>
           ) : null}
 
-          {onlineContinueOpen ? (
+          {joinRoomFormOpen ? (
             <div className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
               <div className="flex flex-col gap-3">
                 <label className="block text-[11px] font-medium text-zinc-700">
@@ -197,7 +133,7 @@ export function TitleScreen() {
                 />
                 <button
                   type="button"
-                  disabled={busy || onlineBusy}
+                  disabled={onlineBusy}
                   onClick={async () => {
                     setOnlineBusy(true);
                     try {
@@ -215,7 +151,7 @@ export function TitleScreen() {
                       if (!r.ok) {
                         window.alert(r.error);
                       } else {
-                        setOnlineContinueOpen(false);
+                        setJoinRoomFormOpen(false);
                       }
                     } finally {
                       setOnlineBusy(false);
@@ -223,13 +159,12 @@ export function TitleScreen() {
                   }}
                   className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-violet-900/20 transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-zinc-400"
                 >
-                  Continue
+                  Join room
                 </button>
               </div>
               <button
                 type="button"
-                disabled={busy}
-                onClick={() => setOnlineContinueOpen(false)}
+                onClick={() => setJoinRoomFormOpen(false)}
                 className="mt-3 w-full text-center text-[11px] text-zinc-500 underline-offset-2 hover:underline"
               >
                 閉じる
@@ -239,14 +174,13 @@ export function TitleScreen() {
 
           <button
             type="button"
-            disabled={busy}
             onClick={() => {
               setOnlineNewGameOpen((o) => !o);
               setCreatedOnlineLinks(null);
             }}
             className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-semibold text-zinc-800 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            New Game
+            Create room
           </button>
           {onlineNewGameOpen ? (
             <div className="rounded-xl border border-violet-200 bg-violet-50/90 p-3 shadow-sm">
@@ -276,7 +210,7 @@ export function TitleScreen() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    disabled={busy || onlineBusy}
+                    disabled={onlineBusy}
                     onClick={async () => {
                       setOnlineBusy(true);
                       setCreatedOnlineLinks(null);
@@ -296,7 +230,7 @@ export function TitleScreen() {
                           '',
                           '■ 参加手順（シークレットは URL に含めないでください）',
                           `  サイトを開く: ${origin}/`,
-                          '  オンライン → Continue で卓IDとシークレットを入力。',
+                          '  Online → Join room で卓IDとシークレットを入力。',
                           '',
                           '■ 各国に送る用（シークレットのみ。チャット等で個別に送る）',
                         ];
@@ -316,13 +250,13 @@ export function TitleScreen() {
                   </button>
                   <button
                     type="button"
-                    disabled={busy}
+                    disabled={onlineBusy}
                     onClick={() => {
                       setOnlineNewGameOpen(false);
                       setOnlineStemDraft('');
                       setCreatedOnlineLinks(null);
                     }}
-                    className="rounded-lg border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-900 hover:bg-violet-50"
+                    className="rounded-lg border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-900 hover:bg-violet-50 disabled:opacity-60"
                   >
                     キャンセル
                   </button>
@@ -344,166 +278,19 @@ export function TitleScreen() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
-                      disabled={busy}
+                      disabled={onlineBusy}
                       onClick={() => {
                         setOnlineNewGameOpen(false);
                         setOnlineStemDraft('');
                         setCreatedOnlineLinks(null);
                       }}
-                      className="rounded-lg border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-900 hover:bg-violet-50"
+                      className="rounded-lg border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-900 hover:bg-violet-50 disabled:opacity-60"
                     >
                       キャンセル
                     </button>
                   </div>
                 </>
               )}
-            </div>
-          ) : null}
-        </section>
-
-        {/* ローカル */}
-        <section
-          className="flex flex-col gap-3"
-          aria-labelledby="title-local-heading"
-        >
-          <h2
-            id="title-local-heading"
-            className="text-center text-xs font-semibold uppercase tracking-widest text-zinc-600"
-          >
-            — ローカル操作 —
-          </h2>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setContinueOpen(true)}
-            className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-violet-900/20 transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-zinc-400"
-          >
-            Continue
-          </button>
-
-          {continueOpen ? (
-            <div className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
-              {savedSummaries.length === 0 ? (
-                <p className="text-center text-xs text-zinc-500">
-                  保存された世界線はありません。
-                </p>
-              ) : (
-                <ul className="flex max-h-52 flex-col gap-1.5 overflow-y-auto">
-                  {savedSummaries.map((row) => {
-                    const dateLine = formatSavedAtForList(row.savedAtIso);
-                    const metaParts = [dateLine, row.progressLabel].filter(
-                      (x): x is string => x != null && x.length > 0,
-                    );
-                    const metaLine =
-                      metaParts.length > 0 ? metaParts.join(' ・ ') : null;
-                    return (
-                      <li key={row.stem}>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={async () => {
-                            setBusy(true);
-                            try {
-                              const ok = await loadSaveFromAppStorageByStem(
-                                row.stem,
-                              );
-                              if (!ok) {
-                                window.alert(
-                                  '読み込みに失敗しました。データが壊れている可能性があります。',
-                                );
-                              } else {
-                                setContinueOpen(false);
-                              }
-                            } finally {
-                              setBusy(false);
-                            }
-                          }}
-                          className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-xs text-zinc-800 hover:bg-zinc-100 disabled:opacity-60"
-                        >
-                          <span className="block font-medium text-zinc-900">
-                            {row.stem}
-                          </span>
-                          {metaLine != null ? (
-                            <span className="mt-0.5 block text-[11px] font-normal text-zinc-500">
-                              {metaLine}
-                            </span>
-                          ) : null}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setContinueOpen(false)}
-                className="mt-3 w-full text-center text-[11px] text-zinc-500 underline-offset-2 hover:underline"
-              >
-                閉じる
-              </button>
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setWorldlineDraft('');
-              setNewGameOpen(true);
-            }}
-            className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-semibold text-zinc-800 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            New Game
-          </button>
-
-          {newGameOpen ? (
-            <div className="rounded-xl border border-violet-200 bg-violet-50/90 p-3 shadow-sm">
-              <label
-                htmlFor="title-worldline-name"
-                className="block text-xs font-medium text-violet-950"
-              >
-                世界線の名前
-              </label>
-              <input
-                id="title-worldline-name"
-                ref={worldlineInputRef}
-                type="text"
-                value={worldlineDraft}
-                onChange={(e) => setWorldlineDraft(e.target.value)}
-                placeholder="空欄のときは diplomacy として保存"
-                className="mt-2 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-violet-400 focus:ring-2"
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    setNewGameOpen(false);
-                  }
-                }}
-              />
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    startNewGame(worldlineDraft);
-                    setNewGameOpen(false);
-                    setWorldlineDraft('');
-                  }}
-                  className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:opacity-60"
-                >
-                  始める
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    setNewGameOpen(false);
-                    setWorldlineDraft('');
-                  }}
-                  className="rounded-lg border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-900 hover:bg-violet-50"
-                >
-                  キャンセル
-                </button>
-              </div>
             </div>
           ) : null}
         </section>
