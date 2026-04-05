@@ -6,6 +6,7 @@
  *   Create room（新規卓作成）の2導線を持つ。
  *
  * 主な機能:
+ *   - ルール動画: 画面最下部の控えめなリンクから `/tutorial` へ
  *   - Join room: ボタン押下後にフォームを表示し、送信でオンライン参加
  *   - Create room: 世界線名入力後に Supabase へ新規卓を作成
  *
@@ -16,6 +17,7 @@
 
 'use client';
 
+import Link from 'next/link';
 import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
 import { POWERS } from '@/miniMap';
 import type { PowerId } from '@/domain';
@@ -57,8 +59,8 @@ export function TitleScreen() {
   }, [onlineNewGameOpen]);
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-gradient-to-b from-zinc-100 to-zinc-200 px-4 py-8 font-sans text-zinc-900">
-      <div className="flex w-full max-w-sm flex-col items-stretch gap-8">
+    <div className="flex min-h-dvh flex-col items-center bg-gradient-to-b from-zinc-100 to-zinc-200 px-4 py-8 font-sans text-zinc-900">
+      <div className="flex w-full max-w-sm flex-1 flex-col justify-center gap-8">
         <header className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
             Diplomacy
@@ -295,6 +297,17 @@ export function TitleScreen() {
           ) : null}
         </section>
       </div>
+      <nav
+        className="mt-4 w-full max-w-sm shrink-0 pb-1 text-center"
+        aria-label="補助リンク"
+      >
+        <Link
+          href="/tutorial"
+          className="text-xs font-medium text-zinc-500 underline decoration-zinc-400 underline-offset-[3px] transition-colors hover:text-zinc-800 hover:decoration-zinc-600"
+        >
+          ルール動画
+        </Link>
+      </nav>
     </div>
   );
 }
