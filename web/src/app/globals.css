@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/**
+ * アプリ全体のベーススタイル
+ *
+ * 概要:
+ *   ディプロマシー支援ツールのルート変数と body のタイポグラフィを定義する。
+ *
+ * 主な機能:
+ *   - ライト基調のページ背景（わずかなグラデーション）
+ *   - Geist Sans を本文フォントとして使用
+ *
+ * 制限:
+ *   prefers-color-scheme: dark 時は従来どおりダーク用変数を切り替える（ページは主にライト UI）。
+ */
+:root {
+  --background: #f4f4f5;
+  --foreground: #18181b;
+  --surface: #ffffff;
+  --surface-muted: rgba(255, 255, 255, 0.72);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    --surface: #171717;
+    --surface-muted: rgba(24, 24, 27, 0.85);
+  }
+}
+
+body {
+  background: linear-gradient(165deg, #f4f4f5 0%, #e4e4e7 48%, #f4f4f5 100%);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: var(--background);
+  }
+}

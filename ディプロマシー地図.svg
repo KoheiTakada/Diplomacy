@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_レイヤー_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 641.66 595.28">
+  <!-- Generator: Adobe Illustrator 30.3.0, SVG Export Plug-In . SVG Version: 2.1.3 Build 182)  -->
+  <defs>
+    <style>
+      .st0 {
+        stroke-width: 1.1px;
+      }
+
+      .st0, .st1 {
+        stroke: #231815;
+      }
+
+      .st0, .st1, .st2 {
+        fill: none;
+      }
+
+      .st1 {
+        stroke-width: 1.6px;
+      }
+
+      .st3 {
+        fill: #ccc;
+        stroke-miterlimit: 10;
+      }
+
+      .st3, .st2, .st4, .st5, .st6, .st7 {
+        stroke: #040000;
+      }
+
+      .st2 {
+        stroke-width: 3px;
+      }
+
+      .st2, .st4, .st5, .st6, .st7 {
+        stroke-linejoin: round;
+      }
+
+      .st8 {
+        fill: blue;
+      }
+
+      .st4, .st5 {
+        fill: #fff;
+      }
+
+      .st9 {
+        fill: red;
+      }
+
+      .st5 {
+        stroke-width: 1px;
+      }
+
+      .st6 {
+        fill: #040000;
+      }
+
+      .st7 {
+        fill: #999899;
+      }
+    </style>
+  </defs>
+  <g id="_描画用:非プロヴィンス">
+    <polygon id="SWI" class="st6" data-area-type="Land" data-impassable="true" data-province="SWI" points="247.92 396.95 247.92 383.83 223.51 383.83 199.8 407.54 258.51 407.54 247.92 396.95"/>
+    <polygon class="st7" points="431.2 495.34 431.2 507.28 443.98 507.28 468.4 482.86 456.87 482.86 444.4 495.34 431.2 495.34"/>
+    <polygon class="st7" points="288.76 243.22 296.48 243.22 296.48 273.16 271.14 273.16 278.52 265.78 288.76 265.78 288.76 243.22"/>
+    <polygon class="st7" points="255.83 276.63 250.92 281.53 278.68 281.53 274.26 276.63 255.83 276.63"/>
+  </g>
+  <g id="_内陸">
+    <polygon id="MOS" class="st4" data-area-type="Land" data-province="MOS" points="641.38 136.43 603.94 173.87 531.23 173.87 469.43 235.68 432.36 235.68 432.36 271.74 395.06 309.04 407.33 321.31 444.06 321.31 455.95 309.41 592.36 309.41 641.66 358.71 641.38 136.43"/>
+    <polygon id="UKR" class="st4" data-area-type="Land" data-province="UKR" points="455.95 309.41 444.06 321.31 407.33 321.31 407.33 357.94 444.23 394.84 493.07 346.01 493.07 309.41 455.95 309.41"/>
+    <polygon id="GAL" class="st4" data-area-type="Land" data-province="GAL" points="407.33 357.94 407.33 344.25 356.61 344.25 331.07 369.8 393.97 369.8 419.17 394.99 431.77 382.39 407.33 357.94"/>
+    <polygon id="SER" class="st4" data-area-type="Land" data-province="SER" points="370.5 495.34 370.5 482.12 346.37 457.99 346.37 431.31 380.89 431.31 395.21 445.63 395.21 495.34 370.5 495.34"/>
+    <polygon id="BUD" class="st4" data-area-type="Land" data-province="BUD" points="393.97 369.8 362.24 369.8 323.55 408.49 346.37 431.31 406.39 431.31 430.94 406.76 393.97 369.8"/>
+    <polygon id="VIE" class="st4" data-area-type="Land" data-province="VIE" points="321.56 369.8 308.31 383.05 308.31 408.42 323.55 408.49 362.24 369.8 321.56 369.8"/>
+    <polygon id="BUR" class="st4" data-area-type="Land" data-province="BUR" points="210.07 346.19 198.18 358.08 198.18 370.89 173.01 396.06 161.37 396.06 173.08 407.77 173.08 420.92 186.46 407.54 199.8 407.54 223.51 383.83 223.51 346.19 210.07 346.19"/>
+    <polygon id="PAR" class="st4" data-area-type="Land" data-province="PAR" points="161.31 345.38 161.31 383.83 149.15 383.83 161.37 396.06 173.01 396.06 198.18 370.89 198.18 358.08 185.48 345.38 161.31 345.38"/>
+    <polygon id="RUH" class="st4" data-area-type="Land" data-province="RUH" points="223.51 333.95 235.46 321.99 259.11 345.64 247.89 345.64 223.51 370.49 223.51 333.95"/>
+    <polygon id="BOH" class="st4" data-area-type="Land" data-province="BOH" points="308.31 383.05 284.18 358.92 284.18 346.17 333.42 346.17 344.06 356.81 331.07 369.8 321.56 369.8 308.31 383.05"/>
+    <polygon id="MUN" class="st4" data-area-type="Land" data-province="MUN" points="284.18 346.17 284.18 358.92 296.74 371.48 284.38 383.83 223.51 383.83 223.51 370.49 247.89 345.64 259.11 345.64 281.5 323.25 296.74 323.25 296.74 346.17 284.18 346.17"/>
+    <polygon id="WAR" class="st4" data-area-type="Land" data-province="WAR" points="333.55 321.19 346.37 308.38 370.72 308.38 382.56 296.54 407.33 321.31 407.33 344.25 356.61 344.25 333.55 321.19"/>
+    <polygon id="SIL" class="st4" data-area-type="Land" data-province="SIL" points="321.94 321.19 310.37 309.62 296.74 323.25 296.74 346.17 333.42 346.17 344.06 356.81 356.61 344.25 333.55 321.19 321.94 321.19"/>
+    <polygon id="TYR" class="st4" data-area-type="Land" data-province="TYR" points="284.38 383.83 296.74 371.48 308.31 383.05 308.31 408.42 283.46 408.42 271.43 420.46 247.92 396.95 247.92 383.83 284.38 383.83"/>
+  </g>
+  <g id="_沿岸">
+    <polygon id="NWY" class="st4" data-area-type="Coastal" data-province="NWY" points="407.67 62.62 420.19 50.1 420.19 37.91 382.85 37.91 246.46 174.31 246.46 210.43 259.53 223.5 272.6 223.5 284.84 211.26 296.48 222.9 296.48 212.1 309.66 198.91 309.18 136.35 382.91 62.62 407.67 62.62"/>
+    <polygon id="STP" class="st4" data-area-type="Coastal" data-province="STP" points="430.85 198.43 430.85 137.16 419.67 125.97 419.67 100.18 407.67 88.19 407.67 62.62 420.19 50.1 420.19 37.91 445.11 37.91 480.28 73.08 480.28 87.82 446.06 87.82 446.06 121.85 457.28 121.85 579.13 0 641.38 0 641.38 136.43 603.94 173.87 531.23 173.87 469.43 235.68 432.36 235.68 419.64 222.96 408.26 222.96 395.69 210.33 418.95 210.33 430.85 198.43"/>
+    <polygon id="SWE" class="st4" data-area-type="Coastal" data-province="SWE" points="296.48 273.16 296.48 222.9 296.48 212.1 309.66 198.91 309.18 136.35 370.72 74.81 382.91 87.01 382.91 114.01 347.81 149.12 347.81 210.55 332.72 225.64 332.72 248.21 307.61 273.32 296.48 273.16"/>
+    <polygon id="FIN" class="st4" data-area-type="Coastal" data-province="FIN" points="382.91 114.01 393.55 124.65 369.79 148.41 369.79 184.29 383.92 198.43 430.85 198.43 430.85 137.16 419.67 125.97 419.67 100.18 407.67 88.19 407.67 62.62 382.91 62.62 370.72 74.81 382.91 87.01 382.91 114.01"/>
+    <polygon id="BRE" class="st4" data-area-type="Coastal" data-province="BRE" points="99.61 333.66 136.61 370.66 136.61 383.83 161.31 383.83 161.31 333.66 99.61 333.66"/>
+    <polygon id="DEN" class="st4" data-area-type="Coastal" data-province="DEN" points="259.29 273.16 259.29 237.04 282.58 237.04 288.76 243.22 288.76 265.8 278.54 265.8 271.14 273.2 259.29 273.16"/>
+    <polygon id="TUN" class="st4" data-area-type="Coastal" data-province="TUN" points="210.85 543.22 210.85 595.28 247.41 595.28 247.35 555.99 234.58 543.22 210.85 543.22"/>
+    <polygon id="NAF" class="st4" data-area-type="Coastal" data-province="NAF" points="210.85 543.22 50.54 543.22 37.59 530.27 .02 567.84 .02 595.28 210.85 595.28 210.85 543.22"/>
+    <polygon id="SPA" class="st4" data-area-type="Coastal" data-province="SPA" points="124.52 417.84 38.3 417.84 38.3 432.88 50.38 432.88 63.22 445.72 38.49 470.44 38.49 481.61 25.47 494.63 37.59 506.75 37.59 519.34 99.61 519.34 162.82 456.13 124.52 417.84"/>
+    <polygon id="POR" class="st4" data-area-type="Coastal" data-province="POR" points="25.47 494.63 38.49 481.61 38.49 470.44 63.22 445.72 50.38 432.88 38.3 432.88 38.3 444.73 14.06 468.96 14.06 494.63 25.47 494.63"/>
+    <polygon id="LVN" class="st4" data-area-type="Coastal" data-province="LVN" points="432.36 235.68 432.36 271.74 395.06 309.04 382.56 296.54 382.56 284.08 370.21 271.74 370.21 235.81 395.69 210.33 408.26 222.96 419.64 222.96 432.36 235.68"/>
+    <polygon id="SYR" class="st4" data-area-type="Coastal" data-province="SYR" points="641.38 595.28 555.43 595.28 555.43 542.69 590.78 507.34 641.38 507.34 641.38 595.28"/>
+    <polygon id="ARM" class="st4" data-area-type="Coastal" data-province="ARM" points="628.34 468.51 603.73 443.89 590.78 456.84 590.78 507.34 641.38 507.34 641.38 468.51 628.34 468.51"/>
+    <polygon id="SEV" class="st4" data-area-type="Coastal" data-province="SEV" points="641.38 358.43 592.36 309.41 493.07 309.41 493.07 346.01 444.23 394.84 444.23 419.73 456.87 432.37 493.53 395.72 518.06 420.25 530.66 407.66 517.82 394.82 542.54 370.11 542.54 408.61 566.54 432.61 592.44 432.61 628.34 468.51 641.38 468.51 641.38 358.43"/>
+    <polygon id="SMY" class="st4" data-area-type="Coastal" data-province="SMY" points="590.78 507.34 542.06 556.05 454.97 556.05 442.97 544.05 442.97 530.03 431.33 518.39 531.13 518.39 556.16 493.35 590.78 493.35 590.78 507.34"/>
+    <polygon id="ANK" class="st4" data-area-type="Coastal" data-province="ANK" points="531.13 518.39 556.16 493.35 590.78 493.35 590.78 456.84 504.04 456.84 478.02 482.86 478.02 518.39 531.13 518.39"/>
+    <polygon id="HOL" class="st4" data-area-type="Coastal" data-province="HOL" points="223.51 333.95 235.46 321.99 235.46 285.33 221.75 285.33 198.32 308.76 223.51 333.95"/>
+    <polygon id="GRE" class="st4" data-area-type="Coastal" data-province="GRE" points="370.5 505.07 357.36 518.2 381.9 542.75 381.9 567.34 406.85 542.39 395.69 531.22 395.69 507.93 408.28 495.34 370.5 495.34 370.5 505.07"/>
+    <polygon id="RUM" class="st4" data-area-type="Coastal" data-province="RUM" points="444.23 419.73 444.23 394.84 431.77 382.39 419.17 394.99 430.94 406.76 406.39 431.31 380.89 431.31 395.21 445.63 456.87 445.63 456.87 432.37 444.23 419.73"/>
+    <polygon id="BUL" class="st4" data-area-type="Coastal" data-province="BUL" points="395.21 495.34 395.21 445.63 456.87 445.63 456.87 470.08 444.23 470.08 431.2 483.11 431.2 495.34 395.21 495.34"/>
+    <path id="CON" class="st4" d="M478.02,482.86v35.52h-46.69v-11.11h12.65l24.42-24.42h9.62ZM444.4,495.34l12.48-12.48v-12.79h-12.64l-13.03,13.03v12.23h13.2-.01Z" data-area-type="Coastal" data-province="CON"/>
+    <polygon id="VEN" class="st4" data-area-type="Coastal" data-province="VEN" points="248.6 431.66 259.8 420.46 271.43 420.46 283.46 408.42 296.6 408.42 296.6 432.84 284.36 432.84 284.36 446.75 296.6 458.98 286.26 469.32 248.6 431.66"/>
+    <polygon id="APU" class="st4" data-area-type="Coastal" data-province="APU" points="296.6 458.98 286.26 469.32 334.14 517.2 334.14 496.53 296.6 458.98"/>
+    <polygon id="NAP" class="st4" data-area-type="Coastal" data-province="NAP" points="334.14 517.2 308.6 542.75 295.77 529.91 308.24 517.44 284.84 494.03 297.9 480.96 334.14 517.2"/>
+    <rect id="TUS" class="st5" x="245.01" y="433.14" width="18.48" height="34.49" data-area-type="Coastal" data-province="TUS" transform="translate(-244 311.7) rotate(-45)"/>
+    <rect id="ROM" class="st5" x="269.67" y="457.41" width="18.48" height="35.25" data-area-type="Coastal" data-province="ROM" transform="translate(-254.21 336.35) rotate(-45)"/>
+    <polygon id="TRI" class="st4" data-area-type="Coastal" data-province="TRI" points="296.6 408.42 296.6 432.84 346.14 482.39 358.46 470.08 346.37 457.99 346.37 431.31 323.55 408.49 296.6 408.42"/>
+    <polygon id="ALB" class="st4" data-area-type="Coastal" data-province="ALB" points="370.5 482.12 370.5 505.07 357.36 518.2 346.14 506.98 346.14 482.39 358.46 470.08 370.5 482.12"/>
+    <polygon id="BEL" class="st4" data-area-type="Coastal" data-province="BEL" points="223.51 333.95 198.32 308.76 173.41 333.66 197.54 333.66 210.07 346.19 223.51 346.19 223.51 333.95"/>
+    <polygon id="GAS" class="st4" data-area-type="Coastal" data-province="GAS" points="150.34 443.66 124.52 417.84 136.61 405.76 136.61 383.83 149.15 383.83 173.08 407.77 173.08 420.92 150.34 443.66"/>
+    <polygon id="PIC" class="st4" data-area-type="Coastal" data-province="PIC" points="161.31 333.66 197.54 333.66 210.07 346.19 198.18 358.08 185.48 345.38 161.31 345.38 161.31 333.66"/>
+    <polygon id="BER" class="st4" data-area-type="Coastal" data-province="BER" points="296.74 323.25 310.37 309.62 310.37 284.66 281.5 284.66 281.5 323.25 296.74 323.25"/>
+    <polygon id="PRU" class="st4" data-area-type="Coastal" data-province="PRU" points="370.21 271.74 357.29 284.66 310.37 284.66 310.37 309.62 321.94 321.19 333.55 321.19 346.37 308.38 370.72 308.38 382.56 296.54 382.56 284.08 370.21 271.74"/>
+    <polygon id="PIE" class="st4" data-area-type="Coastal" data-province="PIE" points="210.89 444.73 235.53 444.73 259.8 420.46 271.43 420.46 258.51 407.54 210.89 407.54 210.89 444.73"/>
+    <polygon id="MAR" class="st4" data-area-type="Coastal" data-province="MAR" points="210.89 407.54 186.46 407.54 150.34 443.66 162.82 456.13 174.22 444.73 210.89 444.73 210.89 407.54"/>
+    <path id="KIE" class="st4" d="M255.83,276.63l3.47-3.47h11.85l3.12,3.47h-18.44,0ZM278.68,281.53h-27.76l-3.8,3.8h-11.66v36.66l23.65,23.65,22.39-22.39v-38.59l-2.82-3.13Z" data-area-type="Coastal" data-province="KIE"/>
+    <polygon id="YOR" class="st4" data-area-type="Coastal" data-province="YOR" points="173.98 246.91 173.98 259.7 186.46 272.17 186.46 284.61 161.53 284.61 149.45 272.53 161.3 260.68 161.3 246.91 173.98 246.91"/>
+    <polygon id="EDI" class="st4" data-area-type="Coastal" data-province="EDI" points="173.98 246.91 173.98 223.02 186.26 210.75 173.27 210.75 162.95 210.75 149.2 224.49 161.3 236.59 161.3 246.91 173.98 246.91"/>
+    <polygon id="LVP" class="st4" data-area-type="Coastal" data-province="LVP" points="161.3 260.68 149.45 272.53 124.8 272.53 137.23 260.09 137.23 224.49 149.2 224.49 161.3 236.59 161.3 260.68"/>
+    <polygon id="LON" class="st4" data-area-type="Coastal" data-province="LON" points="186.46 296.61 173.93 309.13 149.63 309.13 149.63 296.52 161.53 284.61 186.46 284.61 186.46 296.61"/>
+    <polygon id="WAL" class="st4" data-area-type="Coastal" data-province="WAL" points="112.44 309.13 124.8 296.77 124.8 272.53 149.45 272.53 161.53 284.61 149.63 296.52 149.63 309.13 112.44 309.13"/>
+    <polygon id="CLY" class="st4" data-area-type="Coastal" data-province="CLY" points="137.23 209.4 161.07 185.56 173.27 185.56 173.27 210.75 162.95 210.75 149.2 224.49 137.23 224.49 137.23 209.4"/>
+  </g>
+  <g id="_海">
+    <polygon id="EAS" class="st3" data-area-type="Sea" data-province="EAS" points="555.43 595.28 555.43 542.69 542.06 556.05 454.97 556.05 431.46 579.57 431.46 595.28 555.43 595.28"/>
+    <polygon id="ADR" class="st3" data-area-type="Sea" data-province="ADR" points="346.14 506.98 346.14 482.39 296.6 432.84 284.36 432.84 284.36 446.75 334.14 496.53 334.14 506.98 346.14 506.98"/>
+    <polygon id="BLA" class="st3" data-area-type="Sea" data-province="BLA" points="456.87 482.86 456.87 432.37 493.53 395.72 518.06 420.25 530.66 407.66 517.82 394.82 542.54 370.11 542.54 408.61 566.54 432.61 592.44 432.61 603.73 443.89 590.78 456.84 504.04 456.84 478.02 482.86 456.87 482.86"/>
+    <polygon id="AEG" class="st3" data-area-type="Sea" data-province="AEG" points="394.13 579.57 381.9 567.34 406.85 542.39 395.69 531.22 395.69 507.93 408.28 495.34 431.33 495.34 431.33 518.39 442.97 530.03 442.97 544.05 454.97 556.05 431.46 579.57 394.13 579.57"/>
+    <polygon id="ION" class="st3" data-area-type="Sea" data-province="ION" points="247.41 595.28 431.46 595.28 431.46 579.57 394.13 579.57 381.9 567.34 381.9 542.75 346.14 506.98 334.14 506.98 334.14 517.2 308.6 542.75 260.6 542.75 247.35 555.99 247.41 595.28"/>
+    <polygon id="BOT" class="st3" data-area-type="Sea" data-province="BOT" points="332.72 225.64 347.81 210.55 347.81 149.12 382.91 114.01 393.55 124.65 369.79 148.41 369.79 184.29 383.92 198.43 430.85 198.43 418.95 210.33 395.69 210.33 370.21 235.81 332.72 235.81 332.72 225.64"/>
+    <polygon id="TYS" class="st3" data-area-type="Sea" data-province="TYS" points="234.58 543.22 234.58 469.91 247.65 456.84 308.24 517.44 295.77 529.91 308.66 542.8 260.6 542.8 247.38 556.02 234.58 543.22"/>
+    <polygon id="LYO" class="st3" data-area-type="Sea" data-province="LYO" points="174.22 444.73 235.53 444.73 247.65 456.84 234.58 469.91 234.58 495.52 123.43 495.52 174.22 444.73"/>
+    <polygon id="WES" class="st3" data-area-type="Sea" data-province="WES" points="99.61 519.34 123.43 495.52 234.58 495.52 234.58 543.22 50.54 543.22 37.59 530.27 37.59 519.34 99.61 519.34"/>
+    <polygon id="MAO" class="st3" data-area-type="Sea" data-province="MAO" points=".02 567.84 37.59 530.27 37.59 506.75 25.47 494.63 14.06 494.63 14.06 468.96 38.3 444.73 38.3 417.84 124.52 417.84 136.61 405.76 136.61 370.66 99.61 333.66 99.61 321.96 75.14 297.5 .02 297.5 .02 567.84"/>
+    <polygon id="IRI" class="st3" data-area-type="Sea" data-province="IRI" points="125.12 247.51 75.14 297.5 99.61 321.96 112.44 309.13 124.8 296.77 124.8 272.53 137.23 260.09 137.23 247.51 125.12 247.51"/>
+    <polygon id="NAO" class="st3" data-area-type="Sea" data-province="NAO" points=".02 297.5 75.14 297.5 125.12 247.51 137.23 247.51 137.23 209.4 161.07 185.56 161.07 0 0 0 .02 297.5"/>
+    <polygon id="ENG" class="st3" data-area-type="Sea" data-province="ENG" points="173.41 333.66 99.61 333.66 99.61 321.96 112.44 309.13 173.93 309.13 185.87 321.07 173.41 333.66"/>
+    <polygon id="NTH" class="st3" data-area-type="Sea" data-province="NTH" points="246.34 174.31 246.34 210.55 259.29 223.5 259.29 247.59 235.97 247.59 221.75 261.82 221.75 285.33 185.94 321.14 173.93 309.13 186.02 297.05 186.02 272.17 173.76 259.92 173.76 223.02 222.43 174.35 246.34 174.31"/>
+    <polygon id="HEL" class="st3" data-area-type="Sea" data-province="HEL" points="247.12 285.33 259.29 273.16 259.29 247.59 235.97 247.59 221.75 261.82 221.75 285.33 247.12 285.33"/>
+    <polygon id="NWG" class="st3" data-area-type="Sea" data-province="NWG" points="161.07 0 161.07 185.56 173.27 185.56 173.27 210.75 186.46 210.75 222.64 174.56 246.34 174.56 382.92 37.98 382.92 0 161.07 0"/>
+    <polygon id="BAR" class="st3" data-area-type="Sea" data-province="BAR" points="446.06 87.82 446.06 121.85 457.28 121.85 579.13 0 382.92 0 382.92 37.98 445.11 37.98 480.25 73.12 480.25 87.82 446.06 87.82"/>
+    <polygon id="SKA" class="st3" data-area-type="Sea" data-province="SKA" points="296.48 222.9 284.84 211.26 272.6 223.5 259.29 223.5 259.29 237.04 282.58 237.04 288.76 243.22 296.48 243.22 296.48 222.9"/>
+    <polygon id="BAL" class="st3" data-area-type="Sea" data-province="BAL" points="271.15 273.18 307.61 273.18 332.65 248.14 332.65 235.81 370.21 235.81 370.21 271.74 357.29 284.66 281.5 284.66 271.15 273.18"/>
+  </g>
+  <g id="_海岸線">
+    <polygon class="st2" points="173.93 309.13 186.46 296.61 186.46 284.61 186.46 272.17 173.98 259.7 173.98 246.91 173.98 223.02 186.26 210.75 173.27 210.75 173.27 185.56 161.07 185.56 137.23 209.4 137.23 224.49 137.23 260.09 124.8 272.53 124.8 296.77 112.44 309.13 149.63 309.13 173.93 309.13"/>
+    <polygon class="st2" points="288.76 265.8 288.76 243.22 282.58 237.04 259.29 237.04 259.29 273.16 255.83 276.63 274.26 276.63 271.15 273.18 278.54 265.8 288.76 265.8"/>
+    <polyline class="st2" points="247.41 595.28 247.35 555.99 234.58 543.22 50.54 543.22 37.59 530.27 .02 567.84"/>
+    <polyline class="st2" points="579.13 0 457.28 121.85 446.06 121.85 446.06 87.82 480.28 87.82 480.28 73.08 445.11 37.91 420.19 37.91 382.85 37.91 246.46 174.31 246.46 210.43 259.53 223.5 272.6 223.5 284.84 211.26 296.48 222.9 296.48 273.16 307.61 273.32 332.72 248.21 332.72 225.64 347.81 210.55 347.81 149.12 382.91 114.01 393.55 124.65 369.79 148.41 369.79 184.29 383.92 198.43 430.85 198.43 418.95 210.33 395.69 210.33 370.21 235.81 370.21 271.74 357.29 284.66 310.37 284.66 281.5 284.66 278.68 281.53 250.92 281.53 247.12 285.33 235.46 285.33 221.75 285.33 198.32 308.76 173.41 333.66 161.31 333.66 99.61 333.66 136.61 370.66 136.61 383.83 136.61 405.76 124.52 417.84 38.3 417.84 38.3 432.88 38.3 444.73 14.06 468.96 14.06 494.63 25.47 494.63 37.59 506.75 37.59 519.34 99.61 519.34 162.82 456.13 174.22 444.73 235.53 444.73 308.24 517.44 295.77 529.91 308.6 542.75 334.14 517.2 334.14 496.53 284.36 446.75 284.36 432.84 296.6 432.84 346.14 482.39 346.14 506.98 381.9 542.75 381.9 567.34 406.85 542.39 395.69 531.22 395.69 507.93 408.28 495.34 444.4 495.34 456.87 482.86 456.87 432.37 493.53 395.72 518.06 420.25 530.66 407.66 517.82 394.82 542.54 370.11 542.54 408.61 566.54 432.61 592.44 432.61 603.73 443.89 590.78 456.84 504.04 456.84 478.02 482.86 468.4 482.86 443.98 507.28 431.33 507.28 431.33 518.39 442.97 530.03 442.97 544.05 454.97 556.05 542.06 556.05 555.43 542.69 555.43 595.28"/>
+  </g>
+  <g id="supply-centers">
+    <circle class="st1" cx="530.36" cy="494.78" r="4" data-supply="ANK"/>
+    <circle class="st0" cx="212.59" cy="339.32" r="4" data-supply="BEL"/>
+    <circle class="st1" cx="295.04" cy="312.61" r="4" data-supply="BER"/>
+    <circle class="st1" cx="140.18" cy="358.21" r="4" data-supply="BRE"/>
+    <circle class="st1" cx="377.37" cy="413.4" r="4" data-supply="BUD"/>
+    <circle class="st0" cx="411.7" cy="457.45" r="4" data-supply="BUL"/>
+    <circle class="st1" cx="456.85" cy="508.49" r="4" data-supply="CON"/>
+    <circle class="st0" cx="272.94" cy="255.83" r="4" data-supply="DEN"/>
+    <circle class="st1" cx="166.57" cy="229.38" r="4" data-supply="EDI"/>
+    <circle class="st0" cx="384.34" cy="513.6" r="4" data-supply="GRE"/>
+    <circle class="st0" cx="221.39" cy="317.91" r="4" data-supply="HOL"/>
+    <circle class="st1" cx="258.77" cy="320.5" r="4" data-supply="KIE"/>
+    <circle class="st1" cx="164.92" cy="300.81" r="4" data-supply="LON"/>
+    <circle class="st1" cx="147.06" cy="252.97" r="4" data-supply="LVP"/>
+    <circle class="st1" cx="186.17" cy="433.29" r="4" data-supply="MAR"/>
+    <circle class="st1" cx="548.31" cy="262.69" r="4" data-supply="MOS"/>
+    <circle class="st1" cx="264.5" cy="370.12" r="4" data-supply="MUN"/>
+    <circle class="st1" cx="318.22" cy="521.8" r="4" data-supply="NAP"/>
+    <circle class="st0" cx="282.39" cy="190.06" r="4" data-supply="NWY"/>
+    <circle class="st1" cx="175.87" cy="379.17" r="4" data-supply="PAR"/>
+    <circle class="st0" cx="34.9" cy="464.44" r="4" data-supply="POR"/>
+    <circle class="st1" cx="285.91" cy="483.03" r="4" data-supply="ROM"/>
+    <circle class="st0" cx="417.67" cy="434.84" r="4" data-supply="RUM"/>
+    <circle class="st0" cx="373.56" cy="469.83" r="4" data-supply="SER"/>
+    <circle class="st1" cx="589.26" cy="366.71" r="4" data-supply="SEV"/>
+    <circle class="st1" cx="505.09" cy="529.87" r="4" data-supply="SMY"/>
+    <circle class="st0" cx="90" cy="476.97" r="4" data-supply="SPA"/>
+    <circle class="st1" cx="529.81" cy="123.24" r="4" data-supply="STP"/>
+    <circle class="st0" cx="333.03" cy="181.97" r="4" data-supply="SWE"/>
+    <circle class="st1" cx="325.76" cy="442.5" r="4" data-supply="TRI"/>
+    <circle class="st0" cx="228.48" cy="580.23" r="4" data-supply="TUN"/>
+    <circle class="st1" cx="277.26" cy="445.13" r="4" data-supply="VEN"/>
+    <circle class="st1" cx="328.44" cy="389.32" r="4" data-supply="VIE"/>
+    <circle class="st1" cx="374.44" cy="334.82" r="4" data-supply="WAR"/>
+  </g>
+  <g id="unit-anchors-army">
+    <circle class="st9" cx="317.25" cy="467.55" r="1" data-anchor="ADR"/>
+    <circle class="st9" cx="358.18" cy="494.13" r="1" data-anchor="ALB"/>
+    <circle class="st9" cx="530.36" cy="484.78" r="1" data-anchor="ANK"/>
+    <circle class="st9" cx="312.68" cy="485.82" r="1" data-anchor="APU"/>
+    <circle class="st9" cx="613.88" cy="481.87" r="1" data-anchor="ARM"/>
+    <circle class="st9" cx="202.59" cy="329.32" r="1" data-anchor="BEL"/>
+    <circle class="st9" cx="295.04" cy="302.61" r="1" data-anchor="BER"/>
+    <circle class="st9" cx="311.88" cy="359.57" r="1" data-anchor="BOH"/>
+    <circle class="st9" cx="140.18" cy="348.21" r="1" data-anchor="BRE"/>
+    <circle class="st9" cx="377.37" cy="403.4" r="1" data-anchor="BUD"/>
+    <circle class="st9" cx="421.7" cy="467.45" r="1" data-anchor="BUL"/>
+    <circle class="st9" cx="200.42" cy="382.37" r="1" data-anchor="BUR"/>
+    <circle class="st9" cx="156.09" cy="205.12" r="1" data-anchor="CLY"/>
+    <circle class="st9" cx="466.85" cy="503.49" r="1" data-anchor="CON"/>
+    <circle class="st9" cx="272.94" cy="245.83" r="1" data-anchor="DEN"/>
+    <circle class="st9" cx="166.57" cy="219.38" r="1" data-anchor="EDI"/>
+    <circle class="st9" cx="402.57" cy="164.59" r="1" data-anchor="FIN"/>
+    <circle class="st9" cx="380.07" cy="356.91" r="1" data-anchor="GAL"/>
+    <circle class="st9" cx="150.31" cy="412.99" r="1" data-anchor="GAS"/>
+    <circle class="st9" cx="384.34" cy="523.6" r="1" data-anchor="GRE"/>
+    <circle class="st9" cx="221.39" cy="307.91" r="1" data-anchor="HOL"/>
+    <circle class="st9" cx="258.77" cy="310.5" r="1" data-anchor="KIE"/>
+    <circle class="st9" cx="164.92" cy="290.81" r="1" data-anchor="LON"/>
+    <circle class="st9" cx="400.58" cy="257.4" r="1" data-anchor="LVN"/>
+    <circle class="st9" cx="147.06" cy="242.97" r="1" data-anchor="LVP"/>
+    <circle class="st9" cx="186.17" cy="423.29" r="1" data-anchor="MAR"/>
+    <circle class="st9" cx="548.31" cy="252.69" r="1" data-anchor="MOS"/>
+    <circle class="st9" cx="264.5" cy="360.12" r="1" data-anchor="MUN"/>
+    <circle class="st9" cx="107.1" cy="569.28" r="1" data-anchor="NAF"/>
+    <circle class="st9" cx="318.22" cy="511.8" r="1" data-anchor="NAP"/>
+    <circle class="st9" cx="282.39" cy="180.06" r="1" data-anchor="NWY"/>
+    <circle class="st9" cx="175.87" cy="369.17" r="1" data-anchor="PAR"/>
+    <circle class="st9" cx="198.33" cy="345.21" r="1" data-anchor="PIC"/>
+    <circle class="st9" cx="233.51" cy="423.79" r="1" data-anchor="PIE"/>
+    <circle class="st9" cx="49.9" cy="447.44" r="1" data-anchor="POR"/>
+    <circle class="st9" cx="344.52" cy="297.51" r="1" data-anchor="PRU"/>
+    <circle class="st9" cx="278.91" cy="475.03" r="1" data-anchor="ROM"/>
+    <circle class="st9" cx="235.37" cy="343.58" r="1" data-anchor="RUH"/>
+    <circle class="st9" cx="427.67" cy="424.84" r="1" data-anchor="RUM"/>
+    <circle class="st9" cx="373.56" cy="459.83" r="1" data-anchor="SER"/>
+    <circle class="st9" cx="589.26" cy="376.71" r="1" data-anchor="SEV"/>
+    <circle class="st9" cx="322.52" cy="334.3" r="1" data-anchor="SIL"/>
+    <circle class="st9" cx="505.09" cy="539.87" r="1" data-anchor="SMY"/>
+    <circle class="st9" cx="90" cy="466.97" r="1" data-anchor="SPA"/>
+    <circle class="st9" cx="529.81" cy="113.24" r="1" data-anchor="STP"/>
+    <circle class="st9" cx="333.03" cy="171.97" r="1" data-anchor="SWE"/>
+    <circle class="st9" cx="230.51" cy="397.41" r="1" data-anchor="SWI"/>
+    <circle class="st9" cx="601.22" cy="554.21" r="1" data-anchor="SYR"/>
+    <circle class="st9" cx="325.76" cy="432.5" r="1" data-anchor="TRI"/>
+    <circle class="st9" cx="228.48" cy="570.23" r="1" data-anchor="TUN"/>
+    <circle class="st9" cx="254.25" cy="450.39" r="1" data-anchor="TUS"/>
+    <circle class="st9" cx="280.21" cy="395.72" r="1" data-anchor="TYR"/>
+    <circle class="st9" cx="450.19" cy="345.36" r="1" data-anchor="UKR"/>
+    <circle class="st9" cx="277.26" cy="435.13" r="1" data-anchor="VEN"/>
+    <circle class="st9" cx="328.44" cy="379.32" r="1" data-anchor="VIE"/>
+    <circle class="st9" cx="138.15" cy="291.01" r="1" data-anchor="WAL"/>
+    <circle class="st9" cx="374.44" cy="324.82" r="1" data-anchor="WAR"/>
+    <circle class="st9" cx="169.2" cy="269.38" r="1" data-anchor="YOR"/>
+  </g>
+  <g id="unit-anchors-fleet">
+    <circle class="st8" cx="317.25" cy="467.55" r="1" data-anchor="ADR"/>
+    <circle class="st8" cx="418.04" cy="542.15" r="1" data-anchor="AEG"/>
+    <circle class="st8" cx="358.18" cy="494.13" r="1" data-anchor="ALB"/>
+    <circle class="st8" cx="517.36" cy="468.78" r="1" data-anchor="ANK"/>
+    <circle class="st8" cx="312.68" cy="485.82" r="1" data-anchor="APU"/>
+    <circle class="st8" cx="603.88" cy="461.87" r="1" data-anchor="ARM"/>
+    <circle class="st8" cx="336.63" cy="264.56" r="1" data-anchor="BAL"/>
+    <circle class="st8" cx="475.91" cy="35.03" r="1" data-anchor="BAR"/>
+    <circle class="st8" cx="196.59" cy="323.32" r="1" data-anchor="BEL"/>
+    <circle class="st8" cx="295.04" cy="293.61" r="1" data-anchor="BER"/>
+    <circle class="st8" cx="515.8" cy="436.43" r="1" data-anchor="BLA"/>
+    <circle class="st8" cx="368.48" cy="209.58" r="1" data-anchor="BOT"/>
+    <circle class="st8" cx="126.18" cy="343.21" r="1" data-anchor="BRE"/>
+    <circle class="st8" cx="447.7" cy="459.45" r="1" data-anchor="BUL" data-fleet-coast="EC"/>
+    <circle class="st8" cx="416.7" cy="487.45" r="1" data-anchor="BUL" data-fleet-coast="SC"/>
+    <circle class="st8" cx="156.09" cy="205.12" r="1" data-anchor="CLY"/>
+    <circle class="st8" cx="466.85" cy="503.49" r="1" data-anchor="CON"/>
+    <circle class="st8" cx="272.94" cy="253.83" r="1" data-anchor="DEN"/>
+    <circle class="st8" cx="497.75" cy="575.9" r="1" data-anchor="EAS"/>
+    <circle class="st8" cx="166.57" cy="219.38" r="1" data-anchor="EDI"/>
+    <circle class="st8" cx="141.33" cy="321.72" r="1" data-anchor="ENG"/>
+    <circle class="st8" cx="388.57" cy="184.59" r="1" data-anchor="FIN"/>
+    <circle class="st8" cx="144.31" cy="409.99" r="1" data-anchor="GAS"/>
+    <circle class="st8" cx="384.34" cy="523.6" r="1" data-anchor="GRE"/>
+    <circle class="st8" cx="240.79" cy="266.73" r="1" data-anchor="HEL"/>
+    <circle class="st8" cx="221.39" cy="298.91" r="1" data-anchor="HOL"/>
+    <circle class="st8" cx="328.16" cy="564.9" r="1" data-anchor="ION"/>
+    <circle class="st8" cx="108.24" cy="285.42" r="1" data-anchor="IRI"/>
+    <circle class="st8" cx="258.77" cy="291.5" r="1" data-anchor="KIE"/>
+    <circle class="st8" cx="164.92" cy="290.81" r="1" data-anchor="LON"/>
+    <circle class="st8" cx="380.58" cy="240.4" r="1" data-anchor="LVN"/>
+    <circle class="st8" cx="147.06" cy="242.97" r="1" data-anchor="LVP"/>
+    <circle class="st8" cx="192.27" cy="472.04" r="1" data-anchor="LYO"/>
+    <circle class="st8" cx="50.2" cy="390.13" r="1" data-anchor="MAO"/>
+    <circle class="st8" cx="186.17" cy="423.29" r="1" data-anchor="MAR"/>
+    <circle class="st8" cx="107.1" cy="554.28" r="1" data-anchor="NAF"/>
+    <circle class="st8" cx="75.27" cy="137.88" r="1" data-anchor="NAO"/>
+    <circle class="st8" cx="309.22" cy="532.8" r="1" data-anchor="NAP"/>
+    <circle class="st8" cx="212.25" cy="238.35" r="1" data-anchor="NTH"/>
+    <circle class="st8" cx="248.64" cy="78.75" r="1" data-anchor="NWG"/>
+    <circle class="st8" cx="262.39" cy="180.06" r="1" data-anchor="NWY"/>
+    <circle class="st8" cx="172.33" cy="340.21" r="1" data-anchor="PIC"/>
+    <circle class="st8" cx="225.51" cy="431.79" r="1" data-anchor="PIE"/>
+    <circle class="st8" cx="24.9" cy="477.44" r="1" data-anchor="POR"/>
+    <circle class="st8" cx="344.52" cy="297.51" r="1" data-anchor="PRU"/>
+    <circle class="st8" cx="278.91" cy="475.03" r="1" data-anchor="ROM"/>
+    <circle class="st8" cx="447.67" cy="433.84" r="1" data-anchor="RUM"/>
+    <circle class="st8" cx="560.26" cy="407.71" r="1" data-anchor="SEV"/>
+    <circle class="st8" cx="280.54" cy="228.9" r="1" data-anchor="SKA"/>
+    <circle class="st8" cx="466.09" cy="544.87" r="1" data-anchor="SMY"/>
+    <circle class="st8" cx="87" cy="505.97" r="1" data-anchor="SPA" data-fleet-coast="NC"/>
+    <circle class="st8" cx="90" cy="426.97" r="1" data-anchor="SPA" data-fleet-coast="SC"/>
+    <circle class="st8" cx="453.81" cy="71.24" r="1" data-anchor="STP" data-fleet-coast="NC"/>
+    <circle class="st8" cx="435.81" cy="213.24" r="1" data-anchor="STP" data-fleet-coast="SC"/>
+    <circle class="st8" cx="333.03" cy="171.97" r="1" data-anchor="SWE"/>
+    <circle class="st8" cx="230.51" cy="397.41" r="1" data-anchor="SWI"/>
+    <circle class="st8" cx="567.22" cy="567.21" r="1" data-anchor="SYR"/>
+    <circle class="st8" cx="325.76" cy="432.5" r="1" data-anchor="TRI"/>
+    <circle class="st8" cx="235.48" cy="558.23" r="1" data-anchor="TUN"/>
+    <circle class="st8" cx="254.25" cy="450.39" r="1" data-anchor="TUS"/>
+    <circle class="st8" cx="263.05" cy="510.82" r="1" data-anchor="TYS"/>
+    <circle class="st8" cx="277.26" cy="435.13" r="1" data-anchor="VEN"/>
+    <circle class="st8" cx="138.15" cy="291.01" r="1" data-anchor="WAL"/>
+    <circle class="st8" cx="151.4" cy="522.09" r="1" data-anchor="WES"/>
+    <circle class="st8" cx="169.2" cy="269.38" r="1" data-anchor="YOR"/>
+  </g>
+</svg>

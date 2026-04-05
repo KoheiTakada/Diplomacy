@@ -1,0 +1,474 @@
+[
+  {
+    "id": "ADR",
+    "ja": "アドリア海",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "AEG",
+    "ja": "エーゲ海",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "ALB",
+    "ja": "アルバニア",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "ANK",
+    "ja": "アンカラ",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "TUR"
+  },
+  {
+    "id": "APU",
+    "ja": "アビュリア",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "ARM",
+    "ja": "アルメニア",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "BAL",
+    "ja": "バルト海",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "BAR",
+    "ja": "バレンツ海",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "BEL",
+    "ja": "ベルギー",
+    "areaType": "Coastal",
+    "isSupplyCenter": true
+  },
+  {
+    "id": "BER",
+    "ja": "ベルリン",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "GER"
+  },
+  {
+    "id": "BLA",
+    "ja": "黒海",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "BOH",
+    "ja": "ボヘミア",
+    "areaType": "Land",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "BOT",
+    "ja": "ボトニア湾",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "BRE",
+    "ja": "ブレスト",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "FRA"
+  },
+  {
+    "id": "BUD",
+    "ja": "ブダペスト",
+    "areaType": "Land",
+    "isSupplyCenter": true,
+    "homePowerId": "AUS"
+  },
+  {
+    "id": "BUL",
+    "ja": "ブルガリア",
+    "areaType": "Coastal",
+    "isSupplyCenter": true
+  },
+  {
+    "id": "BUR",
+    "ja": "ブルゴーニュ",
+    "areaType": "Land",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "CLY",
+    "ja": "クライド",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "CON",
+    "ja": "コンスタンティノープル",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "TUR"
+  },
+  {
+    "id": "DEN",
+    "ja": "デンマーク",
+    "areaType": "Coastal",
+    "isSupplyCenter": true
+  },
+  {
+    "id": "EAS",
+    "ja": "東地中海",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "EDI",
+    "ja": "エディンバラ",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "ENG"
+  },
+  {
+    "id": "ENG",
+    "ja": "イギリス海峡",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "FIN",
+    "ja": "フィンランド",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "GAL",
+    "ja": "ガリシア",
+    "areaType": "Land",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "GAS",
+    "ja": "ガスコーニュ",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "GRE",
+    "ja": "ギリシャ",
+    "areaType": "Coastal",
+    "isSupplyCenter": true
+  },
+  {
+    "id": "HEL",
+    "ja": "ヘルゴラント湾",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "HOL",
+    "ja": "オランダ",
+    "areaType": "Coastal",
+    "isSupplyCenter": true
+  },
+  {
+    "id": "ION",
+    "ja": "イオニア海",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "IRI",
+    "ja": "アイリッシュ海",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "KIE",
+    "ja": "キール",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "GER"
+  },
+  {
+    "id": "LON",
+    "ja": "ロンドン",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "ENG"
+  },
+  {
+    "id": "LVN",
+    "ja": "リヴォニア",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "LVP",
+    "ja": "リヴァプール",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "ENG"
+  },
+  {
+    "id": "LYO",
+    "ja": "リヨン湾",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "MAO",
+    "ja": "中大西洋",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "MAR",
+    "ja": "マルセイユ",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "FRA"
+  },
+  {
+    "id": "MOS",
+    "ja": "モスクワ",
+    "areaType": "Land",
+    "isSupplyCenter": true,
+    "homePowerId": "RUS"
+  },
+  {
+    "id": "MUN",
+    "ja": "ミュンヘン",
+    "areaType": "Land",
+    "isSupplyCenter": true,
+    "homePowerId": "GER"
+  },
+  {
+    "id": "NAF",
+    "ja": "北アフリカ",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "NAO",
+    "ja": "北大西洋",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "NAP",
+    "ja": "ナポリ",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "ITA"
+  },
+  {
+    "id": "NTH",
+    "ja": "北海",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "NWG",
+    "ja": "ノルウェー海",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "NWY",
+    "ja": "ノルウェー",
+    "areaType": "Coastal",
+    "isSupplyCenter": true
+  },
+  {
+    "id": "PAR",
+    "ja": "パリ",
+    "areaType": "Land",
+    "isSupplyCenter": true,
+    "homePowerId": "FRA"
+  },
+  {
+    "id": "PIC",
+    "ja": "ピカルディ",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "PIE",
+    "ja": "ピエモンテ",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "POR",
+    "ja": "ポルトガル",
+    "areaType": "Coastal",
+    "isSupplyCenter": true
+  },
+  {
+    "id": "PRU",
+    "ja": "プロシア",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "ROM",
+    "ja": "ローマ",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "ITA"
+  },
+  {
+    "id": "RUH",
+    "ja": "ルール",
+    "areaType": "Land",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "RUM",
+    "ja": "ルーマニア",
+    "areaType": "Coastal",
+    "isSupplyCenter": true
+  },
+  {
+    "id": "SER",
+    "ja": "セルビア",
+    "areaType": "Land",
+    "isSupplyCenter": true
+  },
+  {
+    "id": "SEV",
+    "ja": "セヴァストポリ",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "RUS"
+  },
+  {
+    "id": "SIL",
+    "ja": "シレジア",
+    "areaType": "Land",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "SKA",
+    "ja": "スカゲラク",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "SMY",
+    "ja": "スミルナ",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "TUR"
+  },
+  {
+    "id": "SPA",
+    "ja": "スペイン",
+    "areaType": "Coastal",
+    "isSupplyCenter": true
+  },
+  {
+    "id": "STP",
+    "ja": "サンクトペテルブルク",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "RUS"
+  },
+  {
+    "id": "SWE",
+    "ja": "スウェーデン",
+    "areaType": "Coastal",
+    "isSupplyCenter": true
+  },
+  {
+    "id": "SYR",
+    "ja": "シリア",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "TRI",
+    "ja": "トリエステ",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "AUS"
+  },
+  {
+    "id": "TUN",
+    "ja": "チュニジア",
+    "areaType": "Coastal",
+    "isSupplyCenter": true
+  },
+  {
+    "id": "TUS",
+    "ja": "トスカーナ",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "TYR",
+    "ja": "チロル",
+    "areaType": "Land",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "TYS",
+    "ja": "ティレニア海",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "UKR",
+    "ja": "ウクライナ",
+    "areaType": "Land",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "VEN",
+    "ja": "ヴェニス",
+    "areaType": "Coastal",
+    "isSupplyCenter": true,
+    "homePowerId": "ITA"
+  },
+  {
+    "id": "VIE",
+    "ja": "ウィーン",
+    "areaType": "Land",
+    "isSupplyCenter": true,
+    "homePowerId": "AUS"
+  },
+  {
+    "id": "WAL",
+    "ja": "ウェールズ",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "WAR",
+    "ja": "ワルシャワ",
+    "areaType": "Land",
+    "isSupplyCenter": true,
+    "homePowerId": "RUS"
+  },
+  {
+    "id": "WES",
+    "ja": "西地中海",
+    "areaType": "Sea",
+    "isSupplyCenter": false
+  },
+  {
+    "id": "YOR",
+    "ja": "ヨークシャー",
+    "areaType": "Coastal",
+    "isSupplyCenter": false
+  }
+]
