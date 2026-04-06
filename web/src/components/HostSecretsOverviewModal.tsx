@@ -18,16 +18,13 @@
 
 'use client';
 
+import { PowerLabelText } from '@/components/PowerLabelText';
+import { buildOnlineRoomInviteCopyText } from '@/diplomacy/onlineInviteText';
 import { POWERS } from '@/miniMap';
 import { POWER_META } from '@/diplomacy/gameHelpers';
 import { readOnlineHostSecret } from '@/lib/onlineSessionBrowser';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 type HostSecretsOverviewModalProps = {
@@ -42,24 +39,6 @@ type HostSecretsOverviewModalProps = {
   /** 各国トークン（sessionStorage 由来。無ければ null） */
   powerSecrets: Record<string, string> | null;
 };
-
-/**
- * `window.location.origin` を SSR 安全に取得するための購読（不変想定）。
- *
- * @param onStoreChange - React が渡すコールバック
- * @returns アンサブスクライブ
- */
-function subscribeOrigin(onStoreChange: () => void): () => void {
-  void onStoreChange;
-  return () => {};
-}
-
-/**
- * クライアントでの origin。
- */
-function getOriginSnapshot(): string {
-  return typeof window === 'undefined' ? '' : window.location.origin;
-}
 
 /** マスク表示で先頭に残す文字数 */
 const SECRET_MASK_VISIBLE_PREFIX_LEN = 5;
@@ -91,7 +70,7 @@ function formatSecretMaskedDisplay(plain: string): string {
  * @param props.maskDisplay - true のとき `value` はコピーに使い、表示はマスクする
  */
 function SecretRow(props: {
-  label: string;
+  label: ReactNode;
   value: string;
   copyKey: string;
   copyFlash: string | null;
@@ -141,8 +120,6 @@ export function HostSecretsOverviewModal(props: HostSecretsOverviewModalProps) {
   const [copyFlash, setCopyFlash] = useState<string | null>(null);
   /** クライアントで body へポータルするまで null（SSR では描画しない） */
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
-  const origin = useSyncExternalStore(subscribeOrigin, getOriginSnapshot, () => '');
-
   useEffect(() => {
     setPortalRoot(document.body);
   }, []);
@@ -169,32 +146,15 @@ export function HostSecretsOverviewModal(props: HostSecretsOverviewModalProps) {
     return readOnlineHostSecret(roomId) ?? '';
   }, [hostSecretFromContext, roomId]);
 
-  const allSecretsText = useMemo(() => {
-    const lines: string[] = [
-      '【ディプロマシー オンライン卓・シークレット一覧】',
-      '',
-      `卓ID: ${roomId}`,
-      '',
-      '■ ホスト用シークレット（裁定・管理用。厳秘）',
-      effectiveHostSecret.length > 0 ? effectiveHostSecret : '（不明）',
-      '',
-      '■ 各国プレイヤー用シークレット（厳秘）',
-    ];
-    for (const pid of POWERS) {
-      const label = POWER_META[pid]?.label ?? pid;
-      const tok = powerSecrets?.[pid];
-      lines.push(`${label} (${pid}): ${tok != null && tok.length > 0 ? tok : '（このブラウザに未保存）'}`);
-    }
-    if (origin.length > 0) {
-      lines.push('');
-      lines.push('■ 参加用（シークレットは URL に含めない）');
-      lines.push(`サイト: ${origin}/`);
-      lines.push(
-        'トップで Join room を選び、卓IDと上記の各国シークレットを入力。',
-      );
-    }
-    return lines.join('\n');
-  }, [roomId, effectiveHostSecret, powerSecrets, origin]);
+  const allSecretsText = useMemo(
+    () =>
+      buildOnlineRoomInviteCopyText(
+        roomId,
+        effectiveHostSecret,
+        powerSecrets,
+      ),
+    [roomId, effectiveHostSecret, powerSecrets],
+  );
 
   const flash = useCallback((key: string) => {
     setCopyFlash(key);
@@ -274,30 +234,28 @@ export function HostSecretsOverviewModal(props: HostSecretsOverviewModalProps) {
               <p className="mb-2 text-xs font-semibold text-zinc-800">
                 各国プレイヤー用シークレット
               </p>
-              {powerSecrets == null ? (
-                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-950">
-                  このブラウザに各国トークンが保存されていません。卓を新規作成したブラウザで開くか、タイトル画面のメモを参照してください。
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {POWERS.map((pid) => {
-                    const label = POWER_META[pid]?.label ?? pid;
-                    const tok = powerSecrets[pid] ?? '';
-                    return (
-                      <li key={pid}>
-                        <SecretRow
-                          label={`${label}（${pid}）`}
-                          value={tok}
-                          copyKey={`p-${pid}`}
-                          copyFlash={copyFlash}
-                          onCopy={copyText}
-                          maskDisplay
-                        />
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+              <ul className="space-y-2">
+                {POWERS.map((pid) => {
+                  const tok = powerSecrets?.[pid] ?? '';
+                  return (
+                    <li key={pid}>
+                      <SecretRow
+                        label={
+                          <>
+                            <PowerLabelText powerId={pid} />
+                            <span>（{pid}）</span>
+                          </>
+                        }
+                        value={tok}
+                        copyKey={`p-${pid}`}
+                        copyFlash={copyFlash}
+                        onCopy={copyText}
+                        maskDisplay
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           </div>
 

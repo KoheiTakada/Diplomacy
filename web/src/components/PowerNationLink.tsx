@@ -17,7 +17,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useRef } from 'react';
-import { POWER_META, POWER_ROLE_JA } from '@/diplomacy/gameHelpers';
+import { PowerLabelText } from '@/components/PowerLabelText';
+import { POWER_ROLE_JA } from '@/diplomacy/gameHelpers';
 
 type PowerNationLinkProps = {
   /** 勢力ID（例: ENG） */
@@ -47,7 +48,6 @@ export function PowerNationLink(props: PowerNationLinkProps) {
   } = props;
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const meta = POWER_META[powerId] ?? { color: '#334155', label: powerId };
   const role = POWER_ROLE_JA[powerId] ?? '指導者';
 
   const mergedClass =
@@ -78,7 +78,8 @@ export function PowerNationLink(props: PowerNationLinkProps) {
         className="fixed left-1/2 top-1/2 z-[200] m-0 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-4 text-zinc-900 shadow-xl [&::backdrop]:bg-black/40"
       >
         <p className="text-sm font-medium leading-relaxed">
-          {meta.label}の{role}ですか？
+          <PowerLabelText powerId={powerId} />
+          の{role}ですか？
         </p>
         <div className="mt-4 flex justify-end gap-2">
           <button

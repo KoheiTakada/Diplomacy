@@ -2,7 +2,7 @@
  * タイトル画面（ログイン相当の入口）
  *
  * 概要:
- *   オンライン卓のみを提供する。Join room（卓ID・ロール・シークレット）と
+ *   オンライン卓のみを提供する。Join room（卓ID・シークレット。ロールはシークレットで自動判別）と
  *   Create room（新規卓作成）の2導線を持つ。
  *
  * 主な機能:
@@ -19,15 +19,8 @@
 
 import Link from 'next/link';
 import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
-import { POWERS } from '@/miniMap';
-import type { PowerId } from '@/domain';
-import { POWER_META } from '@/diplomacy/gameHelpers';
+import { buildOnlineRoomInviteCopyText } from '@/diplomacy/onlineInviteText';
 import { useEffect, useRef, useState } from 'react';
-
-/**
- * オンライン参加時のロール選択値（ホストまたは標準7大国のいずれか）。
- */
-type OnlineJoinRole = 'host' | PowerId;
 
 /**
  * タイトル UI。
@@ -41,8 +34,6 @@ export function TitleScreen() {
   const [onlineStemDraft, setOnlineStemDraft] = useState('');
   const [onlineNewGameOpen, setOnlineNewGameOpen] = useState(false);
   const [joinRoomId, setJoinRoomId] = useState('');
-  const [joinOnlineRole, setJoinOnlineRole] =
-    useState<OnlineJoinRole>('host');
   const [joinSecret, setJoinSecret] = useState('');
   const [createdOnlineLinks, setCreatedOnlineLinks] = useState<string | null>(
     null,
@@ -93,23 +84,6 @@ export function TitleScreen() {
             <div className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
               <div className="flex flex-col gap-3">
                 <label className="block text-[11px] font-medium text-zinc-700">
-                  ロール
-                </label>
-                <select
-                  value={joinOnlineRole}
-                  onChange={(e) =>
-                    setJoinOnlineRole(e.target.value as OnlineJoinRole)
-                  }
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 text-xs text-zinc-900 outline-none ring-violet-400 focus:ring-2"
-                >
-                  <option value="host">ホスト</option>
-                  {POWERS.map((pid) => (
-                    <option key={pid} value={pid}>
-                      {POWER_META[pid]?.label ?? pid}
-                    </option>
-                  ))}
-                </select>
-                <label className="block text-[11px] font-medium text-zinc-700">
                   卓ID
                 </label>
                 <input
@@ -126,11 +100,7 @@ export function TitleScreen() {
                   type="text"
                   value={joinSecret}
                   onChange={(e) => setJoinSecret(e.target.value.trim())}
-                  placeholder={
-                    joinOnlineRole === 'host'
-                      ? 'ホスト用シークレット'
-                      : '各国用シークレット'
-                  }
+                  placeholder="シークレット"
                   className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 font-mono text-[11px] text-zinc-900 outline-none ring-violet-400 focus:ring-2"
                 />
                 <button
@@ -139,17 +109,10 @@ export function TitleScreen() {
                   onClick={async () => {
                     setOnlineBusy(true);
                     try {
-                      const r =
-                        joinOnlineRole === 'host'
-                          ? await joinOnlineGame({
-                              roomId: joinRoomId,
-                              hostSecret: joinSecret,
-                            })
-                          : await joinOnlineGame({
-                              roomId: joinRoomId,
-                              powerId: joinOnlineRole,
-                              powerSecret: joinSecret,
-                            });
+                      const r = await joinOnlineGame({
+                        roomId: joinRoomId,
+                        token: joinSecret,
+                      });
                       if (!r.ok) {
                         window.alert(r.error);
                       } else {
@@ -222,26 +185,13 @@ export function TitleScreen() {
                           window.alert(r.error);
                           return;
                         }
-                        const origin =
-                          typeof window !== 'undefined'
-                            ? window.location.origin
-                            : '';
-                        const lines: string[] = [
-                          `卓ID: ${r.roomId}`,
-                          `ホスト用シークレット（誰にも見せない）: ${r.hostSecret}`,
-                          '',
-                          '■ 参加手順（シークレットは URL に含めないでください）',
-                          `  サイトを開く: ${origin}/`,
-                          '  Online → Join room で卓IDとシークレットを入力。',
-                          '',
-                          '■ 各国に送る用（シークレットのみ。チャット等で個別に送る）',
-                        ];
-                        for (const pid of POWERS) {
-                          const tok = r.powerSecrets[pid];
-                          const meta = POWER_META[pid]?.label ?? pid;
-                          lines.push(`${meta} (${pid}): ${tok}`);
-                        }
-                        setCreatedOnlineLinks(lines.join('\n'));
+                        setCreatedOnlineLinks(
+                          buildOnlineRoomInviteCopyText(
+                            r.roomId,
+                            r.hostSecret,
+                            r.powerSecrets,
+                          ),
+                        );
                       } finally {
                         setOnlineBusy(false);
                       }
@@ -266,13 +216,10 @@ export function TitleScreen() {
               ) : (
                 <>
                   <div className="mt-3 rounded-lg border border-violet-200 bg-white p-2">
-                    <p className="mb-1 text-[10px] font-medium text-violet-950">
-                      以下をコピーして各国に送ってください（再表示されません）。
-                    </p>
                     <textarea
                       readOnly
                       value={createdOnlineLinks}
-                      rows={12}
+                      rows={22}
                       className="w-full resize-y rounded border border-violet-200 bg-white p-2 font-mono text-[10px] text-zinc-800"
                       onFocus={(e) => e.target.select()}
                     />

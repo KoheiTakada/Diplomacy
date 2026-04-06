@@ -31,6 +31,7 @@ import {
   type UnitOrderInput,
   unitTypeLabel,
 } from '@/diplomacy/gameHelpers';
+import { PowerLabelText } from '@/components/PowerLabelText';
 import {
   canSupportTargetInSupportOrder,
   getConvoyOrderCandidateArmyIds,
@@ -175,7 +176,7 @@ export function HypotheticalForeignOrdersPanel(
                   style={{ backgroundColor: meta.color }}
                 />
                 <span className="text-xs font-semibold text-sky-950">
-                  {meta.label}
+                  <PowerLabelText powerId={pid} />
                 </span>
               </div>
               {units.map((unit) => {

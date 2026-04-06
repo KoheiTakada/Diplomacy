@@ -45,6 +45,7 @@ import {
   getConvoyOrderDestinationProvinces,
   isProvinceOccupied,
 } from '@/mapMovement';
+import { PowerLabelText } from '@/components/PowerLabelText';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -137,7 +138,9 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
             className="inline-block h-3 w-3 rounded-full"
             style={{ backgroundColor: meta.color }}
           />
-          <h2 className="text-lg font-semibold text-zinc-900">{meta.label}</h2>
+          <h2 className="text-lg font-semibold text-zinc-900">
+            <PowerLabelText powerId={powerId} />
+          </h2>
         </div>
         {showMainPageLink ? (
           <Link

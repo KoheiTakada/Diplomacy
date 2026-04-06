@@ -556,13 +556,26 @@ export function collectStandoffCollisionGroup(
   return { unitIds, targetProvinceId: target, primaryIndex };
 }
 
-/** 勢力の色・日本語名 */
-export const POWER_META: Record<string, { color: string; label: string }> = {
-  ENG: { color: '#ef4444', label: 'イングランド' },
+/** 勢力の色・日本語名（UI・配布テキスト共通） */
+export type PowerMeta = {
+  color: string;
+  label: string;
+  /**
+   * 横幅が狭いときの略称（Tailwind `sm` 未満で `label` の代わりに表示）。
+   */
+  labelCompact?: string;
+};
+
+export const POWER_META: Record<string, PowerMeta> = {
+  ENG: { color: '#ef4444', label: 'イギリス' },
   FRA: { color: '#3b82f6', label: 'フランス' },
   GER: { color: '#0d9488', label: 'ドイツ' },
   ITA: { color: '#22c55e', label: 'イタリア' },
-  AUS: { color: '#eab308', label: 'オーストリア＝ハンガリー' },
+  AUS: {
+    color: '#eab308',
+    label: 'オーストリア・ハンガリー',
+    labelCompact: 'オーハン',
+  },
   RUS: { color: '#a855f7', label: 'ロシア' },
   TUR: { color: '#f97316', label: 'トルコ' },
 };

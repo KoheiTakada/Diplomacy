@@ -92,6 +92,88 @@ import {
 const LEGACY_STORAGE_KEY = 'diplomacy-game-state-v1';
 
 /**
+ * オンライン pull 後に自国ローカル編集をマージしてよいかの判定用。
+ * ターン・季・調整／退却フェーズが一致するときのみ true。
+ *
+ * @param incoming - サーバー側スナップショット
+ * @param local - クライアント直前のスナップショット
+ */
+function sameOnlineGameStepForMerge(
+  incoming: PersistedSnapshot,
+  local: PersistedSnapshot,
+): boolean {
+  return (
+    incoming.board.turn.year === local.board.turn.year &&
+    incoming.board.turn.season === local.board.turn.season &&
+    incoming.isBuildPhase === local.isBuildPhase &&
+    incoming.isDisbandPhase === local.isDisbandPhase &&
+    incoming.isRetreatPhase === local.isRetreatPhase
+  );
+}
+
+/**
+ * ポーリング直前に PATCH を送れなかった場合など、サーバー取得結果へ
+ * 自国の命令・調整・退却・記録フラグだけをローカルから上書きする。
+ * 進行が変わった盤面には古いローカル状態を混ぜない。
+ *
+ * @param incoming - 正規化済みサーバースナップショット
+ * @param local - マージ元（未送信編集を含む可能性）
+ * @param powerId - 勢力 ID
+ */
+function mergePowerSecretSnapshotFromLocal(
+  incoming: PersistedSnapshot,
+  local: PersistedSnapshot,
+  powerId: string,
+): PersistedSnapshot {
+  if (!sameOnlineGameStepForMerge(incoming, local)) {
+    return incoming;
+  }
+  const unitOrders = { ...incoming.unitOrders };
+  for (const u of incoming.board.units) {
+    if (u.powerId !== powerId) {
+      continue;
+    }
+    const lo = local.unitOrders[u.id];
+    if (lo != null) {
+      unitOrders[u.id] = lo;
+    }
+  }
+  const buildPlan = { ...incoming.buildPlan };
+  if (local.buildPlan[powerId] != null) {
+    buildPlan[powerId] = local.buildPlan[powerId]!;
+  }
+  const disbandPlan = { ...incoming.disbandPlan };
+  if (local.disbandPlan[powerId] != null) {
+    disbandPlan[powerId] = local.disbandPlan[powerId]!;
+  }
+  const retreatTargets = { ...incoming.retreatTargets };
+  for (const d of incoming.pendingRetreats) {
+    if (d.unit.powerId !== powerId) {
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(local.retreatTargets, d.unit.id)) {
+      retreatTargets[d.unit.id] = local.retreatTargets[d.unit.id];
+    }
+  }
+  const powerOrderSaved = { ...incoming.powerOrderSaved };
+  powerOrderSaved[powerId] = local.powerOrderSaved[powerId] === true;
+  const powerAdjustmentSaved = { ...incoming.powerAdjustmentSaved };
+  powerAdjustmentSaved[powerId] = local.powerAdjustmentSaved[powerId] === true;
+  const powerRetreatSaved = { ...incoming.powerRetreatSaved };
+  powerRetreatSaved[powerId] = local.powerRetreatSaved[powerId] === true;
+  return {
+    ...incoming,
+    unitOrders,
+    buildPlan,
+    disbandPlan,
+    retreatTargets,
+    powerOrderSaved,
+    powerAdjustmentSaved,
+    powerRetreatSaved,
+  };
+}
+
+/**
  * Supabase オンライン卓への接続状態。
  */
 export type OnlineSession =
@@ -122,8 +204,10 @@ export type JoinOnlineGameResult = { ok: true } | { ok: false; error: string };
 
 /**
  * オンライン参加パラメータ。
- * - `token`: 平文トークンのみ指定（GET `?t=` で onlineAuth を返す。アドレスバーには載せない）
- * - `expectedPowerId`: トークンがその国用か検証する（省略時はホストまたは任意国）
+ * - `token`: 平文のみ。GET `?t=` でサーバーがホスト／各国ハッシュと照合し `onlineAuth` を返す（アドレスバーに載せない）。
+ *   `expectedPowerId` 省略時はロールをクライアントで指定せず、応答の role に従う（タイトル画面の Join 推奨）。
+ * - `hostSecret` / `powerId`+`powerSecret`: 従来形式（検証付き）。必要なら残す。
+ * - `expectedPowerId`: 指定時はトークンがその国用か追加検証（勢力別 URL 等向け）。
  */
 export type JoinOnlineGameParams =
   | { roomId: string; hostSecret: string }
@@ -545,7 +629,10 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   buildCurrentSnapshotRef.current = buildCurrentSnapshot;
 
   const refetchOnlineSnapshot = useCallback(
-    async (sess: OnlineSession) => {
+    async (
+      sess: OnlineSession,
+      mergePowerLocalSnapshot?: PersistedSnapshot,
+    ) => {
       const secret =
         sess.kind === 'host' ? sess.hostSecret : sess.powerSecret;
       const url = `/api/online/rooms/${sess.roomId}/snapshot?t=${encodeURIComponent(secret)}`;
@@ -561,17 +648,33 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       if (p == null) {
         return;
       }
-      applyPersistedSnapshot(normalizeLoadedSnapshot(p));
+      let normalized = normalizeLoadedSnapshot(p);
+      if (
+        mergePowerLocalSnapshot != null &&
+        sess.kind === 'power'
+      ) {
+        normalized = mergePowerSecretSnapshotFromLocal(
+          normalized,
+          mergePowerLocalSnapshot,
+          sess.powerId,
+        );
+      }
+      applyPersistedSnapshot(normalized);
       lastServerVersionRef.current = data.version;
       setOnlineServerVersion(data.version);
     },
     [applyPersistedSnapshot],
   );
 
-  const flushOnlinePush = useCallback(async () => {
+  /**
+   * オンライン未送信の変更を即時に送る。
+   *
+   * @returns 通信・409 解消を含め同期手順を完了できたら true
+   */
+  const flushOnlinePush = useCallback(async (): Promise<boolean> => {
     const sess = onlineSessionRef.current;
     if (sess == null || !gameSessionActive) {
-      return;
+      return true;
     }
     const snap = buildCurrentSnapshotRef.current();
     const json = serializeSnapshotForStorage(snap);
@@ -589,15 +692,15 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         });
         if (res.status === 409) {
           await refetchOnlineSnapshot(sess);
-          return;
+          return true;
         }
         if (!res.ok) {
-          return;
+          return false;
         }
         const data = (await res.json()) as { version: number };
         lastServerVersionRef.current = data.version;
         setOnlineServerVersion(data.version);
-        return;
+        return true;
       }
       const base = buildPowerOnlinePatchPayload(sess.powerId, snap);
       const res = await fetch(`/api/online/rooms/${sess.roomId}/power`, {
@@ -611,16 +714,18 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       });
       if (res.status === 409) {
         await refetchOnlineSnapshot(sess);
-        return;
+        return true;
       }
       if (!res.ok) {
-        return;
+        return false;
       }
       const data = (await res.json()) as { version: number };
       lastServerVersionRef.current = data.version;
       setOnlineServerVersion(data.version);
+      return true;
     } catch {
       /* ネットワーク断 */
+      return false;
     }
   }, [gameSessionActive, refetchOnlineSnapshot]);
 
@@ -973,17 +1078,37 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         if (pollData.version <= lastServerVersionRef.current) {
           return;
         }
-        const parsedPoll = tryParsePersistedSnapshotJson(pollData.snapshotJson);
-        if (parsedPoll == null) {
+        const sessNow = onlineSessionRef.current;
+        if (sessNow == null) {
           return;
         }
-        applyPersistedSnapshot(normalizeLoadedSnapshot(parsedPoll));
-        lastServerVersionRef.current = pollData.version;
-        setOnlineServerVersion(pollData.version);
+        /**
+         * ポール応答の JSON はデバウンス PATCH より古いことがある。
+         * タイマーを切って即 flush し、GET で再取得する。
+         * flush が失敗したがデバウンス待ちだった場合は自国分だけローカルをマージする。
+         */
+        const localSnapForMerge =
+          sessNow.kind === 'power'
+            ? buildCurrentSnapshotRef.current()
+            : null;
+        const hadPendingDebounce = onlinePushTimerRef.current != null;
+        if (onlinePushTimerRef.current != null) {
+          window.clearTimeout(onlinePushTimerRef.current);
+          onlinePushTimerRef.current = null;
+        }
+        const flushOk = await flushOnlinePush();
+        const mergeOverlay =
+          sessNow.kind === 'power' &&
+          localSnapForMerge != null &&
+          hadPendingDebounce &&
+          !flushOk
+            ? localSnapForMerge
+            : undefined;
+        await refetchOnlineSnapshot(sessNow, mergeOverlay);
       })();
     }, 4000);
     return () => window.clearInterval(id);
-  }, [gameSessionActive, onlineSession, applyPersistedSnapshot]);
+  }, [gameSessionActive, onlineSession, flushOnlinePush, refetchOnlineSnapshot]);
 
   const handleAdjudicate = useCallback(() => {
     if (isOrderLocked) {

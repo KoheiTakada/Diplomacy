@@ -30,6 +30,7 @@ import {
 } from '@/diplomacy/gameHelpers';
 import MapView from '@/components/MapView';
 import { HostSecretsOverviewModal } from '@/components/HostSecretsOverviewModal';
+import { PowerLabelText } from '@/components/PowerLabelText';
 import { PowerNationLink } from '@/components/PowerNationLink';
 import { readOnlinePowerSecrets } from '@/lib/onlineSessionBrowser';
 import { useRouter } from 'next/navigation';
@@ -224,14 +225,11 @@ export function MainDiplomacyHome() {
                         className="inline-block h-2 w-2 shrink-0 rounded-full ring-2 ring-white"
                         style={{ backgroundColor: meta.color }}
                       />
-                      <span className="truncate text-xs font-semibold text-zinc-800 sm:text-[13px]">
-                        {meta.label}
+                      <span className="min-w-0 truncate text-xs font-semibold text-zinc-800 sm:text-[13px]">
+                        <PowerLabelText powerId={pid} />
                       </span>
                     </div>
-                    <span
-                      className="shrink-0 text-[10px] font-bold tabular-nums text-zinc-400 sm:text-[11px]"
-                      title="補給拠点数による順位"
-                    >
+                    <span className="shrink-0 text-[10px] font-bold tabular-nums text-zinc-400 sm:text-[11px]">
                       {scRank}位
                     </span>
                   </div>
@@ -298,12 +296,6 @@ export function MainDiplomacyHome() {
                   ? '増産フェーズ'
                   : '命令フェーズ'}
             </h2>
-            {isOnlinePowerPlayer ? (
-              <p className="mb-2 text-[11px] leading-relaxed text-zinc-600">
-                あなたの国だけ「命令入力」を押せます。地図と進捗は全員分表示されます。
-              </p>
-            ) : null}
-
             <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
               {POWER_ORDER.map((pid) => {
                 const meta = POWER_META[pid] ?? { color: '#334155', label: pid };
@@ -325,8 +317,8 @@ export function MainDiplomacyHome() {
                         className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
                         style={{ backgroundColor: meta.color }}
                       />
-                      <span className="truncate text-sm font-medium text-zinc-800">
-                        {meta.label}
+                      <span className="min-w-0 truncate text-sm font-medium text-zinc-800">
+                        <PowerLabelText powerId={pid} />
                       </span>
                       <span className="text-[11px] text-zinc-500">({status})</span>
                     </div>
