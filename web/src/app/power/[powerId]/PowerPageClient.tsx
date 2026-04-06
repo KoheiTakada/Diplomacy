@@ -161,15 +161,18 @@ export default function PowerPageClient() {
       router.replace('/');
       return;
     }
-    if (!gameSessionActive) {
-      router.replace('/');
-    }
-  }, [powerId, router, gameSessionActive]);
+  }, [powerId, router]);
 
   if (!gameSessionActive) {
     return (
-      <div className="flex min-h-dvh items-center justify-center text-sm text-zinc-500">
-        メインへ移動しています…
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-2 text-sm text-zinc-500">
+        <p>セッションを確認しています…</p>
+        <Link
+          href="/"
+          className="text-xs font-medium text-violet-600 hover:text-violet-500"
+        >
+          メインページへ
+        </Link>
       </div>
     );
   }
