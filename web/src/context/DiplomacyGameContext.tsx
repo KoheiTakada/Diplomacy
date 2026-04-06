@@ -751,11 +751,11 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       sess: OnlineSession,
       mergePowerLocalSnapshot?: PersistedSnapshot,
       /**
-       * 勢力参加時のみ: 明示オーバーレイが無いとき、同一ゲーム進行なら
-       * `buildCurrentSnapshotRef` の自国入力をサーバー結果へ上書きする。
+       * ポール検知時のみ: 同一ゲーム進行（同ターン/同フェーズ）なら
+       * 画面 state の再適用をスキップして入力中 UI の巻き戻りを防ぐ。
        * 409 時の再取得では false のまま（サーバー優先）。
        */
-      preferLocalPowerSecretWhenSameStep?: boolean,
+      preferLocalStateWhenSameStep?: boolean,
     ) => {
       const secret =
         sess.kind === 'host' ? sess.hostSecret : sess.powerSecret;
@@ -776,6 +776,21 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       }
       let normalized = normalizeLoadedSnapshot(p);
       const localNow = buildCurrentSnapshotRef.current();
+      if (
+        preferLocalStateWhenSameStep &&
+        sameOnlineGameStepForMerge(normalized, localNow)
+      ) {
+        lastServerVersionRef.current = data.version;
+        setOnlineServerVersion(data.version);
+        appendOnlineDebugLog(
+          sess.kind === 'host'
+            ? 'refetch_snapshot_skip_same_step_host'
+            : 'refetch_snapshot_skip_same_step_power',
+          undefined,
+          data.version,
+        );
+        return;
+      }
       if (sess.kind === 'power') {
         if (mergePowerLocalSnapshot != null) {
           normalized = mergePowerSecretSnapshotFromLocal(
@@ -783,22 +798,6 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
             mergePowerLocalSnapshot,
             sess.powerId,
           );
-        } else if (preferLocalPowerSecretWhenSameStep) {
-          if (sameOnlineGameStepForMerge(normalized, localNow)) {
-            /**
-             * 勢力入力中の同一ステップ再取得では state を再適用しない。
-             * 再レンダリングでプルダウンが閉じる問題を防ぎ、ローカル入力を優先する。
-             * ターン/フェーズが進んだときのみ下の applyPersistedSnapshot が走る。
-             */
-            lastServerVersionRef.current = data.version;
-            setOnlineServerVersion(data.version);
-            appendOnlineDebugLog(
-              'refetch_snapshot_skip_same_step_power',
-              undefined,
-              data.version,
-            );
-            return;
-          }
         }
       }
       applyPersistedSnapshot(normalized);
@@ -1279,7 +1278,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         await refetchOnlineSnapshot(
           sessNow,
           mergeOverlay,
-          sessNow.kind === 'power',
+          true,
         );
       })();
     }, 4000);
