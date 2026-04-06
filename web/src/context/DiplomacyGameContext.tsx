@@ -1041,6 +1041,18 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     if (!gameSessionActive || onlineSession == null) {
       return;
     }
+    /**
+     * ホストの解決演出中は board が段階的に更新される。
+     * その中間盤面を配信すると各プレイヤーが「同時に複数移動」に見えるため、
+     * 演出中は push せず、finishReveal 後の確定盤面だけ同期する。
+     */
+    if (onlineSession.kind === 'host' && isResolutionRevealing) {
+      if (onlinePushTimerRef.current != null) {
+        window.clearTimeout(onlinePushTimerRef.current);
+        onlinePushTimerRef.current = null;
+      }
+      return;
+    }
     if (onlinePushTimerRef.current != null) {
       window.clearTimeout(onlinePushTimerRef.current);
     }
@@ -1062,6 +1074,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     isBuildPhase,
     isDisbandPhase,
     isRetreatPhase,
+    isResolutionRevealing,
     retreatTargets,
     pendingRetreats,
     buildPlan,
