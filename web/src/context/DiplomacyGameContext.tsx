@@ -112,9 +112,9 @@ function sameOnlineGameStepForMerge(
 }
 
 /**
- * ポーリング直前に PATCH を送れなかった場合など、サーバー取得結果へ
- * 自国の命令・調整・退却・記録フラグだけをローカルから上書きする。
- * 進行が変わった盤面には古いローカル状態を混ぜない。
+ * サーバー取得スナップショットへ、自国の命令・調整・退却・記録フラグだけをローカルから上書きする。
+ * 進行が変わった盤面（ターン／フェーズ不一致）にはローカルを混ぜない。
+ * ポールで flush 成功後も GET が一瞬古い場合や、デバウンス外の再編集を防ぐために勢力クライアントで使う。
  *
  * @param incoming - 正規化済みサーバースナップショット
  * @param local - マージ元（未送信編集を含む可能性）
@@ -638,6 +638,12 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     async (
       sess: OnlineSession,
       mergePowerLocalSnapshot?: PersistedSnapshot,
+      /**
+       * 勢力参加時のみ: 明示オーバーレイが無いとき、同一ゲーム進行なら
+       * `buildCurrentSnapshotRef` の自国入力をサーバー結果へ上書きする。
+       * 409 時の再取得では false のまま（サーバー優先）。
+       */
+      preferLocalPowerSecretWhenSameStep?: boolean,
     ) => {
       const secret =
         sess.kind === 'host' ? sess.hostSecret : sess.powerSecret;
@@ -655,15 +661,23 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         return;
       }
       let normalized = normalizeLoadedSnapshot(p);
-      if (
-        mergePowerLocalSnapshot != null &&
-        sess.kind === 'power'
-      ) {
-        normalized = mergePowerSecretSnapshotFromLocal(
-          normalized,
-          mergePowerLocalSnapshot,
-          sess.powerId,
-        );
+      if (sess.kind === 'power') {
+        if (mergePowerLocalSnapshot != null) {
+          normalized = mergePowerSecretSnapshotFromLocal(
+            normalized,
+            mergePowerLocalSnapshot,
+            sess.powerId,
+          );
+        } else if (preferLocalPowerSecretWhenSameStep) {
+          const localNow = buildCurrentSnapshotRef.current();
+          if (sameOnlineGameStepForMerge(normalized, localNow)) {
+            normalized = mergePowerSecretSnapshotFromLocal(
+              normalized,
+              localNow,
+              sess.powerId,
+            );
+          }
+        }
       }
       applyPersistedSnapshot(normalized);
       lastServerVersionRef.current = data.version;
@@ -1116,7 +1130,11 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           !flushOk
             ? localSnapForMerge
             : undefined;
-        await refetchOnlineSnapshot(sessNow, mergeOverlay);
+        await refetchOnlineSnapshot(
+          sessNow,
+          mergeOverlay,
+          sessNow.kind === 'power',
+        );
       })();
     }, 4000);
     return () => window.clearInterval(id);
