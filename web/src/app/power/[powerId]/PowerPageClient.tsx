@@ -161,12 +161,23 @@ export default function PowerPageClient() {
       router.replace('/');
       return;
     }
-  }, [powerId, router]);
+    /**
+     * 直接 `/power/[id]` を開いた直後など、セッション未開始ならメインへ戻す。
+     * ただしオンライン接続情報がある一時状態では即リダイレクトせず待機する。
+     */
+    if (!gameSessionActive && onlineSession == null) {
+      router.replace('/');
+    }
+  }, [powerId, router, gameSessionActive, onlineSession]);
 
   if (!gameSessionActive) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-2 text-sm text-zinc-500">
-        <p>セッションを確認しています…</p>
+        <p>
+          {onlineSession != null
+            ? 'セッションを確認しています…'
+            : 'セッションが見つかりません。メインへ戻ります…'}
+        </p>
         <Link
           href="/"
           className="text-xs font-medium text-violet-600 hover:text-violet-500"
