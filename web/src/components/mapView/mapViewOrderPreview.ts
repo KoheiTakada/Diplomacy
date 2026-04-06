@@ -106,8 +106,13 @@ export function buildOrderPreviewPolylines(
   const adjKeys = buildAdjacencyKeySet(board);
   const domainOrders = buildDomainOrdersFromInputs(board, mergedUnitOrders);
   const result: OrderPreviewPolyline[] = [];
+  const seenPreviewUnitIds = new Set<string>();
 
   for (const unit of board.units) {
+    if (seenPreviewUnitIds.has(unit.id)) {
+      continue;
+    }
+    seenPreviewUnitIds.add(unit.id);
     const input = mergedUnitOrders[unit.id] ?? emptyOrder();
     const stroke = POWER_COLORS[unit.powerId] ?? '#6366f1';
     const from = mapAnchorForUnit(layers, unit);

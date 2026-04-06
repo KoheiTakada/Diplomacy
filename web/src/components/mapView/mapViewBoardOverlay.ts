@@ -638,6 +638,8 @@ export function clampViewBoxToMapExtent(v: ViewBox, extent: ViewBox): ViewBox {
  * @param unitIcons - 未ロード時は null（ユニット記号は描画しない）
  * @param previousBoard - 直前の盤面。指定時、同一ユニットの座標変化に移動アニメーションを付ける
  * @param mapEffects - スタンドオフ・コンボイなど盤面だけでは足りない演出
+ *
+ * 同一ユニット id が盤面に重複しても id ごとに1枚だけ描画する（データ不整合時の保険）。
  */
 export function applyBoardOverlay(
   svg: SVGSVGElement,
@@ -720,7 +722,11 @@ export function applyBoardOverlay(
     }
   }
 
+  const unitsUniqueById = new Map<string, Unit>();
   for (const u of board.units) {
+    unitsUniqueById.set(u.id, u);
+  }
+  for (const u of unitsUniqueById.values()) {
     const pos = mapAnchorForUnit(layers, u);
     if (!pos) {
       continue;
