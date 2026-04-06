@@ -1158,10 +1158,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
          * タイマーを切って即 flush し、GET で再取得する。
          * flush が失敗したがデバウンス待ちだった場合は自国分だけローカルをマージする。
          */
-        const localSnapForMerge =
-          sessNow.kind === 'power'
-            ? buildCurrentSnapshotRef.current()
-            : null;
+        const localSnapForMerge = buildCurrentSnapshotRef.current();
         const hadPendingDebounce = onlinePushTimerRef.current != null;
         if (onlinePushTimerRef.current != null) {
           window.clearTimeout(onlinePushTimerRef.current);
@@ -1169,12 +1166,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         }
         const flushOk = await flushOnlinePush();
         const mergeOverlay =
-          sessNow.kind === 'power' &&
-          localSnapForMerge != null &&
-          hadPendingDebounce &&
-          !flushOk
-            ? localSnapForMerge
-            : undefined;
+          hadPendingDebounce && !flushOk ? localSnapForMerge : undefined;
         await refetchOnlineSnapshot(
           sessNow,
           mergeOverlay,
