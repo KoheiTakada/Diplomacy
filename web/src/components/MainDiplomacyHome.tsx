@@ -177,7 +177,10 @@ export function MainDiplomacyHome() {
           <button
             type="button"
             onClick={() => {
-              leaveGameSession();
+              leaveGameSession({
+                intentional: true,
+                reason: 'main_header_back_button',
+              });
               router.replace('/', { scroll: false });
             }}
             className="shrink-0 text-[11px] font-medium text-zinc-500 underline-offset-2 hover:text-zinc-700 hover:underline"

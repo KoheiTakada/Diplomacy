@@ -202,6 +202,11 @@ export type StartOnlineGameResult =
 /** オンライン参加の結果 */
 export type JoinOnlineGameResult = { ok: true } | { ok: false; error: string };
 
+type LeaveGameSessionOptions = {
+  intentional?: boolean;
+  reason?: string;
+};
+
 type OnlineDebugEvent = {
   ts: string;
   tag: string;
@@ -332,7 +337,9 @@ export type DiplomacyGameContextValue = {
    * @param worldlineNameRaw - 世界線名（空なら stem は diplomacy）
    */
   startNewGame: (worldlineNameRaw: string) => void;
-  leaveGameSession: () => void;
+  leaveGameSession: (options?: LeaveGameSessionOptions) => void;
+  /** 意図しないタイトル遷移の原因を記録する */
+  reportUnexpectedTitleNavigation: (reason: string) => void;
   /**
    * JSON テキストを読み込み、世界線を特定してゲームへ入る。
    *
@@ -672,13 +679,31 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     pendingAppAutoSaveRef.current = true;
   }, []);
 
-  const leaveGameSession = useCallback(() => {
+  const reportUnexpectedTitleNavigation = useCallback(
+    (reason: string) => {
+      appendOnlineDebugLog('unexpected_title_navigation', reason);
+      try {
+        console.warn(`[unexpected_title_navigation] ${reason}`);
+      } catch {
+        /* noop */
+      }
+    },
+    [appendOnlineDebugLog],
+  );
+
+  const leaveGameSession = useCallback((options?: LeaveGameSessionOptions) => {
+    const intentional = options?.intentional === true;
+    const reason = options?.reason ?? 'no_reason';
+    appendOnlineDebugLog(
+      intentional ? 'intentional_title_navigation' : 'unexpected_title_navigation',
+      reason,
+    );
     setGameSessionActive(false);
     setActiveWorldlineStem('');
     setOnlineSession(null);
     lastServerVersionRef.current = 0;
     setOnlineServerVersion(0);
-  }, []);
+  }, [appendOnlineDebugLog]);
 
   const buildCurrentSnapshot = useCallback((): PersistedSnapshot => {
     const base: PersistedSnapshot = {
@@ -1706,6 +1731,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       gameSessionActive,
       startNewGame,
       leaveGameSession,
+      reportUnexpectedTitleNavigation,
       importSaveFromJsonText,
       loadSaveFromAppStorageByStem,
       onlineSession,
@@ -1751,6 +1777,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       gameSessionActive,
       startNewGame,
       leaveGameSession,
+      reportUnexpectedTitleNavigation,
       importSaveFromJsonText,
       loadSaveFromAppStorageByStem,
       onlineSession,

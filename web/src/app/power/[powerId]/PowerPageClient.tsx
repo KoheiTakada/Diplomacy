@@ -79,6 +79,7 @@ export default function PowerPageClient() {
     isOrderLocked,
     isAdjustmentPhasePanel,
     isRetreatPhase,
+    reportUnexpectedTitleNavigation,
   } = g;
 
   const [hypotheticalUi, setHypotheticalUi] = useState<HypotheticalUiState>(
@@ -158,13 +159,20 @@ export default function PowerPageClient() {
 
   useEffect(() => {
     if (!powerId || !POWERS.includes(powerId)) {
+      reportUnexpectedTitleNavigation(`power_page_invalid_power_id:${powerId}`);
       router.replace('/');
       return;
     }
     if (!gameSessionActive) {
+      reportUnexpectedTitleNavigation(`power_page_session_inactive:${powerId}`);
       router.replace('/');
     }
-  }, [powerId, router, gameSessionActive]);
+  }, [
+    powerId,
+    router,
+    gameSessionActive,
+    reportUnexpectedTitleNavigation,
+  ]);
 
   if (!gameSessionActive) {
     return (
