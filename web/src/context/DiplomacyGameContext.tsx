@@ -750,6 +750,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         return;
       }
       let normalized = normalizeLoadedSnapshot(p);
+      const localNow = buildCurrentSnapshotRef.current();
       if (sess.kind === 'power') {
         if (mergePowerLocalSnapshot != null) {
           normalized = mergePowerSecretSnapshotFromLocal(
@@ -758,13 +759,20 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
             sess.powerId,
           );
         } else if (preferLocalPowerSecretWhenSameStep) {
-          const localNow = buildCurrentSnapshotRef.current();
           if (sameOnlineGameStepForMerge(normalized, localNow)) {
-            normalized = mergePowerSecretSnapshotFromLocal(
-              normalized,
-              localNow,
-              sess.powerId,
+            /**
+             * 勢力入力中の同一ステップ再取得では state を再適用しない。
+             * 再レンダリングでプルダウンが閉じる問題を防ぎ、ローカル入力を優先する。
+             * ターン/フェーズが進んだときのみ下の applyPersistedSnapshot が走る。
+             */
+            lastServerVersionRef.current = data.version;
+            setOnlineServerVersion(data.version);
+            appendOnlineDebugLog(
+              'refetch_snapshot_skip_same_step_power',
+              undefined,
+              data.version,
             );
+            return;
           }
         }
       }
