@@ -84,7 +84,6 @@ import {
 } from '@/lib/persistedSnapshot';
 import { buildPowerOnlinePatchPayload } from '@/lib/onlinePowerPatchClient';
 import {
-  storeLastOnlineRoomId,
   storeOnlineHostSecret,
   storeOnlinePowerSecrets,
 } from '@/lib/onlineSessionBrowser';
@@ -175,32 +174,6 @@ function mergePowerSecretSnapshotFromLocal(
 }
 
 /**
- * ホスト編集中に版競合した場合、同一進行中なら入力系のみローカルを優先する。
- * 盤面・ログ・ターン進行はサーバー値を採用し、命令入力系だけを保護する。
- *
- * @param incoming - サーバー側スナップショット
- * @param local - ローカル編集中スナップショット
- */
-function mergeHostEditingSnapshotFromLocal(
-  incoming: PersistedSnapshot,
-  local: PersistedSnapshot,
-): PersistedSnapshot {
-  if (!sameOnlineGameStepForMerge(incoming, local)) {
-    return incoming;
-  }
-  return {
-    ...incoming,
-    unitOrders: { ...local.unitOrders },
-    buildPlan: { ...local.buildPlan },
-    disbandPlan: { ...local.disbandPlan },
-    retreatTargets: { ...local.retreatTargets },
-    powerOrderSaved: { ...local.powerOrderSaved },
-    powerAdjustmentSaved: { ...local.powerAdjustmentSaved },
-    powerRetreatSaved: { ...local.powerRetreatSaved },
-  };
-}
-
-/**
  * Supabase オンライン卓への接続状態。
  */
 export type OnlineSession =
@@ -228,6 +201,16 @@ export type StartOnlineGameResult =
 
 /** オンライン参加の結果 */
 export type JoinOnlineGameResult = { ok: true } | { ok: false; error: string };
+
+type OnlineDebugEvent = {
+  ts: string;
+  tag: string;
+  detail?: string;
+  roomId?: string;
+  role?: string;
+  localVersion?: number;
+  serverVersion?: number;
+};
 
 /**
  * オンライン参加パラメータ。
@@ -372,6 +355,12 @@ export type DiplomacyGameContextValue = {
   onlineSession: OnlineSession | null;
   /** サーバー上のスナップショット版（表示・デバッグ用） */
   onlineServerVersion: number;
+  /** 収集中のデバッグイベント件数 */
+  onlineDebugLogCount: number;
+  /** 収集済みオンラインデバッグログを JSON で保存 */
+  downloadOnlineDebugLog: () => void;
+  /** 収集済みオンラインデバッグログをクリア */
+  clearOnlineDebugLog: () => void;
   /**
    * 新規オンライン卓を作成しホストとして入る。
    *
@@ -398,6 +387,7 @@ const DiplomacyGameContext = createContext<DiplomacyGameContextValue | null>(
  * @param props.children - 子要素
  */
 export function DiplomacyGameProvider(props: { children: ReactNode }) {
+  const ONLINE_DEBUG_LOG_MAX = 600;
   const defaultSnap = useMemo(() => createDefaultPersistedSnapshot(), []);
   const [board, setBoard] = useState<BoardState>(defaultSnap.board);
   const [unitOrders, setUnitOrders] = useState<Record<string, UnitOrderInput>>(
@@ -436,6 +426,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   const [activeWorldlineStem, setActiveWorldlineStem] = useState('');
   const [onlineSession, setOnlineSession] = useState<OnlineSession | null>(null);
   const [onlineServerVersion, setOnlineServerVersion] = useState(0);
+  const [onlineDebugLogCount, setOnlineDebugLogCount] = useState(0);
 
   const revealGenRef = useRef(0);
   const revealTimersRef = useRef<number[]>([]);
@@ -447,6 +438,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   const onlineSessionRef = useRef<OnlineSession | null>(null);
   const onlinePushTimerRef = useRef<number | null>(null);
   const buildCurrentSnapshotRef = useRef(() => defaultSnap as PersistedSnapshot);
+  const onlineDebugLogRef = useRef<OnlineDebugEvent[]>([]);
 
   useEffect(() => {
     onlineSessionRef.current = onlineSession;
@@ -455,6 +447,65 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   useEffect(() => {
     isResolutionRevealingRef.current = isResolutionRevealing;
   }, [isResolutionRevealing]);
+
+  const appendOnlineDebugLog = useCallback(
+    (tag: string, detail?: string, serverVersion?: number) => {
+      const sess = onlineSessionRef.current;
+      const ev: OnlineDebugEvent = {
+        ts: new Date().toISOString(),
+        tag,
+        detail,
+        roomId: sess?.roomId,
+        role:
+          sess == null
+            ? 'offline'
+            : sess.kind === 'host'
+              ? 'host'
+              : `power:${sess.powerId}`,
+        localVersion: lastServerVersionRef.current,
+        serverVersion,
+      };
+      const next = onlineDebugLogRef.current.concat(ev);
+      onlineDebugLogRef.current =
+        next.length > ONLINE_DEBUG_LOG_MAX
+          ? next.slice(next.length - ONLINE_DEBUG_LOG_MAX)
+          : next;
+      setOnlineDebugLogCount(onlineDebugLogRef.current.length);
+    },
+    [],
+  );
+
+  const clearOnlineDebugLog = useCallback(() => {
+    onlineDebugLogRef.current = [];
+    setOnlineDebugLogCount(0);
+  }, []);
+
+  const downloadOnlineDebugLog = useCallback(() => {
+    const sess = onlineSessionRef.current;
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      roomId: sess?.roomId ?? null,
+      role:
+        sess == null
+          ? 'offline'
+          : sess.kind === 'host'
+            ? 'host'
+            : `power:${sess.powerId}`,
+      onlineServerVersion: lastServerVersionRef.current,
+      eventCount: onlineDebugLogRef.current.length,
+      events: onlineDebugLogRef.current,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeRoomId = sess?.roomId ?? 'offline';
+    a.href = url;
+    a.download = `diplomacy-online-debug-${safeRoomId}-${Date.now()}.json`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }, []);
 
   const prependLogLine = useCallback((line: string) => {
     setLog((prev) => {
@@ -520,20 +571,29 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
 
   const updateOrder = useCallback(
     (unitId: string, patch: Partial<UnitOrderInput>) => {
+      if (onlineSessionRef.current != null) {
+        appendOnlineDebugLog(
+          'order_patch',
+          `${unitId}:${Object.keys(patch).join(',')}`,
+        );
+      }
       setUnitOrders((prev) => ({
         ...prev,
         [unitId]: { ...prev[unitId], ...patch },
       }));
     },
-    [],
+    [appendOnlineDebugLog],
   );
 
   const changeOrderType = useCallback((unitId: string, newType: OrderType) => {
+    if (onlineSessionRef.current != null) {
+      appendOnlineDebugLog('order_type_change', `${unitId}:${newType}`);
+    }
     setUnitOrders((prev) => ({
       ...prev,
       [unitId]: { ...emptyOrder(), type: newType },
     }));
-  }, []);
+  }, [appendOnlineDebugLog]);
 
   const resetAllOrders = useCallback(() => {
     setUnitOrders(buildDefaultOrders(board));
@@ -677,6 +737,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       const url = `/api/online/rooms/${sess.roomId}/snapshot?t=${encodeURIComponent(secret)}`;
       const res = await fetch(url);
       if (!res.ok) {
+        appendOnlineDebugLog('refetch_snapshot_ng', `HTTP ${res.status}`);
         return;
       }
       const data = (await res.json()) as {
@@ -685,43 +746,40 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       };
       const p = tryParsePersistedSnapshotJson(data.snapshotJson);
       if (p == null) {
+        appendOnlineDebugLog('refetch_snapshot_invalid_json');
         return;
       }
       let normalized = normalizeLoadedSnapshot(p);
-      if (mergePowerLocalSnapshot != null) {
-        if (sess.kind === 'power') {
+      if (sess.kind === 'power') {
+        if (mergePowerLocalSnapshot != null) {
           normalized = mergePowerSecretSnapshotFromLocal(
             normalized,
             mergePowerLocalSnapshot,
             sess.powerId,
           );
-        } else {
-          normalized = mergeHostEditingSnapshotFromLocal(
-            normalized,
-            mergePowerLocalSnapshot,
-          );
-        }
-      } else if (sess.kind === 'power' && preferLocalPowerSecretWhenSameStep) {
-        const localNow = buildCurrentSnapshotRef.current();
-        if (sameOnlineGameStepForMerge(normalized, localNow)) {
-          normalized = mergePowerSecretSnapshotFromLocal(
-            normalized,
-            localNow,
-            sess.powerId,
-          );
+        } else if (preferLocalPowerSecretWhenSameStep) {
+          const localNow = buildCurrentSnapshotRef.current();
+          if (sameOnlineGameStepForMerge(normalized, localNow)) {
+            normalized = mergePowerSecretSnapshotFromLocal(
+              normalized,
+              localNow,
+              sess.powerId,
+            );
+          }
         }
       }
       applyPersistedSnapshot(normalized);
       lastServerVersionRef.current = data.version;
       setOnlineServerVersion(data.version);
+      appendOnlineDebugLog('refetch_snapshot_ok', undefined, data.version);
     },
-    [applyPersistedSnapshot],
+    [appendOnlineDebugLog, applyPersistedSnapshot],
   );
 
   /**
    * オンライン未送信の変更を即時に送る。
    *
-   * @returns 更新成功時 true。版競合/通信失敗は false（呼び出し側で再取得判断）
+   * @returns 通信・409 解消を含め同期手順を完了できたら true
    */
   const flushOnlinePush = useCallback(async (): Promise<boolean> => {
     const sess = onlineSessionRef.current;
@@ -731,6 +789,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     const snap = buildCurrentSnapshotRef.current();
     const json = serializeSnapshotForStorage(snap);
     const v = lastServerVersionRef.current;
+    appendOnlineDebugLog('flush_start');
     try {
       if (sess.kind === 'host') {
         const res = await fetch(`/api/online/rooms/${sess.roomId}/snapshot`, {
@@ -743,14 +802,18 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           }),
         });
         if (res.status === 409) {
-          return false;
+          appendOnlineDebugLog('flush_host_409');
+          await refetchOnlineSnapshot(sess);
+          return true;
         }
         if (!res.ok) {
+          appendOnlineDebugLog('flush_host_ng', `HTTP ${res.status}`);
           return false;
         }
         const data = (await res.json()) as { version: number };
         lastServerVersionRef.current = data.version;
         setOnlineServerVersion(data.version);
+        appendOnlineDebugLog('flush_host_ok', undefined, data.version);
         return true;
       }
       const base = buildPowerOnlinePatchPayload(sess.powerId, snap);
@@ -764,20 +827,25 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         }),
       });
       if (res.status === 409) {
-        return false;
+        appendOnlineDebugLog('flush_power_409');
+        await refetchOnlineSnapshot(sess);
+        return true;
       }
       if (!res.ok) {
+        appendOnlineDebugLog('flush_power_ng', `HTTP ${res.status}`);
         return false;
       }
       const data = (await res.json()) as { version: number };
       lastServerVersionRef.current = data.version;
       setOnlineServerVersion(data.version);
+      appendOnlineDebugLog('flush_power_ok', undefined, data.version);
       return true;
     } catch {
       /* ネットワーク断 */
+      appendOnlineDebugLog('flush_network_error');
       return false;
     }
-  }, [gameSessionActive]);
+  }, [appendOnlineDebugLog, gameSessionActive, refetchOnlineSnapshot]);
 
   const startNewOnlineGame = useCallback(
     async (worldlineNameRaw: string): Promise<StartOnlineGameResult> => {
@@ -836,10 +904,10 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         roomId: data.roomId,
         hostSecret: data.hostSecret,
       });
-      storeLastOnlineRoomId(data.roomId);
       lastServerVersionRef.current = data.version;
       setOnlineServerVersion(data.version);
       pendingAppAutoSaveRef.current = false;
+      appendOnlineDebugLog('online_room_created', undefined, data.version);
       storeOnlinePowerSecrets(data.roomId, data.powerSecrets);
       storeOnlineHostSecret(data.roomId, data.hostSecret);
       return {
@@ -849,7 +917,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         powerSecrets: data.powerSecrets,
       };
     },
-    [applyPersistedSnapshot],
+    [appendOnlineDebugLog, applyPersistedSnapshot],
   );
 
   const joinOnlineGame = useCallback(
@@ -949,13 +1017,13 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           powerSecret: token,
         });
       }
-      storeLastOnlineRoomId(params.roomId);
       lastServerVersionRef.current = data.version;
       setOnlineServerVersion(data.version);
       pendingAppAutoSaveRef.current = false;
+      appendOnlineDebugLog('online_join_ok', undefined, data.version);
       return { ok: true };
     },
-    [applyPersistedSnapshot],
+    [appendOnlineDebugLog, applyPersistedSnapshot],
   );
 
   const startNewGame = useCallback(
@@ -1074,9 +1142,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       return;
     }
     /**
-     * ホストの解決演出中は board が段階的に更新される。
-     * その中間盤面を配信すると各プレイヤーが「同時に複数移動」に見えるため、
-     * 演出中は push せず、finishReveal 後の確定盤面だけ同期する。
+     * ホストの解決演出中は中間盤面をサーバーへ送らない。
+     * 各クライアントはホスト確定後の単一スナップショットだけを反映する。
      */
     if (onlineSession.kind === 'host' && isResolutionRevealing) {
       if (onlinePushTimerRef.current != null) {
@@ -1106,7 +1173,6 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     isBuildPhase,
     isDisbandPhase,
     isRetreatPhase,
-    isResolutionRevealing,
     retreatTargets,
     pendingRetreats,
     buildPlan,
@@ -1114,6 +1180,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     powerOrderSaved,
     powerAdjustmentSaved,
     powerRetreatSaved,
+    isResolutionRevealing,
     flushOnlinePush,
   ]);
 
@@ -1149,6 +1216,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         if (pollData.version <= lastServerVersionRef.current) {
           return;
         }
+        appendOnlineDebugLog('poll_detect_newer', undefined, pollData.version);
         const sessNow = onlineSessionRef.current;
         if (sessNow == null) {
           return;
@@ -1158,7 +1226,10 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
          * タイマーを切って即 flush し、GET で再取得する。
          * flush が失敗したがデバウンス待ちだった場合は自国分だけローカルをマージする。
          */
-        const localSnapForMerge = buildCurrentSnapshotRef.current();
+        const localSnapForMerge =
+          sessNow.kind === 'power'
+            ? buildCurrentSnapshotRef.current()
+            : null;
         const hadPendingDebounce = onlinePushTimerRef.current != null;
         if (onlinePushTimerRef.current != null) {
           window.clearTimeout(onlinePushTimerRef.current);
@@ -1166,7 +1237,12 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         }
         const flushOk = await flushOnlinePush();
         const mergeOverlay =
-          hadPendingDebounce && !flushOk ? localSnapForMerge : undefined;
+          sessNow.kind === 'power' &&
+          localSnapForMerge != null &&
+          hadPendingDebounce &&
+          !flushOk
+            ? localSnapForMerge
+            : undefined;
         await refetchOnlineSnapshot(
           sessNow,
           mergeOverlay,
@@ -1175,7 +1251,13 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       })();
     }, 4000);
     return () => window.clearInterval(id);
-  }, [gameSessionActive, onlineSession, flushOnlinePush, refetchOnlineSnapshot]);
+  }, [
+    appendOnlineDebugLog,
+    gameSessionActive,
+    onlineSession,
+    flushOnlinePush,
+    refetchOnlineSnapshot,
+  ]);
 
   const handleAdjudicate = useCallback(() => {
     if (isOrderLocked) {
@@ -1186,6 +1268,10 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     }
 
     const currentTurn = board.turn;
+    appendOnlineDebugLog(
+      'adjudicate_start',
+      `${currentTurn.year}-${currentTurn.season}`,
+    );
     const isFallTurn = currentTurn.season === Season.Fall;
     const labelBoard = board;
     const domainOrders = buildDomainOrders();
@@ -1215,6 +1301,10 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     const emptyFlags = emptyPowerBoolMap(POWERS);
 
     const finishReveal = () => {
+      appendOnlineDebugLog(
+        'adjudicate_finish',
+        `${currentTurn.year}-${currentTurn.season}`,
+      );
       isResolutionRevealingRef.current = false;
       setIsResolutionRevealing(false);
       setPowerOrderSaved({ ...emptyFlags });
@@ -1353,6 +1443,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       revealTimersRef.current.push(tid);
     });
   }, [
+    appendOnlineDebugLog,
     allPowersMovementReady,
     board,
     buildDomainOrders,
@@ -1611,6 +1702,9 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       loadSaveFromAppStorageByStem,
       onlineSession,
       onlineServerVersion,
+      onlineDebugLogCount,
+      downloadOnlineDebugLog,
+      clearOnlineDebugLog,
       startNewOnlineGame,
       joinOnlineGame,
     }),
@@ -1653,6 +1747,9 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       loadSaveFromAppStorageByStem,
       onlineSession,
       onlineServerVersion,
+      onlineDebugLogCount,
+      downloadOnlineDebugLog,
+      clearOnlineDebugLog,
       startNewOnlineGame,
       joinOnlineGame,
     ],

@@ -67,6 +67,9 @@ export function MainDiplomacyHome() {
     allPowersRetreatReady,
     onlineSession,
     onlineServerVersion,
+    onlineDebugLogCount,
+    downloadOnlineDebugLog,
+    clearOnlineDebugLog,
   } = g;
 
   const hostPowerLinkSecrets = useMemo(() => {
@@ -192,13 +195,33 @@ export function MainDiplomacyHome() {
           />
         ) : null}
         {onlineSession != null ? (
-          <p className="shrink-0 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-950">
-            オンライン卓に接続中（データ版{' '}
-            <span className="tabular-nums">{onlineServerVersion}</span>
-            ・
-            {onlineSession.kind === 'host' ? 'ホスト' : `${onlineSession.powerId} 参加`}
-            ）
-          </p>
+          <div className="shrink-0 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-950">
+            <p>
+              オンライン卓に接続中（データ版{' '}
+              <span className="tabular-nums">{onlineServerVersion}</span>
+              ・
+              {onlineSession.kind === 'host'
+                ? 'ホスト'
+                : `${onlineSession.powerId} 参加`}
+              ）
+            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={downloadOnlineDebugLog}
+                className="rounded border border-sky-400 bg-white px-2 py-0.5 text-[10px] font-semibold text-sky-800 hover:bg-sky-100"
+              >
+                デバッグログを保存（{onlineDebugLogCount}件）
+              </button>
+              <button
+                type="button"
+                onClick={clearOnlineDebugLog}
+                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100"
+              >
+                ログをクリア
+              </button>
+            </div>
+          </div>
         ) : null}
         <section
           aria-label="勢力別の補給拠点数とユニット数"

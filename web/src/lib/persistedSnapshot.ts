@@ -26,46 +26,7 @@ import {
   boardWithRefreshedProvinceTint,
   type BoardState,
   type DislodgedUnit,
-  type Unit,
 } from '@/domain';
-
-/**
- * 同一 id のユニットが複数あると地図上で二重描画・移動アニメが重なる。
- * オンライン卓でマージ不整合が起きた場合の保険として後勝ちで1件にまとめる。
- *
- * @param board - 入力盤面
- * @returns 重複除去後の盤面
- */
-function dedupeBoardUnitsById(board: BoardState): BoardState {
-  const byId = new Map<string, Unit>();
-  for (const u of board.units) {
-    byId.set(u.id, u);
-  }
-  return {
-    ...board,
-    units: Array.from(byId.values()),
-  };
-}
-
-/**
- * 盤面に存在しないユニット id の命令を除去する（重複除去後の整合用）。
- *
- * @param unitOrders - 入力命令マップ
- * @param board - 参照盤面
- */
-function pruneOrphanUnitOrders(
-  unitOrders: Record<string, UnitOrderInput>,
-  board: BoardState,
-): Record<string, UnitOrderInput> {
-  const ids = new Set(board.units.map((u) => u.id));
-  const out: Record<string, UnitOrderInput> = { ...unitOrders };
-  for (const k of Object.keys(out)) {
-    if (!ids.has(k)) {
-      delete out[k];
-    }
-  }
-  return out;
-}
 
 /** v:1 永続化スナップショット */
 export type PersistedSnapshot = {
@@ -117,21 +78,16 @@ export function createDefaultPersistedSnapshot(): PersistedSnapshot {
 }
 
 /**
- * 読み込んだスナップショットを正規化する。
- * 勢力フラグの補完に加え、ユニット id 重複の除去と孤児命令の削除を行う。
+ * 読み込んだスナップショットの勢力フラグを既知の勢力で補完する。
  *
  * @param loaded - 読み込み済みデータ
  * @returns 正規化後
  */
 export function normalizeLoadedSnapshot(loaded: PersistedSnapshot): PersistedSnapshot {
   const emptyFlags = emptyPowerBoolMap(POWERS);
-  const board = boardWithRefreshedProvinceTint(
-    dedupeBoardUnitsById(loaded.board),
-  );
   return {
     ...loaded,
-    board,
-    unitOrders: pruneOrphanUnitOrders(loaded.unitOrders, board),
+    board: boardWithRefreshedProvinceTint(loaded.board),
     powerOrderSaved: { ...emptyFlags, ...loaded.powerOrderSaved },
     powerAdjustmentSaved: { ...emptyFlags, ...loaded.powerAdjustmentSaved },
     powerRetreatSaved: { ...emptyFlags, ...loaded.powerRetreatSaved },

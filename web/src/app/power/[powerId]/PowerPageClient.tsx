@@ -22,10 +22,6 @@ import MapView from '@/components/MapView';
 import { PowerSecretWorkbench } from '@/components/PowerSecretWorkbench';
 import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
 import { mergePowerPageOrderPreview, type UnitOrderInput } from '@/diplomacy/gameHelpers';
-import {
-  readLastOnlineRoomId,
-  readOnlineHostSecret,
-} from '@/lib/onlineSessionBrowser';
 import { buildAdjacencyKeySet } from '@/mapMovement';
 import { POWERS } from '@/miniMap';
 import Link from 'next/link';
@@ -34,7 +30,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type SetStateAction,
 } from 'react';
@@ -84,9 +79,7 @@ export default function PowerPageClient() {
     isOrderLocked,
     isAdjustmentPhasePanel,
     isRetreatPhase,
-    joinOnlineGame,
   } = g;
-  const restoreTriedRef = useRef(false);
 
   const [hypotheticalUi, setHypotheticalUi] = useState<HypotheticalUiState>(
     () => ({
@@ -168,48 +161,15 @@ export default function PowerPageClient() {
       router.replace('/');
       return;
     }
-    if (gameSessionActive || onlineSession != null || restoreTriedRef.current) {
-      return;
-    }
-    restoreTriedRef.current = true;
-    /**
-     * ホストが別タブや直接URLで `/power/[id]` を開いたとき、
-     * 前回の roomId + hostSecret からオンライン参加を自動復元する。
-     */
-    const roomId = readLastOnlineRoomId();
-    const hostSecret = roomId != null ? readOnlineHostSecret(roomId) : null;
-    if (roomId == null || hostSecret == null) {
+    if (!gameSessionActive) {
       router.replace('/');
-      return;
     }
-    void (async () => {
-      const res = await joinOnlineGame({ roomId, hostSecret });
-      if (!res.ok) {
-        router.replace('/');
-      }
-    })();
-  }, [
-    powerId,
-    router,
-    gameSessionActive,
-    onlineSession,
-    joinOnlineGame,
-  ]);
+  }, [powerId, router, gameSessionActive]);
 
   if (!gameSessionActive) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-2 text-sm text-zinc-500">
-        <p>
-          {onlineSession != null
-            ? 'セッションを確認しています…'
-            : 'セッションが見つかりません。メインへ戻ります…'}
-        </p>
-        <Link
-          href="/"
-          className="text-xs font-medium text-violet-600 hover:text-violet-500"
-        >
-          メインページへ
-        </Link>
+      <div className="flex min-h-dvh items-center justify-center text-sm text-zinc-500">
+        メインへ移動しています…
       </div>
     );
   }

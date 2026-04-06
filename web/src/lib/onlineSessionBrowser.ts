@@ -16,7 +16,6 @@
 
 const keyPrefix = 'diplomacy:onlinePowerSecrets:';
 const hostKeyPrefix = 'diplomacy:onlineHostSecret:';
-const lastRoomIdKey = 'diplomacy:lastOnlineRoomId';
 
 /**
  * 各国シークレットを保存する。
@@ -91,42 +90,6 @@ export function readOnlineHostSecret(roomId: string): string | null {
   }
   try {
     const v = sessionStorage.getItem(`${hostKeyPrefix}${roomId}`);
-    if (v == null || v.length === 0) {
-      return null;
-    }
-    return v;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 最後に参加したオンライン卓 ID を保存する。
- *
- * @param roomId - 卓 UUID
- */
-export function storeLastOnlineRoomId(roomId: string): void {
-  if (typeof sessionStorage === 'undefined') {
-    return;
-  }
-  try {
-    sessionStorage.setItem(lastRoomIdKey, roomId);
-  } catch {
-    /* 容量・プライベートモード */
-  }
-}
-
-/**
- * 最後に参加したオンライン卓 ID を読む。
- *
- * @returns 無ければ null
- */
-export function readLastOnlineRoomId(): string | null {
-  if (typeof sessionStorage === 'undefined') {
-    return null;
-  }
-  try {
-    const v = sessionStorage.getItem(lastRoomIdKey);
     if (v == null || v.length === 0) {
       return null;
     }
