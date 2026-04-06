@@ -574,6 +574,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   const onlineHostSyncBaselineRef = useRef<PersistedSnapshot | null>(null);
   const onlineSessionRef = useRef<OnlineSession | null>(null);
   const onlinePushTimerRef = useRef<number | null>(null);
+  /** power 参加者は「命令送信」押下時だけサーバー送信するためのフラグ */
+  const powerSubmitRequestedRef = useRef(false);
   const buildCurrentSnapshotRef = useRef(() => defaultSnap as PersistedSnapshot);
   const onlineDebugLogRef = useRef<OnlineDebugEvent[]>([]);
 
@@ -803,14 +805,26 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
 
   const markPowerOrderSaved = useCallback((powerId: string) => {
     setPowerOrderSaved((prev) => ({ ...prev, [powerId]: true }));
+    const sess = onlineSessionRef.current;
+    if (sess?.kind === 'power' && sess.powerId === powerId) {
+      powerSubmitRequestedRef.current = true;
+    }
   }, []);
 
   const markPowerAdjustmentSaved = useCallback((powerId: string) => {
     setPowerAdjustmentSaved((prev) => ({ ...prev, [powerId]: true }));
+    const sess = onlineSessionRef.current;
+    if (sess?.kind === 'power' && sess.powerId === powerId) {
+      powerSubmitRequestedRef.current = true;
+    }
   }, []);
 
   const markPowerRetreatSaved = useCallback((powerId: string) => {
     setPowerRetreatSaved((prev) => ({ ...prev, [powerId]: true }));
+    const sess = onlineSessionRef.current;
+    if (sess?.kind === 'power' && sess.powerId === powerId) {
+      powerSubmitRequestedRef.current = true;
+    }
   }, []);
 
   const scheduleAppAutoSave = useCallback(() => {
@@ -841,6 +855,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     setOnlineSession(null);
     clearOnlineActiveSession();
     onlineHostSyncBaselineRef.current = null;
+    powerSubmitRequestedRef.current = false;
     lastServerVersionRef.current = 0;
     setOnlineServerVersion(0);
   }, [appendOnlineDebugLog]);
@@ -886,6 +901,18 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
 
   buildCurrentSnapshotRef.current = buildCurrentSnapshot;
 
+  /**
+   * 同一ステップでフル再適用を避ける場合でも、他プレイヤーの入力完了状況だけは
+   * 画面へ反映して進捗を共有する。
+   *
+   * @param incoming - サーバー再取得スナップショット
+   */
+  const applyRealtimeProgressFlags = useCallback((incoming: PersistedSnapshot) => {
+    setPowerOrderSaved(incoming.powerOrderSaved);
+    setPowerAdjustmentSaved(incoming.powerAdjustmentSaved);
+    setPowerRetreatSaved(incoming.powerRetreatSaved);
+  }, []);
+
   const refetchOnlineSnapshot = useCallback(
     async (
       sess: OnlineSession,
@@ -924,6 +951,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         preferLocalStateWhenSameStep &&
         sameOnlineGameStepForMerge(incomingSnap, localNow)
       ) {
+        applyRealtimeProgressFlags(incomingSnap);
         lastServerVersionRef.current = data.version;
         setOnlineServerVersion(data.version);
         appendOnlineDebugLog(
@@ -974,7 +1002,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       }
       appendOnlineDebugLog('refetch_snapshot_ok', undefined, data.version);
     },
-    [appendOnlineDebugLog, applyPersistedSnapshot],
+    [appendOnlineDebugLog, applyPersistedSnapshot, applyRealtimeProgressFlags],
   );
 
   /**
@@ -985,6 +1013,10 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   const flushOnlinePush = useCallback(async (): Promise<boolean> => {
     const sess = onlineSessionRef.current;
     if (sess == null || !gameSessionActive) {
+      return true;
+    }
+    if (sess.kind === 'power' && !powerSubmitRequestedRef.current) {
+      appendOnlineDebugLog('flush_power_skip_draft');
       return true;
     }
     const snap = buildCurrentSnapshotRef.current();
@@ -1036,6 +1068,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           false,
           true,
         );
+        powerSubmitRequestedRef.current = false;
         return true;
       }
       if (!res.ok) {
@@ -1046,6 +1079,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       lastServerVersionRef.current = data.version;
       setOnlineServerVersion(data.version);
       appendOnlineDebugLog('flush_power_ok', undefined, data.version);
+      powerSubmitRequestedRef.current = false;
       return true;
     } catch {
       /* ネットワーク断 */
@@ -1255,6 +1289,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       setOnlineSession(null);
       clearOnlineActiveSession();
       onlineHostSyncBaselineRef.current = null;
+      powerSubmitRequestedRef.current = false;
       lastServerVersionRef.current = 0;
       setOnlineServerVersion(0);
       const fresh = createDefaultPersistedSnapshot();
@@ -1289,6 +1324,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         setOnlineSession(null);
         clearOnlineActiveSession();
         onlineHostSyncBaselineRef.current = null;
+        powerSubmitRequestedRef.current = false;
         lastServerVersionRef.current = 0;
         setOnlineServerVersion(0);
         setActiveWorldlineStem(stem);
@@ -1371,6 +1407,13 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       }
       return;
     }
+    if (onlineSession.kind === 'power') {
+      if (onlinePushTimerRef.current != null) {
+        window.clearTimeout(onlinePushTimerRef.current);
+        onlinePushTimerRef.current = null;
+      }
+      return;
+    }
     if (onlinePushTimerRef.current != null) {
       window.clearTimeout(onlinePushTimerRef.current);
     }
@@ -1400,6 +1443,30 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     powerAdjustmentSaved,
     powerRetreatSaved,
     isResolutionRevealing,
+    flushOnlinePush,
+  ]);
+
+  /**
+   * power 参加者は「命令送信」押下時のみ送る。
+   * 下書き編集のたびには送らないため、送信要求フラグが立ったときだけ flush する。
+   */
+  useEffect(() => {
+    if (!gameSessionActive || onlineSession?.kind !== 'power') {
+      return;
+    }
+    if (!powerSubmitRequestedRef.current) {
+      return;
+    }
+    const id = window.setTimeout(() => {
+      void flushOnlinePush();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [
+    gameSessionActive,
+    onlineSession,
+    powerOrderSaved,
+    powerAdjustmentSaved,
+    powerRetreatSaved,
     flushOnlinePush,
   ]);
 
