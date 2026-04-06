@@ -84,6 +84,7 @@ import {
 } from '@/lib/persistedSnapshot';
 import { buildPowerOnlinePatchPayload } from '@/lib/onlinePowerPatchClient';
 import {
+  storeLastOnlineRoomId,
   storeOnlineHostSecret,
   storeOnlinePowerSecrets,
 } from '@/lib/onlineSessionBrowser';
@@ -806,6 +807,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         roomId: data.roomId,
         hostSecret: data.hostSecret,
       });
+      storeLastOnlineRoomId(data.roomId);
       lastServerVersionRef.current = data.version;
       setOnlineServerVersion(data.version);
       pendingAppAutoSaveRef.current = false;
@@ -918,6 +920,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           powerSecret: token,
         });
       }
+      storeLastOnlineRoomId(params.roomId);
       lastServerVersionRef.current = data.version;
       setOnlineServerVersion(data.version);
       pendingAppAutoSaveRef.current = false;

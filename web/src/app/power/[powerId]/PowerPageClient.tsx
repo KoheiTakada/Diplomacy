@@ -22,6 +22,10 @@ import MapView from '@/components/MapView';
 import { PowerSecretWorkbench } from '@/components/PowerSecretWorkbench';
 import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
 import { mergePowerPageOrderPreview, type UnitOrderInput } from '@/diplomacy/gameHelpers';
+import {
+  readLastOnlineRoomId,
+  readOnlineHostSecret,
+} from '@/lib/onlineSessionBrowser';
 import { buildAdjacencyKeySet } from '@/mapMovement';
 import { POWERS } from '@/miniMap';
 import Link from 'next/link';
@@ -30,6 +34,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type SetStateAction,
 } from 'react';
@@ -79,7 +84,9 @@ export default function PowerPageClient() {
     isOrderLocked,
     isAdjustmentPhasePanel,
     isRetreatPhase,
+    joinOnlineGame,
   } = g;
+  const restoreTriedRef = useRef(false);
 
   const [hypotheticalUi, setHypotheticalUi] = useState<HypotheticalUiState>(
     () => ({
@@ -161,14 +168,33 @@ export default function PowerPageClient() {
       router.replace('/');
       return;
     }
-    /**
-     * 直接 `/power/[id]` を開いた直後など、セッション未開始ならメインへ戻す。
-     * ただしオンライン接続情報がある一時状態では即リダイレクトせず待機する。
-     */
-    if (!gameSessionActive && onlineSession == null) {
-      router.replace('/');
+    if (gameSessionActive || onlineSession != null || restoreTriedRef.current) {
+      return;
     }
-  }, [powerId, router, gameSessionActive, onlineSession]);
+    restoreTriedRef.current = true;
+    /**
+     * ホストが別タブや直接URLで `/power/[id]` を開いたとき、
+     * 前回の roomId + hostSecret からオンライン参加を自動復元する。
+     */
+    const roomId = readLastOnlineRoomId();
+    const hostSecret = roomId != null ? readOnlineHostSecret(roomId) : null;
+    if (roomId == null || hostSecret == null) {
+      router.replace('/');
+      return;
+    }
+    void (async () => {
+      const res = await joinOnlineGame({ roomId, hostSecret });
+      if (!res.ok) {
+        router.replace('/');
+      }
+    })();
+  }, [
+    powerId,
+    router,
+    gameSessionActive,
+    onlineSession,
+    joinOnlineGame,
+  ]);
 
   if (!gameSessionActive) {
     return (
