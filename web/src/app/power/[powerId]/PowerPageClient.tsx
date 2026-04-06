@@ -22,6 +22,7 @@ import MapView from '@/components/MapView';
 import { PowerSecretWorkbench } from '@/components/PowerSecretWorkbench';
 import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
 import { mergePowerPageOrderPreview, type UnitOrderInput } from '@/diplomacy/gameHelpers';
+import { readOnlineActiveSession } from '@/lib/onlineSessionBrowser';
 import { buildAdjacencyKeySet } from '@/mapMovement';
 import { POWERS } from '@/miniMap';
 import Link from 'next/link';
@@ -79,8 +80,10 @@ export default function PowerPageClient() {
     isOrderLocked,
     isAdjustmentPhasePanel,
     isRetreatPhase,
+    joinOnlineGame,
     reportUnexpectedTitleNavigation,
   } = g;
+  const [isRestoringSession, setIsRestoringSession] = useState(false);
 
   const [hypotheticalUi, setHypotheticalUi] = useState<HypotheticalUiState>(
     () => ({
@@ -163,21 +166,42 @@ export default function PowerPageClient() {
       router.replace('/');
       return;
     }
-    if (!gameSessionActive) {
+    if (gameSessionActive || isRestoringSession) {
+      return;
+    }
+    const saved = readOnlineActiveSession();
+    if (saved == null) {
       reportUnexpectedTitleNavigation(`power_page_session_inactive:${powerId}`);
       router.replace('/');
+      return;
     }
+    setIsRestoringSession(true);
+    void (async () => {
+      const result = await joinOnlineGame({
+        roomId: saved.roomId,
+        token: saved.token,
+      });
+      if (!result.ok) {
+        reportUnexpectedTitleNavigation(
+          `power_page_session_restore_failed:${powerId}:${result.error}`,
+        );
+        router.replace('/');
+      }
+      setIsRestoringSession(false);
+    })();
   }, [
     powerId,
     router,
     gameSessionActive,
+    isRestoringSession,
+    joinOnlineGame,
     reportUnexpectedTitleNavigation,
   ]);
 
-  if (!gameSessionActive) {
+  if (!gameSessionActive || isRestoringSession) {
     return (
       <div className="flex min-h-dvh items-center justify-center text-sm text-zinc-500">
-        メインへ移動しています…
+        {isRestoringSession ? 'オンライン接続を復元しています…' : 'メインへ移動しています…'}
       </div>
     );
   }

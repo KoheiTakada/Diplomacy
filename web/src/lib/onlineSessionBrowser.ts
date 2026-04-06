@@ -16,6 +16,12 @@
 
 const keyPrefix = 'diplomacy:onlinePowerSecrets:';
 const hostKeyPrefix = 'diplomacy:onlineHostSecret:';
+const activeSessionKey = 'diplomacy:onlineActiveSession:v1';
+
+export type BrowserOnlineActiveSession = {
+  roomId: string;
+  token: string;
+};
 
 /**
  * 各国シークレットを保存する。
@@ -96,5 +102,72 @@ export function readOnlineHostSecret(roomId: string): string | null {
     return v;
   } catch {
     return null;
+  }
+}
+
+/**
+ * 現在のオンライン参加情報を localStorage に保存する（別タブ復元用）。
+ *
+ * @param roomId - 卓 UUID
+ * @param token - ホストまたは各国シークレット
+ */
+export function storeOnlineActiveSession(roomId: string, token: string): void {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
+  try {
+    localStorage.setItem(
+      activeSessionKey,
+      JSON.stringify({
+        roomId,
+        token,
+      }),
+    );
+  } catch {
+    /* 容量・プライベートモード */
+  }
+}
+
+/**
+ * 保存済みのオンライン参加情報を読む（別タブ復元用）。
+ *
+ * @returns 無ければ null
+ */
+export function readOnlineActiveSession(): BrowserOnlineActiveSession | null {
+  if (typeof localStorage === 'undefined') {
+    return null;
+  }
+  try {
+    const raw = localStorage.getItem(activeSessionKey);
+    if (raw == null || raw.length === 0) {
+      return null;
+    }
+    const p = JSON.parse(raw) as BrowserOnlineActiveSession;
+    if (
+      p == null ||
+      typeof p.roomId !== 'string' ||
+      p.roomId.length === 0 ||
+      typeof p.token !== 'string' ||
+      p.token.length === 0
+    ) {
+      return null;
+    }
+    return p;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 保存済みのオンライン参加情報を消す。
+ */
+export function clearOnlineActiveSession(): void {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
+  try {
+    localStorage.removeItem(activeSessionKey);
+  } catch {
+    /* 容量・プライベートモード */
   }
 }

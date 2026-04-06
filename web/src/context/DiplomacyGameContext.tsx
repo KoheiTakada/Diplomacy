@@ -84,7 +84,9 @@ import {
 } from '@/lib/persistedSnapshot';
 import { buildPowerOnlinePatchPayload } from '@/lib/onlinePowerPatchClient';
 import {
+  clearOnlineActiveSession,
   storeOnlineHostSecret,
+  storeOnlineActiveSession,
   storeOnlinePowerSecrets,
 } from '@/lib/onlineSessionBrowser';
 
@@ -701,6 +703,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     setGameSessionActive(false);
     setActiveWorldlineStem('');
     setOnlineSession(null);
+    clearOnlineActiveSession();
     lastServerVersionRef.current = 0;
     setOnlineServerVersion(0);
   }, [appendOnlineDebugLog]);
@@ -942,6 +945,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       appendOnlineDebugLog('online_room_created', undefined, data.version);
       storeOnlinePowerSecrets(data.roomId, data.powerSecrets);
       storeOnlineHostSecret(data.roomId, data.hostSecret);
+      storeOnlineActiveSession(data.roomId, data.hostSecret);
       return {
         ok: true,
         roomId: data.roomId,
@@ -1036,12 +1040,14 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       setGameSessionActive(true);
       if (auth.role === 'host') {
         storeOnlineHostSecret(params.roomId, token);
+        storeOnlineActiveSession(params.roomId, token);
         setOnlineSession({
           kind: 'host',
           roomId: params.roomId,
           hostSecret: token,
         });
       } else {
+        storeOnlineActiveSession(params.roomId, token);
         setOnlineSession({
           kind: 'power',
           roomId: params.roomId,
@@ -1070,6 +1076,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       setIsResolutionRevealing(false);
       isResolutionRevealingRef.current = false;
       setOnlineSession(null);
+      clearOnlineActiveSession();
       lastServerVersionRef.current = 0;
       setOnlineServerVersion(0);
       const fresh = createDefaultPersistedSnapshot();
@@ -1102,6 +1109,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         const mergedBase = normalizeLoadedSnapshot(p);
         const merged: PersistedSnapshot = { ...mergedBase, worldlineStem: stem };
         setOnlineSession(null);
+        clearOnlineActiveSession();
         lastServerVersionRef.current = 0;
         setOnlineServerVersion(0);
         setActiveWorldlineStem(stem);
