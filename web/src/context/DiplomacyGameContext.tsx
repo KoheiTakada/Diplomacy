@@ -393,6 +393,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     defaultSnap.pendingRetreats,
   );
   const [isResolutionRevealing, setIsResolutionRevealing] = useState(false);
+  /** ポーリングが解決演出中に古いスナップショットで上書きしないよう参照する */
+  const isResolutionRevealingRef = useRef(false);
   const [powerOrderSaved, setPowerOrderSaved] = useState<Record<string, boolean>>(
     defaultSnap.powerOrderSaved,
   );
@@ -422,6 +424,10 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   useEffect(() => {
     onlineSessionRef.current = onlineSession;
   }, [onlineSession]);
+
+  useEffect(() => {
+    isResolutionRevealingRef.current = isResolutionRevealing;
+  }, [isResolutionRevealing]);
 
   const prependLogLine = useCallback((line: string) => {
     setLog((prev) => {
@@ -777,6 +783,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       revealGenRef.current += 1;
       pendingMapEffectsRef.current = [];
       setIsResolutionRevealing(false);
+      isResolutionRevealingRef.current = false;
       applyPersistedSnapshot(normalizeLoadedSnapshot(loaded));
       setActiveWorldlineStem(stem);
       setGameSessionActive(true);
@@ -874,6 +881,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       revealGenRef.current += 1;
       pendingMapEffectsRef.current = [];
       setIsResolutionRevealing(false);
+      isResolutionRevealingRef.current = false;
       applyPersistedSnapshot(normalizeLoadedSnapshot(loaded));
       const stem =
         loaded.worldlineStem != null && loaded.worldlineStem.length > 0
@@ -914,6 +922,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       revealGenRef.current += 1;
       pendingMapEffectsRef.current = [];
       setIsResolutionRevealing(false);
+      isResolutionRevealingRef.current = false;
       setOnlineSession(null);
       lastServerVersionRef.current = 0;
       setOnlineServerVersion(0);
@@ -1059,6 +1068,9 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         return;
       }
       void (async () => {
+        if (isResolutionRevealingRef.current) {
+          return;
+        }
         const pollSecret =
           sess.kind === 'host' ? sess.hostSecret : sess.powerSecret;
         const pollUrl = `/api/online/rooms/${sess.roomId}/snapshot?t=${encodeURIComponent(pollSecret)}`;
@@ -1137,6 +1149,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     const runGen = revealGenRef.current;
     pendingMapEffectsRef.current = [];
 
+    isResolutionRevealingRef.current = true;
     setIsResolutionRevealing(true);
     setIsBuildPhase(false);
     setIsDisbandPhase(false);
@@ -1147,12 +1160,13 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     const emptyFlags = emptyPowerBoolMap(POWERS);
 
     const finishReveal = () => {
-      setBoard(nextBoardState);
-      setUnitOrders(buildDefaultOrders(nextBoardState));
+      isResolutionRevealingRef.current = false;
       setIsResolutionRevealing(false);
       setPowerOrderSaved({ ...emptyFlags });
 
       if (result.dislodgedUnits.length > 0) {
+        setBoard(nextBoardState);
+        setUnitOrders(buildDefaultOrders(nextBoardState));
         setPendingRetreats(result.dislodgedUnits);
         setRetreatTargets({});
         setPowerRetreatSaved({ ...emptyFlags });
@@ -1161,6 +1175,11 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         return;
       }
 
+      /**
+       * 春→秋などは「解決直後」と「季進行後」で setBoard を分けない。
+       * 同一ティック内の二重 setBoard が環境によっては最後の更新だけ反映されず
+       * 季が進まないように見えるのを避ける。
+       */
       if (!isFallTurn) {
         const advancedBoard: BoardState = {
           ...nextBoardState,
@@ -1188,6 +1207,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         scheduleAppAutoSave();
         return;
       }
+      setBoard(nextBoardState);
+      setUnitOrders(buildDefaultOrders(nextBoardState));
       setPowerAdjustmentSaved({ ...emptyFlags });
       setIsDisbandPhase(hasDisband);
       setIsBuildPhase(hasBuild);
@@ -1335,13 +1356,28 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
 
     const hasDisband = POWER_ORDER.some((pid) => disbandNeed(nextBoard, pid) > 0);
     const hasBuild = POWER_ORDER.some((pid) => buildCapacity(nextBoard, pid) > 0);
+    /**
+     * 秋ターン: 調整（削減・増産）が不要なら `handleAdjudicate` の finishReveal と同様に
+     * 翌年春へ進める。ここが無いと退却のみの秋のあと年が進まず留まる。
+     */
+    if (!hasDisband && !hasBuild) {
+      const advancedBoard = boardWithRefreshedProvinceTint({
+        ...nextBoard,
+        turn: nextTurn(board.turn),
+      });
+      setBoard(advancedBoard);
+      setUnitOrders(buildDefaultOrders(advancedBoard));
+      setIsDisbandPhase(false);
+      setIsBuildPhase(false);
+      prependLogLine('── 退却完了 ──');
+      scheduleAppAutoSave();
+      return;
+    }
     setBoard(nextBoard);
     setUnitOrders(buildDefaultOrders(nextBoard));
     setIsDisbandPhase(hasDisband);
     setIsBuildPhase(hasBuild);
-    if (hasDisband || hasBuild) {
-      setPowerAdjustmentSaved({ ...emptyFlags });
-    }
+    setPowerAdjustmentSaved({ ...emptyFlags });
     prependLogLine('── 退却完了 ──');
     scheduleAppAutoSave();
   }, [
