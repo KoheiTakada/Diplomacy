@@ -177,6 +177,128 @@ function mergePowerSecretSnapshotFromLocal(
 }
 
 /**
+ * 版競合（409）後の再取得で、ホストの未送信編集を失わないための3-wayマージ。
+ * base = 最後にサーバーと整合したとみなすスナップショット、local = 現在画面、incoming = GET 応答。
+ * 各フィールドで local が base から変わっていれば local を採用、さもなくば incoming。
+ *
+ * @param incoming - サーバーから取得した正規化済みスナップショット
+ * @param local - クライアント現在状態
+ * @param base - 直近の同期基準
+ */
+function mergeHostPersistedSnapshotThreeWay(
+  incoming: PersistedSnapshot,
+  local: PersistedSnapshot,
+  base: PersistedSnapshot,
+): PersistedSnapshot {
+  if (!sameOnlineGameStepForMerge(incoming, local)) {
+    return incoming;
+  }
+  const jsonEq = (a: unknown, b: unknown): boolean =>
+    JSON.stringify(a) === JSON.stringify(b);
+  const unitOrders = { ...incoming.unitOrders };
+  for (const u of incoming.board.units) {
+    const id = u.id;
+    const loc = local.unitOrders[id] ?? emptyOrder();
+    const bas = base.unitOrders[id] ?? emptyOrder();
+    if (!jsonEq(loc, bas)) {
+      unitOrders[id] = loc;
+    } else if (incoming.unitOrders[id] != null) {
+      unitOrders[id] = incoming.unitOrders[id]!;
+    } else {
+      unitOrders[id] = loc;
+    }
+  }
+  const buildPlan = { ...incoming.buildPlan };
+  const buildKeys = new Set([
+    ...Object.keys(local.buildPlan),
+    ...Object.keys(incoming.buildPlan),
+    ...Object.keys(base.buildPlan),
+  ]);
+  for (const pid of buildKeys) {
+    const l = local.buildPlan[pid];
+    const b = base.buildPlan[pid];
+    const i = incoming.buildPlan[pid];
+    if (!jsonEq(l, b)) {
+      if (l != null) {
+        buildPlan[pid] = l;
+      }
+    } else if (i != null) {
+      buildPlan[pid] = i;
+    }
+  }
+  const disbandPlan = { ...incoming.disbandPlan };
+  const disbandKeys = new Set([
+    ...Object.keys(local.disbandPlan),
+    ...Object.keys(incoming.disbandPlan),
+    ...Object.keys(base.disbandPlan),
+  ]);
+  for (const pid of disbandKeys) {
+    const l = local.disbandPlan[pid];
+    const b = base.disbandPlan[pid];
+    const i = incoming.disbandPlan[pid];
+    if (!jsonEq(l, b)) {
+      if (l != null) {
+        disbandPlan[pid] = l;
+      }
+    } else if (i != null) {
+      disbandPlan[pid] = i;
+    }
+  }
+  const retreatTargets = { ...incoming.retreatTargets };
+  const retreatKeys = new Set([
+    ...Object.keys(local.retreatTargets),
+    ...Object.keys(incoming.retreatTargets),
+    ...Object.keys(base.retreatTargets),
+  ]);
+  for (const rid of retreatKeys) {
+    const l = local.retreatTargets[rid] ?? '';
+    const b = base.retreatTargets[rid] ?? '';
+    const inc = incoming.retreatTargets[rid];
+    if (l !== b) {
+      if (l.length > 0) {
+        retreatTargets[rid] = l;
+      } else {
+        delete retreatTargets[rid];
+      }
+    } else if (inc != null && inc.length > 0) {
+      retreatTargets[rid] = inc;
+    } else {
+      delete retreatTargets[rid];
+    }
+  }
+  const powerOrderSaved = { ...incoming.powerOrderSaved };
+  const powerAdjustmentSaved = { ...incoming.powerAdjustmentSaved };
+  const powerRetreatSaved = { ...incoming.powerRetreatSaved };
+  for (const pid of POWERS) {
+    if (local.powerOrderSaved[pid] !== base.powerOrderSaved[pid]) {
+      powerOrderSaved[pid] = local.powerOrderSaved[pid] === true;
+    } else {
+      powerOrderSaved[pid] = incoming.powerOrderSaved[pid] === true;
+    }
+    if (local.powerAdjustmentSaved[pid] !== base.powerAdjustmentSaved[pid]) {
+      powerAdjustmentSaved[pid] = local.powerAdjustmentSaved[pid] === true;
+    } else {
+      powerAdjustmentSaved[pid] = incoming.powerAdjustmentSaved[pid] === true;
+    }
+    if (local.powerRetreatSaved[pid] !== base.powerRetreatSaved[pid]) {
+      powerRetreatSaved[pid] = local.powerRetreatSaved[pid] === true;
+    } else {
+      powerRetreatSaved[pid] = incoming.powerRetreatSaved[pid] === true;
+    }
+  }
+  return {
+    ...incoming,
+    unitOrders,
+    buildPlan,
+    disbandPlan,
+    retreatTargets,
+    powerOrderSaved,
+    powerAdjustmentSaved,
+    powerRetreatSaved,
+  };
+}
+
+/**
  * Supabase オンライン卓への接続状態。
  */
 export type OnlineSession =
@@ -445,6 +567,11 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   const pendingMapEffectsRef = useRef<MapVisualEffect[]>([]);
   const pendingAppAutoSaveRef = useRef(false);
   const lastServerVersionRef = useRef(0);
+  /**
+   * ホスト: 版競合時の3-wayマージ用。最後にサーバー内容と揃えた PersistedSnapshot
+   * （参加直後・PUT 成功直後・GET フル適用のたびに更新）。
+   */
+  const onlineHostSyncBaselineRef = useRef<PersistedSnapshot | null>(null);
   const onlineSessionRef = useRef<OnlineSession | null>(null);
   const onlinePushTimerRef = useRef<number | null>(null);
   const buildCurrentSnapshotRef = useRef(() => defaultSnap as PersistedSnapshot);
@@ -713,6 +840,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     setActiveWorldlineStem('');
     setOnlineSession(null);
     clearOnlineActiveSession();
+    onlineHostSyncBaselineRef.current = null;
     lastServerVersionRef.current = 0;
     setOnlineServerVersion(0);
   }, [appendOnlineDebugLog]);
@@ -765,9 +893,13 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       /**
        * ポール検知時のみ: 同一ゲーム進行（同ターン/同フェーズ）なら
        * 画面 state の再適用をスキップして入力中 UI の巻き戻りを防ぐ。
-       * 409 時の再取得では false のまま（サーバー優先）。
        */
       preferLocalStateWhenSameStep?: boolean,
+      /**
+       * PUT/PATCH の expectedVersion 不一致（409）直後の再取得。
+       * ホストはベースラインとの3-wayで未送信命令を維持する。
+       */
+      fromVersionConflict?: boolean,
     ) => {
       const secret =
         sess.kind === 'host' ? sess.hostSecret : sess.powerSecret;
@@ -786,11 +918,11 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         appendOnlineDebugLog('refetch_snapshot_invalid_json');
         return;
       }
-      let normalized = normalizeLoadedSnapshot(p);
+      const incomingSnap = normalizeLoadedSnapshot(p);
       const localNow = buildCurrentSnapshotRef.current();
       if (
         preferLocalStateWhenSameStep &&
-        sameOnlineGameStepForMerge(normalized, localNow)
+        sameOnlineGameStepForMerge(incomingSnap, localNow)
       ) {
         lastServerVersionRef.current = data.version;
         setOnlineServerVersion(data.version);
@@ -803,18 +935,43 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         );
         return;
       }
-      if (sess.kind === 'power') {
-        if (mergePowerLocalSnapshot != null) {
-          normalized = mergePowerSecretSnapshotFromLocal(
-            normalized,
-            mergePowerLocalSnapshot,
-            sess.powerId,
+      let toApply = incomingSnap;
+      if (
+        fromVersionConflict === true &&
+        sameOnlineGameStepForMerge(incomingSnap, localNow) &&
+        sess.kind === 'host' &&
+        onlineHostSyncBaselineRef.current != null
+      ) {
+        toApply = mergeHostPersistedSnapshotThreeWay(
+          incomingSnap,
+          localNow,
+          onlineHostSyncBaselineRef.current,
+        );
+        appendOnlineDebugLog(
+          'refetch_snapshot_409_merge_host',
+          undefined,
+          data.version,
+        );
+      } else if (sess.kind === 'power' && mergePowerLocalSnapshot != null) {
+        toApply = mergePowerSecretSnapshotFromLocal(
+          incomingSnap,
+          mergePowerLocalSnapshot,
+          sess.powerId,
+        );
+        if (fromVersionConflict === true) {
+          appendOnlineDebugLog(
+            'refetch_snapshot_409_merge_power',
+            undefined,
+            data.version,
           );
         }
       }
-      applyPersistedSnapshot(normalized);
+      applyPersistedSnapshot(toApply);
       lastServerVersionRef.current = data.version;
       setOnlineServerVersion(data.version);
+      if (sess.kind === 'host') {
+        onlineHostSyncBaselineRef.current = incomingSnap;
+      }
       appendOnlineDebugLog('refetch_snapshot_ok', undefined, data.version);
     },
     [appendOnlineDebugLog, applyPersistedSnapshot],
@@ -847,7 +1004,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         });
         if (res.status === 409) {
           appendOnlineDebugLog('flush_host_409');
-          await refetchOnlineSnapshot(sess);
+          await refetchOnlineSnapshot(sess, undefined, false, true);
           return true;
         }
         if (!res.ok) {
@@ -857,6 +1014,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         const data = (await res.json()) as { version: number };
         lastServerVersionRef.current = data.version;
         setOnlineServerVersion(data.version);
+        onlineHostSyncBaselineRef.current = snap;
         appendOnlineDebugLog('flush_host_ok', undefined, data.version);
         return true;
       }
@@ -872,7 +1030,12 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       });
       if (res.status === 409) {
         appendOnlineDebugLog('flush_power_409');
-        await refetchOnlineSnapshot(sess);
+        await refetchOnlineSnapshot(
+          sess,
+          buildCurrentSnapshotRef.current(),
+          false,
+          true,
+        );
         return true;
       }
       if (!res.ok) {
@@ -940,7 +1103,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       pendingMapEffectsRef.current = [];
       setIsResolutionRevealing(false);
       isResolutionRevealingRef.current = false;
-      applyPersistedSnapshot(normalizeLoadedSnapshot(loaded));
+      const normHost = normalizeLoadedSnapshot(loaded);
+      applyPersistedSnapshot(normHost);
       setActiveWorldlineStem(stem);
       setGameSessionActive(true);
       setOnlineSession({
@@ -950,6 +1114,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       });
       lastServerVersionRef.current = data.version;
       setOnlineServerVersion(data.version);
+      onlineHostSyncBaselineRef.current = normHost;
       pendingAppAutoSaveRef.current = false;
       appendOnlineDebugLog('online_room_created', undefined, data.version);
       storeOnlinePowerSecrets(data.roomId, data.powerSecrets);
@@ -1040,7 +1205,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       pendingMapEffectsRef.current = [];
       setIsResolutionRevealing(false);
       isResolutionRevealingRef.current = false;
-      applyPersistedSnapshot(normalizeLoadedSnapshot(loaded));
+      const normJoin = normalizeLoadedSnapshot(loaded);
+      applyPersistedSnapshot(normJoin);
       const stem =
         loaded.worldlineStem != null && loaded.worldlineStem.length > 0
           ? loaded.worldlineStem
@@ -1048,6 +1214,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       setActiveWorldlineStem(stem);
       setGameSessionActive(true);
       if (auth.role === 'host') {
+        onlineHostSyncBaselineRef.current = normJoin;
         storeOnlineHostSecret(params.roomId, token);
         storeOnlineActiveSession(params.roomId, token);
         setOnlineSession({
@@ -1056,6 +1223,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           hostSecret: token,
         });
       } else {
+        onlineHostSyncBaselineRef.current = null;
         storeOnlineActiveSession(params.roomId, token);
         setOnlineSession({
           kind: 'power',
@@ -1086,6 +1254,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       isResolutionRevealingRef.current = false;
       setOnlineSession(null);
       clearOnlineActiveSession();
+      onlineHostSyncBaselineRef.current = null;
       lastServerVersionRef.current = 0;
       setOnlineServerVersion(0);
       const fresh = createDefaultPersistedSnapshot();
@@ -1119,6 +1288,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         const merged: PersistedSnapshot = { ...mergedBase, worldlineStem: stem };
         setOnlineSession(null);
         clearOnlineActiveSession();
+        onlineHostSyncBaselineRef.current = null;
         lastServerVersionRef.current = 0;
         setOnlineServerVersion(0);
         setActiveWorldlineStem(stem);
