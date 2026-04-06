@@ -175,6 +175,32 @@ function mergePowerSecretSnapshotFromLocal(
 }
 
 /**
+ * ホスト編集中に版競合した場合、同一進行中なら入力系のみローカルを優先する。
+ * 盤面・ログ・ターン進行はサーバー値を採用し、命令入力系だけを保護する。
+ *
+ * @param incoming - サーバー側スナップショット
+ * @param local - ローカル編集中スナップショット
+ */
+function mergeHostEditingSnapshotFromLocal(
+  incoming: PersistedSnapshot,
+  local: PersistedSnapshot,
+): PersistedSnapshot {
+  if (!sameOnlineGameStepForMerge(incoming, local)) {
+    return incoming;
+  }
+  return {
+    ...incoming,
+    unitOrders: { ...local.unitOrders },
+    buildPlan: { ...local.buildPlan },
+    disbandPlan: { ...local.disbandPlan },
+    retreatTargets: { ...local.retreatTargets },
+    powerOrderSaved: { ...local.powerOrderSaved },
+    powerAdjustmentSaved: { ...local.powerAdjustmentSaved },
+    powerRetreatSaved: { ...local.powerRetreatSaved },
+  };
+}
+
+/**
  * Supabase オンライン卓への接続状態。
  */
 export type OnlineSession =
@@ -662,22 +688,27 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         return;
       }
       let normalized = normalizeLoadedSnapshot(p);
-      if (sess.kind === 'power') {
-        if (mergePowerLocalSnapshot != null) {
+      if (mergePowerLocalSnapshot != null) {
+        if (sess.kind === 'power') {
           normalized = mergePowerSecretSnapshotFromLocal(
             normalized,
             mergePowerLocalSnapshot,
             sess.powerId,
           );
-        } else if (preferLocalPowerSecretWhenSameStep) {
-          const localNow = buildCurrentSnapshotRef.current();
-          if (sameOnlineGameStepForMerge(normalized, localNow)) {
-            normalized = mergePowerSecretSnapshotFromLocal(
-              normalized,
-              localNow,
-              sess.powerId,
-            );
-          }
+        } else {
+          normalized = mergeHostEditingSnapshotFromLocal(
+            normalized,
+            mergePowerLocalSnapshot,
+          );
+        }
+      } else if (sess.kind === 'power' && preferLocalPowerSecretWhenSameStep) {
+        const localNow = buildCurrentSnapshotRef.current();
+        if (sameOnlineGameStepForMerge(normalized, localNow)) {
+          normalized = mergePowerSecretSnapshotFromLocal(
+            normalized,
+            localNow,
+            sess.powerId,
+          );
         }
       }
       applyPersistedSnapshot(normalized);
@@ -690,7 +721,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   /**
    * オンライン未送信の変更を即時に送る。
    *
-   * @returns 通信・409 解消を含め同期手順を完了できたら true
+   * @returns 更新成功時 true。版競合/通信失敗は false（呼び出し側で再取得判断）
    */
   const flushOnlinePush = useCallback(async (): Promise<boolean> => {
     const sess = onlineSessionRef.current;
@@ -712,8 +743,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           }),
         });
         if (res.status === 409) {
-          await refetchOnlineSnapshot(sess);
-          return true;
+          return false;
         }
         if (!res.ok) {
           return false;
@@ -734,8 +764,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         }),
       });
       if (res.status === 409) {
-        await refetchOnlineSnapshot(sess);
-        return true;
+        return false;
       }
       if (!res.ok) {
         return false;
@@ -748,7 +777,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       /* ネットワーク断 */
       return false;
     }
-  }, [gameSessionActive, refetchOnlineSnapshot]);
+  }, [gameSessionActive]);
 
   const startNewOnlineGame = useCallback(
     async (worldlineNameRaw: string): Promise<StartOnlineGameResult> => {
