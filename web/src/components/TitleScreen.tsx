@@ -26,7 +26,13 @@ import { useEffect, useRef, useState } from 'react';
  * タイトル UI。
  */
 export function TitleScreen() {
-  const { startNewOnlineGame, joinOnlineGame } = useDiplomacyGame();
+  const {
+    startNewOnlineGame,
+    joinOnlineGame,
+    onlineDebugLogCount,
+    downloadOnlineDebugLog,
+    clearOnlineDebugLog,
+  } = useDiplomacyGame();
   const onlineWorldlineInputRef = useRef<HTMLInputElement>(null);
 
   const [onlineBusy, setOnlineBusy] = useState(false);
@@ -243,6 +249,33 @@ export function TitleScreen() {
             </div>
           ) : null}
         </section>
+
+        {onlineDebugLogCount > 0 ? (
+          <section
+            className="rounded-xl border border-amber-300 bg-amber-50/80 p-3 shadow-sm"
+            aria-label="直前のデバッグログ取得"
+          >
+            <p className="text-[11px] font-medium text-amber-900">
+              直前のセッションログが残っています（{onlineDebugLogCount}件）
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={downloadOnlineDebugLog}
+                className="rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+              >
+                デバッグログを保存
+              </button>
+              <button
+                type="button"
+                onClick={clearOnlineDebugLog}
+                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100"
+              >
+                ログを破棄
+              </button>
+            </div>
+          </section>
+        ) : null}
       </div>
       <nav
         className="mt-4 w-full max-w-sm shrink-0 pb-1 text-center"
