@@ -10,6 +10,8 @@
  * 想定される制限事項:
  *   - 無効な powerId やゲーム非アクティブ時はメインへリダイレクトする。
  *   - オンライン参加はトップ画面で行い、シークレットは URL に載せない。
+ *   - 別タブ復元は localStorage（およびメインで一度同期された sessionStorage）に
+ *     卓情報がある場合に限る。初回のみ `/power` を開くと復元できないことがある。
  */
 
 'use client';
@@ -22,7 +24,7 @@ import MapView from '@/components/MapView';
 import { PowerSecretWorkbench } from '@/components/PowerSecretWorkbench';
 import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
 import { mergePowerPageOrderPreview, type UnitOrderInput } from '@/diplomacy/gameHelpers';
-import { readOnlineActiveSession } from '@/lib/onlineSessionBrowser';
+import { readOnlineSessionForPowerPageRestore } from '@/lib/onlineSessionBrowser';
 import { buildAdjacencyKeySet } from '@/mapMovement';
 import { POWERS } from '@/miniMap';
 import Link from 'next/link';
@@ -169,7 +171,7 @@ export default function PowerPageClient() {
     if (gameSessionActive || isRestoringSession) {
       return;
     }
-    const saved = readOnlineActiveSession();
+    const saved = readOnlineSessionForPowerPageRestore(powerId);
     if (saved == null) {
       reportUnexpectedTitleNavigation(`power_page_session_inactive:${powerId}`);
       router.replace('/');

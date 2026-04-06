@@ -88,6 +88,7 @@ import {
   storeOnlineHostSecret,
   storeOnlineActiveSession,
   storeOnlinePowerSecrets,
+  syncOnlineSecretsSessionStorageToLocalStorage,
 } from '@/lib/onlineSessionBrowser';
 
 /** 旧版 localStorage キー（起動時に削除して移行するのみ） */
@@ -452,6 +453,14 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   useEffect(() => {
     onlineSessionRef.current = onlineSession;
   }, [onlineSession]);
+
+  /**
+   * 旧版が sessionStorage のみに書いていたシークレットを localStorage へ複製する。
+   * メインタブを一度開いたあとで別タブから `/power` を開けるようにする。
+   */
+  useEffect(() => {
+    syncOnlineSecretsSessionStorageToLocalStorage();
+  }, []);
 
   useEffect(() => {
     isResolutionRevealingRef.current = isResolutionRevealing;
