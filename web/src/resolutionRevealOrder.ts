@@ -102,15 +102,12 @@ function isMoveValidationFailure(r: OrderResolution): boolean {
   if (m.includes('同勢力のユニットが先にそのマスを空けていません')) {
     return false;
   }
-  if (m.includes('スタンドオフまたは防御力不足')) {
-    return false;
-  }
   return (
     m.includes('無効な移動') ||
     m.includes('陸軍は海エリアに移動できません') ||
-    m.includes('海軍は純粋な陸エリアに移動できません') ||
+    m.includes('海軍は内陸エリアに移動できません') ||
     m.includes('複数岸への移動では命令で到着岸') ||
-    m.includes('そのプロヴィンスに残留しています')
+    m.includes('その都市に残留しています')
   );
 }
 

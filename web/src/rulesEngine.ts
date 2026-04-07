@@ -374,6 +374,12 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
 
   const provinceById = new Map(board.provinces.map((p) => [p.id, p]));
   const adjacencyKeys = buildAdjacencyKeySet(board);
+  const unitKindLabel = (u: Unit): string =>
+    u.type === UnitType.Army ? '陸軍' : '海軍';
+  const provinceLabel = (provinceId: string): string =>
+    provinceById.get(provinceId)?.name ?? provinceId;
+  const unitLabelWithPowerAndCity = (u: Unit): string =>
+    `${u.powerId} ${provinceLabel(u.provinceId)}の${unitKindLabel(u)}`;
 
   // 支援の有効性・コンボイ成立は固定点反復で決定する
   const supportOrders = orders.filter((o): o is SupportOrder => o.type === OrderType.Support);
@@ -660,6 +666,8 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
   }
 
   const supportStrength = buildStrengthWithSupports(effectiveSupportOrders, supportCut);
+  const defensePowerAt = (provinceId: string): number =>
+    supportStrength.get(`${provinceId}->${provinceId}`) ?? 1;
   const lastConvoyResolution = resolveConvoyMoves(disruptedSeaProvinces);
   finalValidConvoyMoves = lastConvoyResolution.validConvoyMoves;
 
@@ -702,7 +710,7 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
       orderResolutions.push({
         order: move,
         success: false,
-        message: '無効な移動: ユニットまたはプロヴィンスが存在しません',
+        message: '無効な移動: ユニットまたは都市が存在しません',
       });
       continue;
     }
@@ -723,19 +731,19 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
       const rawEdge = adjacencyKeys.has(
         `${move.sourceProvinceId}->${move.targetProvinceId}`,
       );
-      let message = '無効な移動: 隣接していないか、コンボイルートが成立していません';
+      let message = '無効な移動: 隣接していないか、輸送ルートが成立していません';
       if (rawEdge) {
         if (isArmy && targetProvince.areaType === AreaType.Sea) {
           message = '無効な移動: 陸軍は海エリアに移動できません';
         } else if (isFleet && targetProvince.areaType === AreaType.Land) {
-          message = '無効な移動: 海軍は純粋な陸エリアに移動できません';
+          message = '無効な移動: 海軍は内陸エリアに移動できません';
         } else if (
           isFleet &&
           unit.fleetCoast == null &&
           isSplitProvince(move.sourceProvinceId)
         ) {
           message =
-            '無効な移動: 分割岸プロヴィンスにいる艦隊は所在岸（NC/SC/EC）が未設定です';
+            '無効な移動: 分割岸都市にいる艦隊は所在岸（NC/SC/EC）が未設定です';
         } else if (
           isFleet &&
           sourceProvince.areaType === AreaType.Coastal &&
@@ -778,7 +786,7 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
       orderResolutions.push({
         order: move,
         success: false,
-        message: '無効な移動: 海軍は純粋な陸エリアに移動できません',
+          message: '無効な移動: 海軍は内陸エリアに移動できません',
       });
       continue;
     }
@@ -820,7 +828,7 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
         order: move,
         success: false,
         message:
-          '無効な移動: 同じ勢力のユニットがそのプロヴィンスに残留しています（1マス1ユニット）',
+          '無効な移動: 同じ勢力のユニットがその都市に残留しています（1マス1ユニット）',
       });
       continue;
     }
@@ -881,10 +889,22 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
       if (ok) {
         successfulMoves.add(move);
         unitPositionById.set(move.unitId, move.targetProvinceId);
+        let successMessage = '移動成功';
+        if (occupyingUnit != null && attacker != null) {
+          const defenderStayed =
+            occupyingUnit.powerId !== attacker.powerId &&
+            defenderStayedOnProvince(target, occupyingUnit);
+          if (defenderStayed) {
+            const defenderPower = defensePowerAt(target);
+            successMessage = `${_power}対${defenderPower}で${unitLabelWithPowerAndCity(
+              occupyingUnit,
+            )}に勝利して移動成功`;
+          }
+        }
         orderResolutions.push({
           order: move,
           success: true,
-          message: '移動成功',
+          message: successMessage,
         });
         if (
           occupyingUnit != null &&
@@ -909,7 +929,7 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
           });
         }
       } else {
-        let failMessage = 'スタンドオフまたは防御力不足により失敗';
+        let failMessage = '移動失敗';
         if (
           occupyingUnit != null &&
           attacker != null &&
@@ -917,6 +937,22 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
         ) {
           failMessage =
             '移動失敗: 同勢力のユニットが先にそのマスを空けていません（1マス1ユニット）';
+        } else if (
+          occupyingUnit != null &&
+          attacker != null &&
+          occupyingUnit.powerId !== attacker.powerId &&
+          defenderStayedOnProvince(target, occupyingUnit)
+        ) {
+          const defenderPower = defensePowerAt(target);
+          if (_power === defenderPower) {
+            failMessage = `${_power}対${defenderPower}でスタンドオフ`;
+          } else {
+            failMessage = `${_power}対${defenderPower}で${unitLabelWithPowerAndCity(
+              occupyingUnit,
+            )}に敗北して移動失敗`;
+          }
+        } else {
+          failMessage = `${_power}対${_power}で競合しスタンドオフ`;
         }
         orderResolutions.push({
           order: move,
@@ -931,16 +967,49 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
         const attacker = unitById.get(winner.order.unitId);
         successfulMoves.add(winner.order);
         unitPositionById.set(winner.order.unitId, winner.order.targetProvinceId);
+        let winnerMessage = `${winner.power}対1で${provinceLabel(
+          winner.order.targetProvinceId,
+        )}へ移動成功`;
+        let winnerOpponentPower = 1;
+        if (occupyingUnit != null && attacker != null) {
+          const defenderStayed =
+            occupyingUnit.powerId !== attacker.powerId &&
+            defenderStayedOnProvince(target, occupyingUnit);
+          if (defenderStayed) {
+            winnerOpponentPower = defensePowerAt(target);
+            winnerMessage = `${winner.power}対${winnerOpponentPower}で${unitLabelWithPowerAndCity(
+              occupyingUnit,
+            )}に勝利して移動成功`;
+          }
+        }
+        const loserTop = moves
+          .filter((m) => m !== winner)
+          .sort((a, b) => b.power - a.power)[0];
+        const loserUnit = loserTop ? unitById.get(loserTop.order.unitId) : null;
+        if (loserTop && loserUnit) {
+          const opponentPower = Math.max(loserTop.power, winnerOpponentPower);
+          winnerMessage = `${winner.power}対${opponentPower}で${unitLabelWithPowerAndCity(
+            loserUnit,
+          )}に勝利して移動成功`;
+        }
         orderResolutions.push({
           order: winner.order,
           success: true,
-          message: '競合に勝利して移動成功',
+          message: winnerMessage,
         });
         for (const loser of moves.filter((m) => m !== winner)) {
+          const loserUnit = unitById.get(loser.order.unitId);
+          const winnerUnit = unitById.get(winner.order.unitId);
+          const loserMessage =
+            loserUnit && winnerUnit
+              ? `${loser.power}対${winner.power}で${unitLabelWithPowerAndCity(
+                  winnerUnit,
+                )}に敗北して移動失敗`
+              : '移動失敗';
           orderResolutions.push({
             order: loser.order,
             success: false,
-            message: 'スタンドオフにより失敗',
+            message: loserMessage,
           });
         }
         if (
@@ -966,11 +1035,12 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
           });
         }
       } else {
+        const topPower = Math.max(...moves.map((m) => m.power));
         for (const m of moves) {
           orderResolutions.push({
             order: m.order,
             success: false,
-            message: 'スタンドオフにより全て失敗',
+            message: `${m.power}対${topPower}でスタンドオフ`,
           });
         }
       }

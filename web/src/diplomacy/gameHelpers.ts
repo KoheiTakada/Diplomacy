@@ -503,7 +503,7 @@ export function formatOrderResolutionLogLine(
       const supported = uLabelFn(r.order.supportedUnitId);
       const to = pName(r.order.toProvinceId);
       if (r.order.fromProvinceId === r.order.toProvinceId) {
-        return `${mark} ${r.message}: ${label} が ${supported} の待機を支援`;
+        return `${mark} ${r.message}: ${label} が ${supported} の維持を支援`;
       }
       return `${mark} ${r.message}: ${label} が ${supported} の${to}への移動を支援`;
     }

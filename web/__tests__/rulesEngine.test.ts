@@ -264,6 +264,93 @@ describe('adjudicateTurn (MVP)', () => {
     expect(supportRes?.message).toContain('一致');
   });
 
+  it('支援元への攻撃は、攻撃側が移動失敗でも支援カットになる', () => {
+    const board = {
+      ...MINI_MAP_INITIAL_STATE,
+      units: [
+        { id: 'A-ATT-X', type: UnitType.Army, powerId: 'FRA', provinceId: 'PAR' },
+        { id: 'A-SUP-X', type: UnitType.Army, powerId: 'FRA', provinceId: 'PIC' },
+        { id: 'A-DEF-X', type: UnitType.Army, powerId: 'GER', provinceId: 'BUR' },
+        { id: 'A-CUT-X', type: UnitType.Army, powerId: 'GER', provinceId: 'BEL' },
+        { id: 'A-HOLD-X', type: UnitType.Army, powerId: 'FRA', provinceId: 'HOL' },
+      ],
+    };
+    const orders = [
+      {
+        type: OrderType.Move,
+        unitId: 'A-ATT-X',
+        sourceProvinceId: 'PAR',
+        targetProvinceId: 'BUR',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'A-SUP-X',
+        supportedUnitId: 'A-ATT-X',
+        fromProvinceId: 'PAR',
+        toProvinceId: 'BUR',
+      } as const,
+      {
+        type: OrderType.Move,
+        unitId: 'A-CUT-X',
+        sourceProvinceId: 'BEL',
+        targetProvinceId: 'PIC',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'A-HOLD-X',
+        supportedUnitId: 'A-CUT-X',
+        fromProvinceId: 'BEL',
+        toProvinceId: 'PIC',
+      } as const,
+    ];
+    const result = adjudicateTurn(board, orders);
+    const supportRes = result.orderResolutions.find(
+      (r) => r.order.type === OrderType.Support && r.order.unitId === 'A-SUP-X',
+    );
+    const attacker = result.nextBoardState.units.find((u) => u.id === 'A-ATT-X');
+    expect(supportRes?.success).toBe(false);
+    expect(attacker?.provinceId).toBe('PAR');
+  });
+
+  it('移動支援は、支援先（目的地）からの攻撃ではカットされない', () => {
+    const board = {
+      ...MINI_MAP_INITIAL_STATE,
+      units: [
+        { id: 'A-ATT-Y', type: UnitType.Army, powerId: 'FRA', provinceId: 'PAR' },
+        { id: 'A-SUP-Y', type: UnitType.Army, powerId: 'FRA', provinceId: 'PIC' },
+        { id: 'A-DEF-Y', type: UnitType.Army, powerId: 'GER', provinceId: 'BUR' },
+      ],
+    };
+    const orders = [
+      {
+        type: OrderType.Move,
+        unitId: 'A-ATT-Y',
+        sourceProvinceId: 'PAR',
+        targetProvinceId: 'BUR',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'A-SUP-Y',
+        supportedUnitId: 'A-ATT-Y',
+        fromProvinceId: 'PAR',
+        toProvinceId: 'BUR',
+      } as const,
+      {
+        type: OrderType.Move,
+        unitId: 'A-DEF-Y',
+        sourceProvinceId: 'BUR',
+        targetProvinceId: 'PIC',
+      } as const,
+    ];
+    const result = adjudicateTurn(board, orders);
+    const supportRes = result.orderResolutions.find(
+      (r) => r.order.type === OrderType.Support && r.order.unitId === 'A-SUP-Y',
+    );
+    const attacker = result.nextBoardState.units.find((u) => u.id === 'A-ATT-Y');
+    expect(supportRes?.success).toBe(true);
+    expect(attacker?.provinceId).toBe('BUR');
+  });
+
   it('春の解決後はターンが秋に進む', () => {
     const board = {
       ...MINI_MAP_INITIAL_STATE,

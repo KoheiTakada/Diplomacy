@@ -245,7 +245,7 @@ export function HypotheticalForeignOrdersPanel(
                           )
                         }
                       >
-                        <option value={OrderType.Hold}>待機</option>
+                        <option value={OrderType.Hold}>維持</option>
                         <option value={OrderType.Move}>移動</option>
                         <option value={OrderType.Support}>支援</option>
                         <option value={OrderType.Convoy}>輸送</option>
@@ -395,7 +395,7 @@ export function HypotheticalForeignOrdersPanel(
                                       board,
                                       supportedUnit.provinceId,
                                     )}
-                                    （待機支援）
+                                    （維持支援）
                                   </option>
                                   {supportable.map((p) => (
                                     <option key={p.id} value={p.id}>

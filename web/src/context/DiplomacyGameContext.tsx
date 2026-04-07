@@ -1743,10 +1743,18 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     if (!allPowersRetreatReady) {
       return;
     }
+    const provinceName = (provinceId: string): string =>
+      board.provinces.find((p) => p.id === provinceId)?.name ?? provinceId;
+    const unitKind = (type: UnitType): string => (type === UnitType.Army ? '陸軍' : '海軍');
     const survivors: Unit[] = [...board.units];
     for (const d of pendingRetreats) {
       const target = retreatTargets[d.unit.id];
       if (!target) {
+        prependLogLine(
+          `${d.unit.powerId} ${provinceName(d.fromProvinceId)}の${unitKind(
+            d.unit.type,
+          )} を解体`,
+        );
         continue;
       }
       const { provinceId, fleetCoast } = parseRetreatSelection(target);
@@ -1762,6 +1770,11 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         }
       }
       survivors.push(retreated);
+      prependLogLine(
+        `${d.unit.powerId} ${provinceName(d.fromProvinceId)}の${unitKind(
+          d.unit.type,
+        )} が ${provinceName(provinceId)} に退却`,
+      );
     }
 
     let nextBoard: BoardState = boardWithRefreshedProvinceTint({
@@ -1838,6 +1851,9 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       return;
     }
 
+    const provinceName = (provinceId: string): string =>
+      board.provinces.find((p) => p.id === provinceId)?.name ?? provinceId;
+    const unitKind = (type: UnitType): string => (type === UnitType.Army ? '陸軍' : '海軍');
     const removeSet = new Set<string>();
     POWER_ORDER.forEach((pid) => {
       const need = disbandNeed(board, pid);
@@ -1854,6 +1870,13 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     });
 
     const newUnits: Unit[] = board.units.filter((u) => !removeSet.has(u.id));
+    for (const unit of board.units) {
+      if (removeSet.has(unit.id)) {
+        prependLogLine(
+          `${unit.powerId} ${provinceName(unit.provinceId)}の${unitKind(unit.type)} を解体`,
+        );
+      }
+    }
     const boardAfterDisband = { ...board, units: newUnits };
     POWER_ORDER.forEach((pid) => {
       const cap = Math.max(
@@ -1898,6 +1921,9 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           built.fleetCoast = bc;
         }
         newUnits.push(built);
+        prependLogLine(
+          `${pid} ${provinceName(slot.provinceId)} に${unitKind(slot.unitType)}を増産`,
+        );
       }
     });
 
