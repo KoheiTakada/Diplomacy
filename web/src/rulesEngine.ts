@@ -98,9 +98,11 @@ function resolveMoveSuccessMap(
   }
 
   const outcome = new Map<MoveOrder, boolean | undefined>();
+  const movePowerByOrder = new Map<MoveOrder, number>();
   for (const arr of movesByTarget.values()) {
     for (const x of arr) {
       outcome.set(x.order, undefined);
+      movePowerByOrder.set(x.order, x.power);
     }
   }
 
@@ -188,6 +190,16 @@ function resolveMoveSuccessMap(
               o.unitId === occ.id &&
               o.sourceProvinceId === target,
           );
+          if (
+            om &&
+            om.targetProvinceId === move.sourceProvinceId &&
+            validated.has(om)
+          ) {
+            const opponentAttackPower = movePowerByOrder.get(om) ?? 1;
+            outcome.set(move, power > opponentAttackPower);
+            changed = true;
+            continue;
+          }
           let str: number | undefined;
           if (!om || om.targetProvinceId === target) {
             str = 1;
@@ -320,6 +332,19 @@ function resolveMoveSuccessMap(
               o.unitId === occ.id &&
               o.sourceProvinceId === target,
           );
+          if (
+            om &&
+            om.targetProvinceId === win.order.sourceProvinceId &&
+            validated.has(om)
+          ) {
+            const opponentAttackPower = movePowerByOrder.get(om) ?? 1;
+            const winnerOk = power > opponentAttackPower;
+            for (const m of moves) {
+              outcome.set(m.order, m === win && winnerOk);
+            }
+            changed = true;
+            continue;
+          }
           let str: number | undefined;
           if (!om || om.targetProvinceId === target) {
             str = 1;

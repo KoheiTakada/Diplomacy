@@ -658,4 +658,43 @@ describe('adjudicateTurn (MVP)', () => {
     expect(h2?.message).toBe('維持成功');
   });
 
+  it('相互移動では、支援付き側が勝って押し出せる（SWE→NWY with SKA support）', () => {
+    const board = {
+      ...MINI_MAP_INITIAL_STATE,
+      units: [
+        { id: 'R-A-SWE', type: UnitType.Army, powerId: 'RUS', provinceId: 'SWE' },
+        { id: 'E-A-NWY', type: UnitType.Army, powerId: 'ENG', provinceId: 'NWY' },
+        { id: 'G-F-SKA', type: UnitType.Fleet, powerId: 'GER', provinceId: 'SKA' },
+      ],
+    };
+    const orders = [
+      {
+        type: OrderType.Move,
+        unitId: 'R-A-SWE',
+        sourceProvinceId: 'SWE',
+        targetProvinceId: 'NWY',
+      } as const,
+      {
+        type: OrderType.Move,
+        unitId: 'E-A-NWY',
+        sourceProvinceId: 'NWY',
+        targetProvinceId: 'SWE',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'G-F-SKA',
+        supportedUnitId: 'R-A-SWE',
+        fromProvinceId: 'SWE',
+        toProvinceId: 'NWY',
+      } as const,
+    ];
+    const result = adjudicateTurn(board, orders);
+    const rus = result.nextBoardState.units.find((u) => u.id === 'R-A-SWE');
+    const eng = result.nextBoardState.units.find((u) => u.id === 'E-A-NWY');
+    const dislodgedEng = result.dislodgedUnits.find((d) => d.unit.id === 'E-A-NWY');
+    expect(rus?.provinceId).toBe('NWY');
+    expect(eng).toBeUndefined();
+    expect(dislodgedEng).toBeDefined();
+  });
+
 });
