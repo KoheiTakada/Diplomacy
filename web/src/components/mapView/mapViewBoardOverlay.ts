@@ -535,10 +535,11 @@ function appendUnitShapesToGroup(
   unitColor: string,
   unitIcons: UnitIconTemplates | null,
   badgeStageLevel = 0,
+  staticSupportBoost = 0,
 ): void {
   const inner = document.createElementNS(SVG_NS, 'g');
   inner.setAttribute('data-unit-badge-inner', '1');
-  const scale = scaleForBadgeStage(badgeStageLevel);
+  const scale = scaleForBadgeStage(badgeStageLevel + staticSupportBoost);
   inner.setAttribute('transform', `scale(${scale})`);
   g.appendChild(inner);
   const target = inner;
@@ -646,6 +647,7 @@ export function applyBoardOverlay(
   unitIcons: UnitIconTemplates | null,
   previousBoard: BoardState | null,
   mapEffects: readonly MapVisualEffect[] | null,
+  staticSupportCountByUnitId?: Record<string, number>,
 ): void {
   applyProvinceOccupationFills(svg, board);
 
@@ -735,7 +737,15 @@ export function applyBoardOverlay(
     g.setAttribute('data-unit-id', u.id);
     const unitColor = POWER_COLORS[u.powerId] ?? '#334155';
     const badgeStage = getSupportBadgeStageForUnit(u.id);
-    appendUnitShapesToGroup(g, u, unitColor, unitIcons, badgeStage);
+    const staticBoost = staticSupportCountByUnitId?.[u.id] ?? 0;
+    appendUnitShapesToGroup(
+      g,
+      u,
+      unitColor,
+      unitIcons,
+      badgeStage,
+      staticBoost,
+    );
 
     const fx = effectByUnitId.get(u.id);
 

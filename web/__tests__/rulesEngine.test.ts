@@ -636,4 +636,26 @@ describe('adjudicateTurn (MVP)', () => {
     expect(f?.provinceId).toBe('FIN');
   });
 
+  it('明示Holdと命令未指定はどちらも維持成功で記録される', () => {
+    const board = {
+      ...MINI_MAP_INITIAL_STATE,
+      units: [
+        { id: 'H1', type: UnitType.Army, powerId: 'FRA', provinceId: 'PAR' },
+        { id: 'H2', type: UnitType.Army, powerId: 'GER', provinceId: 'BUR' },
+      ],
+    };
+    const orders = [
+      { type: OrderType.Hold, unitId: 'H1' } as const,
+    ];
+    const result = adjudicateTurn(board, orders);
+    const h1 = result.orderResolutions.find(
+      (r) => r.order.type === OrderType.Hold && r.order.unitId === 'H1',
+    );
+    const h2 = result.orderResolutions.find(
+      (r) => r.order.type === OrderType.Hold && r.order.unitId === 'H2',
+    );
+    expect(h1?.message).toBe('維持成功');
+    expect(h2?.message).toBe('維持成功');
+  });
+
 });

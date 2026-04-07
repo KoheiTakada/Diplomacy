@@ -191,8 +191,11 @@ export function appendMapEffectsForRevealResolution(
 
   const mv = r.order;
   const flatIx = flatResolutions.indexOf(r);
-  if (!r.success && r.message.includes('スタンドオフ')) {
-    const coll = collectStandoffCollisionGroup(flatResolutions, flatIx);
+  const isCollisionLikeFailure =
+    !r.success &&
+    (r.message.includes('スタンドオフ') || r.message.includes('敗北して移動失敗'));
+  if (isCollisionLikeFailure) {
+    const coll = collectMoveCollisionGroup(flatResolutions, flatIx);
     if (coll != null) {
       if (coll.primaryIndex === flatIx) {
         out.push({
@@ -260,7 +263,7 @@ export function appendMapEffectsForRevealResolution(
       unitId: mv.unitId,
       delayMs: moveAnimMs,
     });
-  } else if (!r.message.includes('スタンドオフ')) {
+  } else if (!isCollisionLikeFailure) {
     out.push({
       id: `rel-${runGen}-${stepIndex}-${mv.unitId}-fail`,
       type: 'releaseSupportVisualsAfterMove',
@@ -351,6 +354,73 @@ export function buildDomainOrdersFromInputs(
         return { type: OrderType.Hold, unitId: unit.id };
     }
   });
+}
+
+/**
+ * 裁定用 `Order[]` を、MapView プレビュー再利用用の `UnitOrderInput` マップへ変換する。
+ *
+ * @param board - 命令時点の盤面
+ * @param orders - ドメイン命令一覧
+ * @returns ユニットIDごとの入力表現（未指定は Hold）
+ */
+export function buildUnitOrderInputsFromDomainOrders(
+  board: BoardState,
+  orders: Order[],
+): Record<string, UnitOrderInput> {
+  const out: Record<string, UnitOrderInput> = buildDefaultOrders(board);
+  for (const o of orders) {
+    if (!out[o.unitId]) {
+      out[o.unitId] = emptyOrder();
+    }
+    if (o.type === OrderType.Move) {
+      out[o.unitId] = {
+        ...emptyOrder(),
+        type: OrderType.Move,
+        targetProvinceId: o.targetProvinceId,
+        moveTargetFleetCoast: o.targetFleetCoast ?? '',
+      };
+      continue;
+    }
+    if (o.type === OrderType.Support) {
+      out[o.unitId] = {
+        ...emptyOrder(),
+        type: OrderType.Support,
+        supportedUnitId: o.supportedUnitId,
+        supportToProvinceId: o.toProvinceId,
+      };
+      continue;
+    }
+    if (o.type === OrderType.Convoy) {
+      out[o.unitId] = {
+        ...emptyOrder(),
+        type: OrderType.Convoy,
+        convoyArmyId: o.armyUnitId,
+        convoyToProvinceId: o.toProvinceId,
+      };
+      continue;
+    }
+    out[o.unitId] = { ...emptyOrder(), type: OrderType.Hold };
+  }
+  return out;
+}
+
+/**
+ * 命令一覧から「被支援ユニットごとの支援数」を求める（表示専用）。
+ *
+ * @param orders - ドメイン命令一覧
+ * @returns unitId -> supportCount
+ */
+export function supportCountBySupportedUnitIdFromOrders(
+  orders: Order[],
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const o of orders) {
+    if (o.type !== OrderType.Support) {
+      continue;
+    }
+    out[o.supportedUnitId] = (out[o.supportedUnitId] ?? 0) + 1;
+  }
+  return out;
 }
 
 /** 文字列を FleetCoast に変換 */
@@ -547,6 +617,44 @@ export function collectStandoffCollisionGroup(
       return;
     }
     hits.push({ idx: j, unitId: res.order.unitId });
+  });
+  if (hits.length < 2) {
+    return null;
+  }
+  const primaryIndex = Math.min(...hits.map((h) => h.idx));
+  const unitIds = [...new Set(hits.map((h) => h.unitId))];
+  return { unitIds, targetProvinceId: target, primaryIndex };
+}
+
+/**
+ * 移動衝突グループを求める。
+ *
+ * スタンドオフだけでなく、同一目標への競合で「勝者1 + 敗者n」になったケースも
+ * 1つの衝突演出として扱う。
+ */
+export function collectMoveCollisionGroup(
+  resolutions: OrderResolution[],
+  index: number,
+): { unitIds: string[]; targetProvinceId: string; primaryIndex: number } | null {
+  const cur = resolutions[index];
+  if (cur == null || cur.order.type !== OrderType.Move) {
+    return null;
+  }
+  const target = cur.order.targetProvinceId;
+  const hits: { idx: number; unitId: string }[] = [];
+  resolutions.forEach((res, j) => {
+    if (res.order.type !== OrderType.Move) {
+      return;
+    }
+    if (res.order.targetProvinceId !== target) {
+      return;
+    }
+    const moveConflictFailure =
+      !res.success &&
+      (res.message.includes('スタンドオフ') || res.message.includes('敗北して移動失敗'));
+    if (moveConflictFailure) {
+      hits.push({ idx: j, unitId: res.order.unitId });
+    }
   });
   if (hits.length < 2) {
     return null;

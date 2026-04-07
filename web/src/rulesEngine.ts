@@ -1124,31 +1124,26 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
     });
   }
 
-  // Hold と未指定ユニット
+  // Hold 命令
   for (const order of orders) {
     if (order.type === OrderType.Hold) {
       orderResolutions.push({
         order,
         success: true,
-        message: 'ホールド成功',
+        message: '維持成功',
       });
     }
   }
 
-  // 移動命令が出ていないユニットは暗黙の Hold
-  const movedUnitIds = new Set(moveOrders.map((m) => m.unitId));
+  // 命令未指定ユニットは暗黙の Hold（文言は明示 Hold と統一）
+  const orderedUnitIds = new Set(orders.map((o) => o.unitId));
   for (const unit of board.units) {
-    if (!movedUnitIds.has(unit.id)) {
-      const explicitHold = orders.find(
-        (o) => o.type === OrderType.Hold && o.unitId === unit.id,
-      );
-      if (!explicitHold) {
-        orderResolutions.push({
-          order: { type: OrderType.Hold, unitId: unit.id },
-          success: true,
-          message: '命令なしのためホールド',
-        });
-      }
+    if (!orderedUnitIds.has(unit.id)) {
+      orderResolutions.push({
+        order: { type: OrderType.Hold, unitId: unit.id },
+        success: true,
+        message: '維持成功',
+      });
     }
   }
 

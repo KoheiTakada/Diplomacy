@@ -50,6 +50,7 @@ import { turnLabel } from '@/turnLabel';
 import {
   appendMapEffectsForRevealResolution,
   asFleetCoast,
+  buildUnitOrderInputsFromDomainOrders,
   buildCapacity,
   canBuildFleetAtProvince,
   buildDefaultOrders,
@@ -68,6 +69,7 @@ import {
   powerHasUnits,
   powerNeedsAdjustment,
   POWER_ORDER,
+  supportCountBySupportedUnitIdFromOrders,
   type BuildSlot,
   type DisbandSlot,
   type ResolveLogEntry,
@@ -400,6 +402,13 @@ export type DiplomacyGameContextValue = {
   >;
   log: ResolveLogEntry[];
   setLog: React.Dispatch<React.SetStateAction<ResolveLogEntry[]>>;
+  turnHistory: {
+    id: string;
+    turnLabel: string;
+    board: BoardState;
+    unitOrders: Record<string, UnitOrderInput>;
+    supportCountByUnitId: Record<string, number>;
+  }[];
   isBuildPhase: boolean;
   setIsBuildPhase: React.Dispatch<React.SetStateAction<boolean>>;
   buildPlan: Record<string, BuildSlot[]>;
@@ -527,6 +536,15 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     defaultSnap.unitOrders,
   );
   const [log, setLog] = useState<ResolveLogEntry[]>(defaultSnap.log);
+  const [turnHistory, setTurnHistory] = useState<
+    {
+      id: string;
+      turnLabel: string;
+      board: BoardState;
+      unitOrders: Record<string, UnitOrderInput>;
+      supportCountByUnitId: Record<string, number>;
+    }[]
+  >([]);
   const [isBuildPhase, setIsBuildPhase] = useState(defaultSnap.isBuildPhase);
   const [buildPlan, setBuildPlan] = useState<Record<string, BuildSlot[]>>(
     defaultSnap.buildPlan,
@@ -688,6 +706,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     setBoard(merged.board);
     setUnitOrders(merged.unitOrders);
     setLog(merged.log);
+    setTurnHistory([]);
     nextLogIdRef.current = merged.nextLogId;
     setIsBuildPhase(merged.isBuildPhase);
     setBuildPlan(merged.buildPlan);
@@ -1564,6 +1583,19 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     const domainOrders = buildDomainOrders();
     const result = adjudicateTurn(board, domainOrders);
     const resolvedTurn = turnLabel(labelBoard);
+    setTurnHistory((prev) => [
+      {
+        id: `${currentTurn.year}-${currentTurn.season}-${prev.length}`,
+        turnLabel: resolvedTurn,
+        board: {
+          ...labelBoard,
+          units: labelBoard.units.map((u) => ({ ...u })),
+        },
+        unitOrders: buildUnitOrderInputsFromDomainOrders(labelBoard, domainOrders),
+        supportCountByUnitId: supportCountBySupportedUnitIdFromOrders(domainOrders),
+      },
+      ...prev,
+    ]);
     const nextBoardState: BoardState = {
       ...result.nextBoardState,
       turn: currentTurn,
@@ -1964,6 +1996,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       setUnitOrders,
       log,
       setLog,
+      turnHistory,
       isBuildPhase,
       setIsBuildPhase,
       buildPlan,
@@ -2025,6 +2058,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       board,
       unitOrders,
       log,
+      turnHistory,
       isBuildPhase,
       buildPlan,
       isDisbandPhase,

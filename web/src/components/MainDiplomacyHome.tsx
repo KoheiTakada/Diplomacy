@@ -46,6 +46,7 @@ export function MainDiplomacyHome() {
     board,
     unitOrders,
     log,
+    turnHistory,
     logListRef,
     leaveGameSession,
     pendingMapEffectsRef,
@@ -294,6 +295,7 @@ export function MainDiplomacyHome() {
                 board={board}
                 isResolutionRevealing={isResolutionRevealing}
                 pendingMapEffectsRef={pendingMapEffectsRef}
+                historyEntries={turnHistory}
               />
             </div>
           </div>

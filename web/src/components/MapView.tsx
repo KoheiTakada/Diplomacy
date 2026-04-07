@@ -71,6 +71,13 @@ interface MapViewProps {
    * 自国実入力＋他国想定をマージした命令。省略または null で矢印プレビューなし。
    */
   orderPreviewMerged?: Record<string, UnitOrderInput> | null;
+  historyEntries?: {
+    id: string;
+    turnLabel: string;
+    board: BoardState;
+    unitOrders: Record<string, UnitOrderInput>;
+    supportCountByUnitId: Record<string, number>;
+  }[];
 }
 
 function syncOrderPreviewLayer(
@@ -94,6 +101,7 @@ export default function MapView({
   isResolutionRevealing,
   pendingMapEffectsRef,
   orderPreviewMerged,
+  historyEntries,
 }: MapViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -118,6 +126,13 @@ export default function MapView({
   const [vb, setVb] = useState<ViewBox>({ x: 0, y: 0, w: 641.66, h: 595.28 });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string>('');
+
+  const selectedHistory = historyEntries?.find((h) => h.id === selectedHistoryId) ?? null;
+  const displayBoard = selectedHistory?.board ?? board;
+  const displayOrderPreview = selectedHistory?.unitOrders ?? orderPreviewMerged;
+  const displaySupportCount = selectedHistory?.supportCountByUnitId ?? {};
 
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
@@ -207,18 +222,19 @@ export default function MapView({
         layersRef.current = readAnchorLayers(svgEl);
         applyBoardOverlay(
           svgEl,
-          boardRef.current,
+          displayBoard,
           layersRef.current,
           unitIconTemplatesRef.current,
           null,
           null,
+          selectedHistory?.supportCountByUnitId,
         );
-        prevBoardRef.current = boardRef.current;
+        prevBoardRef.current = displayBoard;
         syncOrderPreviewLayer(
           svgEl,
-          boardRef.current,
+          displayBoard,
           layersRef.current,
-          orderPreviewMergedRef.current,
+          displayOrderPreview,
         );
 
         svgEl.addEventListener('wheel', handleWheel, { passive: false });
@@ -276,23 +292,33 @@ export default function MapView({
     }
     const pending = pendingMapEffectsRef.current;
     pendingMapEffectsRef.current = [];
-    const previousBoard = prevBoardRef.current;
+    const previousBoard =
+      selectedHistory != null ? null : prevBoardRef.current;
     applyBoardOverlay(
       svg,
-      board,
+      displayBoard,
       layersRef.current,
       unitIconTemplatesRef.current,
       previousBoard,
-      pending.length > 0 ? pending : null,
+      selectedHistory != null ? null : (pending.length > 0 ? pending : null),
+      displaySupportCount,
     );
-    prevBoardRef.current = board;
+    prevBoardRef.current = displayBoard;
     syncOrderPreviewLayer(
       svg,
-      board,
+      displayBoard,
       layersRef.current,
-      orderPreviewMerged,
+      displayOrderPreview,
     );
-  }, [board, isResolutionRevealing, orderPreviewMerged]);
+  }, [
+    board,
+    displayBoard,
+    displayOrderPreview,
+    displaySupportCount,
+    isResolutionRevealing,
+    orderPreviewMerged,
+    selectedHistory,
+  ]);
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -365,16 +391,39 @@ export default function MapView({
         ? (board.provinces.find((p) => p.id === hoverId)?.name ?? hoverId)
         : null;
 
-  const turnText = turnLabel(board);
+  const turnText = selectedHistory?.turnLabel ?? turnLabel(board);
 
   return (
     <div className="relative h-full min-h-0 w-full">
-      <div
-        className="pointer-events-none absolute left-3 top-3 z-10 select-none rounded-2xl bg-white/95 px-5 py-3 text-2xl font-bold tabular-nums tracking-tight text-zinc-900 shadow-lg shadow-zinc-900/15 ring-1 ring-zinc-200/80 backdrop-blur-sm sm:left-4 sm:top-4 sm:px-6 sm:py-3.5 sm:text-3xl"
-        aria-live="polite"
-        aria-label={`現在のターン ${turnText}`}
-      >
-        {turnText}
+      <div className="absolute left-3 top-3 z-10 sm:left-4 sm:top-4">
+        <button
+          type="button"
+          onClick={() => setHistoryOpen((v) => !v)}
+          className="rounded-2xl bg-white/95 px-5 py-3 text-2xl font-bold tabular-nums tracking-tight text-zinc-900 shadow-lg shadow-zinc-900/15 ring-1 ring-zinc-200/80 backdrop-blur-sm sm:px-6 sm:py-3.5 sm:text-3xl"
+          aria-live="polite"
+          aria-label={`現在のターン ${turnText}`}
+        >
+          {turnText}
+        </button>
+        {historyOpen && (historyEntries?.length ?? 0) > 0 ? (
+          <div className="mt-2 rounded-xl border border-zinc-200 bg-white/95 p-2 shadow-lg">
+            <select
+              className="w-full rounded border border-zinc-300 px-2 py-1 text-xs"
+              value={selectedHistoryId}
+              onChange={(e) => {
+                setSelectedHistoryId(e.target.value);
+                setHistoryOpen(false);
+              }}
+            >
+              <option value="">現在盤面</option>
+              {(historyEntries ?? []).map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.turnLabel}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
       </div>
       <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
         <button type="button" className={btnClass} onClick={() => zoom(0.75)} aria-label="拡大">
