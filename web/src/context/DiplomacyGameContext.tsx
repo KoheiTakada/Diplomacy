@@ -51,6 +51,7 @@ import {
   appendMapEffectsForRevealResolution,
   asFleetCoast,
   buildCapacity,
+  canBuildFleetAtProvince,
   buildDefaultOrders,
   buildDomainOrdersFromInputs,
   countSupplyCenters,
@@ -1870,8 +1871,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           continue;
         }
         if (slot.unitType === UnitType.Fleet) {
-          const province = board.provinces.find((p) => p.id === slot.provinceId);
-          if (!province || province.areaType === AreaType.Land) {
+          if (!canBuildFleetAtProvince(board, slot.provinceId)) {
             continue;
           }
         }

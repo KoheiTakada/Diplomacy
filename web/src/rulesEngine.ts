@@ -48,6 +48,28 @@ type MoveAttack = {
   power: number;
 };
 
+type SupportKey = string;
+
+function supportKeyOf(s: SupportOrder): SupportKey {
+  return `${s.unitId}|${s.supportedUnitId}|${s.fromProvinceId}|${s.toProvinceId}`;
+}
+
+function setEqualsByKey<T>(a: Set<T>, b: Set<T>, toKey: (x: T) => string): boolean {
+  if (a.size !== b.size) {
+    return false;
+  }
+  const keys = new Set<string>();
+  for (const x of a) {
+    keys.add(toKey(x));
+  }
+  for (const y of b) {
+    if (!keys.has(toKey(y))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * 検証を通過した移動命令ごとに成否を固定点計算で求める。
  *
@@ -353,9 +375,7 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
   const provinceById = new Map(board.provinces.map((p) => [p.id, p]));
   const adjacencyKeys = buildAdjacencyKeySet(board);
 
-  // 支援の有効性・コンボイ成立は固定点反復で決定し、最終的な supportStrength を構築する
-
-  // 支援命令の解釈
+  // 支援の有効性・コンボイ成立は固定点反復で決定する
   const supportOrders = orders.filter((o): o is SupportOrder => o.type === OrderType.Support);
   const moveOrders = orders.filter((o): o is MoveOrder => o.type === OrderType.Move);
   const convoyOrders = orders.filter((o): o is ConvoyOrder => o.type === OrderType.Convoy);
@@ -455,67 +475,14 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
       .map((u) => u.provinceId),
   );
 
-  /**
-   * コンボイルート成立と輸送妨害（輸送艦隊の押し出し）を固定点反復で計算する。
-   * supportStrength は呼び出し側で支援反映済みのマップを渡す。
-   */
-  function resolveConvoyMoves(strengthForMoves: Map<string, number>): {
+  /** 輸送成立（経路）を計算する。輸送妨害判定は別段で行う。 */
+  function resolveConvoyMoves(disruptedSeas: Set<string>): {
     validConvoyMoves: Set<MoveOrder>;
-    disruptedSeaProvinces: Set<string>;
   } {
-    let validConvoyMoves = new Set(
-      [...convoyMoveCandidate].filter((m) => hasConvoyRoute(m)),
+    const validConvoyMoves = new Set(
+      [...convoyMoveCandidate].filter((m) => hasConvoyRoute(m, disruptedSeas)),
     );
-    let disruptedSeaProvinces = new Set<string>();
-
-    for (let iter = 0; iter < 8; iter += 1) {
-      const enabledMoves = [...directAdjacentMove, ...validConvoyMoves];
-      const attackByTarget = new Map<string, { move: MoveOrder; power: number }[]>();
-      for (const move of enabledMoves) {
-        const power = 1 + (strengthForMoves.get(`${move.sourceProvinceId}->${move.targetProvinceId}`) ?? 0);
-        const list = attackByTarget.get(move.targetProvinceId) ?? [];
-        list.push({ move, power });
-        attackByTarget.set(move.targetProvinceId, list);
-      }
-
-      const nextDisrupted = new Set<string>();
-      for (const seaId of convoySeaProvinces) {
-        const defendingFleet = board.units.find(
-          (u) => u.provinceId === seaId && u.type === UnitType.Fleet,
-        );
-        if (!defendingFleet) {
-          continue;
-        }
-        const attacks = attackByTarget.get(seaId) ?? [];
-        if (attacks.length === 0) {
-          continue;
-        }
-        const maxPower = Math.max(...attacks.map((a) => a.power));
-        const strongest = attacks.filter((a) => a.power === maxPower);
-        if (strongest.length === 1 && maxPower > 1) {
-          nextDisrupted.add(seaId);
-        }
-      }
-
-      const nextValid = new Set(
-        [...convoyMoveCandidate].filter((m) => hasConvoyRoute(m, nextDisrupted)),
-      );
-
-      const sameDisrupted =
-        nextDisrupted.size === disruptedSeaProvinces.size &&
-        [...nextDisrupted].every((x) => disruptedSeaProvinces.has(x));
-      const sameValid =
-        nextValid.size === validConvoyMoves.size &&
-        [...nextValid].every((x) => validConvoyMoves.has(x));
-
-      validConvoyMoves = nextValid;
-      disruptedSeaProvinces = nextDisrupted;
-      if (sameDisrupted && sameValid) {
-        break;
-      }
-    }
-
-    return { validConvoyMoves, disruptedSeaProvinces };
+    return { validConvoyMoves };
   }
 
   /**
@@ -544,13 +511,44 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
     );
   }
 
-  /** 非カット支援を strength マップに反映したコピーを返す */
-  function buildStrengthWithSupports(cut: Set<SupportOrder>): Map<string, number> {
+  const moveOrderByUnitId = new Map<string, MoveOrder>();
+  for (const m of moveOrders) {
+    moveOrderByUnitId.set(m.unitId, m);
+  }
+
+  function isSupportOrderMatchingSupportedAction(s: SupportOrder): boolean {
+    const supporter = unitById.get(s.unitId);
+    const supported = unitById.get(s.supportedUnitId);
+    if (!supporter || !supported) {
+      return false;
+    }
+    if (s.fromProvinceId !== supported.provinceId) {
+      return false;
+    }
+    if (!adjacencyKeys.has(`${supporter.provinceId}->${s.toProvinceId}`)) {
+      return false;
+    }
+    const supportedMove = moveOrderByUnitId.get(s.supportedUnitId);
+    const isHoldSupport = s.fromProvinceId === s.toProvinceId;
+    if (isHoldSupport) {
+      return supportedMove == null;
+    }
+    if (!supportedMove) {
+      return false;
+    }
+    return supportedMove.targetProvinceId === s.toProvinceId;
+  }
+
+  /** 有効かつ非カット支援を strength マップに反映したコピーを返す */
+  function buildStrengthWithSupports(
+    effectiveSupports: Set<SupportOrder>,
+    cut: Set<SupportOrder>,
+  ): Map<string, number> {
     const m = new Map<string, number>();
     for (const unit of board.units) {
       m.set(unit.provinceId, 1);
     }
-    for (const s of supportOrders) {
+    for (const s of effectiveSupports) {
       if (cut.has(s)) {
         continue;
       }
@@ -560,76 +558,110 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
     return m;
   }
 
-  function setsEqualString(a: Set<string>, b: Set<string>): boolean {
-    if (a.size !== b.size) {
-      return false;
-    }
-    for (const x of a) {
-      if (!b.has(x)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  function setsEqualMove(a: Set<MoveOrder>, b: Set<MoveOrder>): boolean {
-    if (a.size !== b.size) {
-      return false;
-    }
-    const key = (x: MoveOrder) =>
-      `${x.unitId}|${x.sourceProvinceId}|${x.targetProvinceId}`;
-    const ka = new Set([...a].map(key));
-    const kb = new Set([...b].map(key));
-    return setsEqualString(ka, kb);
-  }
-
+  const effectiveSupportOrders = new Set(
+    supportOrders.filter((s) => isSupportOrderMatchingSupportedAction(s)),
+  );
   let supportCut = new Set<SupportOrder>();
   let finalValidConvoyMoves = new Set<MoveOrder>();
   let disruptedSeaProvinces = new Set<string>();
 
   for (let outer = 0; outer < 12; outer += 1) {
-    const strengthForMoves = buildStrengthWithSupports(supportCut);
-    const convoyResolution = resolveConvoyMoves(strengthForMoves);
+    const convoyResolution = resolveConvoyMoves(disruptedSeaProvinces);
     finalValidConvoyMoves = convoyResolution.validConvoyMoves;
-    disruptedSeaProvinces = convoyResolution.disruptedSeaProvinces;
 
-    const enabledAttackMoves = new Set<MoveOrder>([
-      ...directAdjacentMove,
-      ...finalValidConvoyMoves,
-    ]);
+    const strengthForMoves = buildStrengthWithSupports(
+      effectiveSupportOrders,
+      supportCut,
+    );
+    const movesByTargetForIter: Map<string, MoveAttack[]> = new Map();
+    for (const move of moveOrders) {
+      const unit = unitById.get(move.unitId);
+      if (!unit) {
+        continue;
+      }
+      const directAdjacent = directAdjacentMove.has(move);
+      const convoyRoute = finalValidConvoyMoves.has(move);
+      if (!directAdjacent && !convoyRoute) {
+        continue;
+      }
+      const key = `${move.sourceProvinceId}->${move.targetProvinceId}`;
+      const power = 1 + (strengthForMoves.get(key) ?? 0);
+      const list = movesByTargetForIter.get(move.targetProvinceId) ?? [];
+      list.push({ order: move, power });
+      movesByTargetForIter.set(move.targetProvinceId, list);
+    }
 
+    const moveSuccessForIter = resolveMoveSuccessMap(
+      board,
+      moveOrders,
+      movesByTargetForIter,
+      unitById,
+    );
+    const validatedMovesForIter = new Set<MoveOrder>();
+    for (const arr of movesByTargetForIter.values()) {
+      for (const a of arr) {
+        validatedMovesForIter.add(a.order);
+      }
+    }
+    const successfulMovesForIter = new Set<MoveOrder>();
+    for (const mv of validatedMovesForIter) {
+      if (moveSuccessForIter.get(mv) === true) {
+        successfulMovesForIter.add(mv);
+      }
+    }
+
+    const nextDisrupted = new Set<string>();
+    for (const seaId of convoySeaProvinces) {
+      const defendingFleet = board.units.find(
+        (u) => u.provinceId === seaId && u.type === UnitType.Fleet,
+      );
+      if (!defendingFleet) {
+        continue;
+      }
+      for (const sm of successfulMovesForIter) {
+        if (sm.targetProvinceId !== seaId) {
+          continue;
+        }
+        const attacker = unitById.get(sm.unitId);
+        if (!attacker || attacker.powerId === defendingFleet.powerId) {
+          continue;
+        }
+        const defenderMove = moveOrderByUnitId.get(defendingFleet.id);
+        const defenderLeaving =
+          defenderMove != null &&
+          defenderMove.targetProvinceId !== seaId &&
+          moveSuccessForIter.get(defenderMove) === true;
+        if (!defenderLeaving) {
+          nextDisrupted.add(seaId);
+          break;
+        }
+      }
+    }
+
+    const enabledAttackMoves = new Set<MoveOrder>(validatedMovesForIter);
     const nextCut = new Set<SupportOrder>();
-    for (const s of supportOrders) {
+    for (const s of effectiveSupportOrders) {
       if (isSupportCut(s, enabledAttackMoves)) {
         nextCut.add(s);
       }
     }
 
-    const prevCut = supportCut;
-    supportCut = nextCut;
-
-    const sameCut = setsEqualString(
-      new Set([...prevCut].map((x) => `${x.unitId}|${x.fromProvinceId}|${x.toProvinceId}`)),
-      new Set([...supportCut].map((x) => `${x.unitId}|${x.fromProvinceId}|${x.toProvinceId}`)),
+    const sameCut = setEqualsByKey(supportCut, nextCut, supportKeyOf);
+    const sameDisrupted = setEqualsByKey(
+      disruptedSeaProvinces,
+      nextDisrupted,
+      (x) => x,
     );
-
-    const strengthAfter = buildStrengthWithSupports(supportCut);
-    const convoyAgain = resolveConvoyMoves(strengthAfter);
-    const sameConvoy =
-      setsEqualMove(convoyAgain.validConvoyMoves, finalValidConvoyMoves) &&
-      setsEqualString(convoyAgain.disruptedSeaProvinces, disruptedSeaProvinces);
-
-    if (sameCut && sameConvoy) {
-      finalValidConvoyMoves = convoyAgain.validConvoyMoves;
-      disruptedSeaProvinces = convoyAgain.disruptedSeaProvinces;
+    supportCut = nextCut;
+    disruptedSeaProvinces = nextDisrupted;
+    if (sameCut && sameDisrupted) {
       break;
     }
   }
 
-  const supportStrength = buildStrengthWithSupports(supportCut);
-  const lastConvoyResolution = resolveConvoyMoves(supportStrength);
+  const supportStrength = buildStrengthWithSupports(effectiveSupportOrders, supportCut);
+  const lastConvoyResolution = resolveConvoyMoves(disruptedSeaProvinces);
   finalValidConvoyMoves = lastConvoyResolution.validConvoyMoves;
-  disruptedSeaProvinces = lastConvoyResolution.disruptedSeaProvinces;
 
   // 各 Move の最終的なパワー計算（支援込み）
   const movesByTarget: Map<string, MoveAttack[]> = new Map();
@@ -1003,6 +1035,14 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
         order: s,
         success: false,
         message: '支援失敗: 対象ユニットが盤面に存在しません',
+      });
+      continue;
+    }
+    if (!effectiveSupportOrders.has(s)) {
+      orderResolutions.push({
+        order: s,
+        success: false,
+        message: '支援失敗: 支援対象の行動と命令が一致しません',
       });
       continue;
     }

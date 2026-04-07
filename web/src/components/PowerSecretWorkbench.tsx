@@ -20,6 +20,7 @@ import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
 import { AreaType, OrderType, UnitType } from '@/domain';
 import {
   buildCapacity,
+  canBuildFleetAtProvince,
   coastChoicesForFleetMove,
   disbandNeed,
   fleetArrivalCoasts,
@@ -299,8 +300,11 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
                     .filter((p) =>
                       slot.unitType === UnitType.Army
                         ? true
-                        : p.areaType !== AreaType.Land,
+                        : canBuildFleetAtProvince(board, p.id),
                     );
+                  const canBuildFleetOnSelected =
+                    !!slot.provinceId &&
+                    canBuildFleetAtProvince(board, slot.provinceId);
                   return (
                     <div
                       key={idx}
@@ -311,10 +315,14 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
                         value={slot.provinceId}
                         onChange={(e) =>
                           setBuildPlan((prev) => {
+                            const nextProvinceId = e.target.value;
+                            const keepFleet =
+                              slot.unitType === UnitType.Fleet &&
+                              canBuildFleetAtProvince(board, nextProvinceId);
                             const prevSlots = prev[powerId] ? [...prev[powerId]] : [];
                             prevSlots[idx] = {
-                              provinceId: e.target.value,
-                              unitType: slot.unitType ?? UnitType.Army,
+                              provinceId: nextProvinceId,
+                              unitType: keepFleet ? UnitType.Fleet : UnitType.Army,
                               buildFleetCoast: '',
                             };
                             return { ...prev, [powerId]: prevSlots };
@@ -344,7 +352,9 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
                         }
                       >
                         <option value={UnitType.Army}>陸軍</option>
-                        <option value={UnitType.Fleet}>海軍</option>
+                        {canBuildFleetOnSelected && (
+                          <option value={UnitType.Fleet}>海軍</option>
+                        )}
                       </select>
                       {slot.unitType === UnitType.Fleet &&
                         slot.provinceId &&

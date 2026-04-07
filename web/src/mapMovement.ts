@@ -416,7 +416,12 @@ export function getSupportMoveDestinationProvinceIds(
       .filter((a) => a.fromProvinceId === supporter.provinceId)
       .map((a) => a.toProvinceId),
   );
-  const supportedReach = getReachableProvinceIdsForOrderUi(board, supported, adjKeys);
+  const supportedReach = getDirectMoveTargets(
+    supported,
+    supported.provinceId,
+    board,
+    adjKeys,
+  );
   const out = new Set<string>();
   for (const id of supportedReach) {
     if (supporterReach.has(id)) {

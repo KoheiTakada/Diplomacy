@@ -618,6 +618,29 @@ export type BuildSlot = {
   buildFleetCoast: string;
 };
 
+/**
+ * 指定プロヴィンスに海軍を増産できるか。
+ *
+ * ルール上、海軍増産は「海に面した補給拠点」のみ許可する。
+ * データ不整合で areaType が Coastal でも、海隣接がなければ不可とする。
+ */
+export function canBuildFleetAtProvince(
+  board: BoardState,
+  provinceId: string,
+): boolean {
+  const p = board.provinces.find((x) => x.id === provinceId);
+  if (!p || p.areaType === AreaType.Land) {
+    return false;
+  }
+  return board.adjacencies.some((a) => {
+    if (a.fromProvinceId !== provinceId) {
+      return false;
+    }
+    const to = board.provinces.find((x) => x.id === a.toProvinceId);
+    return to?.areaType === AreaType.Sea;
+  });
+}
+
 /** 削減スロット */
 export type DisbandSlot = {
   unitId: string;
@@ -805,8 +828,7 @@ export function isPowerAdjustmentSlotsFilled(
         return false;
       }
       if (slot.unitType === UnitType.Fleet) {
-        const province = board.provinces.find((p) => p.id === slot.provinceId);
-        if (!province || province.areaType === AreaType.Land) {
+        if (!canBuildFleetAtProvince(board, slot.provinceId)) {
           return false;
         }
       }

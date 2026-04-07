@@ -165,6 +165,105 @@ describe('adjudicateTurn (MVP)', () => {
     expect(attacker?.provinceId).toBe('PAR');
   });
 
+  it('待機支援は、対象ユニットが移動命令を出していると不一致で失敗する', () => {
+    const board = {
+      ...MINI_MAP_INITIAL_STATE,
+      units: [
+        { id: 'FRA-A-PAR-X', type: UnitType.Army, powerId: 'FRA', provinceId: 'PAR' },
+        { id: 'FRA-A-PIC-X', type: UnitType.Army, powerId: 'FRA', provinceId: 'PIC' },
+      ],
+    };
+    const orders = [
+      {
+        type: OrderType.Move,
+        unitId: 'FRA-A-PAR-X',
+        sourceProvinceId: 'PAR',
+        targetProvinceId: 'BUR',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'FRA-A-PIC-X',
+        supportedUnitId: 'FRA-A-PAR-X',
+        fromProvinceId: 'PAR',
+        toProvinceId: 'PAR',
+      } as const,
+    ];
+    const result = adjudicateTurn(board, orders);
+    const supportRes = result.orderResolutions.find(
+      (r) =>
+        r.order.type === OrderType.Support &&
+        r.order.unitId === 'FRA-A-PIC-X',
+    );
+    expect(supportRes?.success).toBe(false);
+    expect(supportRes?.message).toContain('一致');
+  });
+
+  it('移動支援は、対象ユニットの移動先と一致しないと失敗する', () => {
+    const board = {
+      ...MINI_MAP_INITIAL_STATE,
+      units: [
+        { id: 'FRA-A-PAR-Y', type: UnitType.Army, powerId: 'FRA', provinceId: 'PAR' },
+        { id: 'FRA-A-PIC-Y', type: UnitType.Army, powerId: 'FRA', provinceId: 'PIC' },
+      ],
+    };
+    const orders = [
+      {
+        type: OrderType.Move,
+        unitId: 'FRA-A-PAR-Y',
+        sourceProvinceId: 'PAR',
+        targetProvinceId: 'BUR',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'FRA-A-PIC-Y',
+        supportedUnitId: 'FRA-A-PAR-Y',
+        fromProvinceId: 'PAR',
+        toProvinceId: 'BEL',
+      } as const,
+    ];
+    const result = adjudicateTurn(board, orders);
+    const supportRes = result.orderResolutions.find(
+      (r) =>
+        r.order.type === OrderType.Support &&
+        r.order.unitId === 'FRA-A-PIC-Y',
+    );
+    expect(supportRes?.success).toBe(false);
+    expect(supportRes?.message).toContain('一致');
+  });
+
+  it('移動支援は、支援元が目標地点に隣接していないと失敗する', () => {
+    const board = {
+      ...MINI_MAP_INITIAL_STATE,
+      units: [
+        { id: 'FRA-A-PAR-Z', type: UnitType.Army, powerId: 'FRA', provinceId: 'PAR' },
+        { id: 'FRA-A-BRE-Z', type: UnitType.Army, powerId: 'FRA', provinceId: 'BRE' },
+      ],
+    };
+    const orders = [
+      {
+        type: OrderType.Move,
+        unitId: 'FRA-A-PAR-Z',
+        sourceProvinceId: 'PAR',
+        targetProvinceId: 'BUR',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'FRA-A-BRE-Z',
+        supportedUnitId: 'FRA-A-PAR-Z',
+        fromProvinceId: 'PAR',
+        toProvinceId: 'BUR',
+      } as const,
+    ];
+    const result = adjudicateTurn(board, orders);
+    const supportRes = result.orderResolutions.find(
+      (r) =>
+        r.order.type === OrderType.Support &&
+        r.order.unitId === 'FRA-A-BRE-Z',
+    );
+    expect(supportRes?.success).toBe(false);
+    expect(supportRes?.message).toContain('一致');
+  });
+
   it('春の解決後はターンが秋に進む', () => {
     const board = {
       ...MINI_MAP_INITIAL_STATE,

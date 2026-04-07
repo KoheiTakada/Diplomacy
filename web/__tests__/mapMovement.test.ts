@@ -13,6 +13,7 @@ import {
   getArmyConvoyReachableLandProvinceIds,
   getConvoyOrderCandidateArmyIds,
   getConvoyOrderDestinationProvinces,
+  getSupportMoveDestinationProvinceIds,
   isDirectMoveValid,
 } from '@/mapMovement';
 import { OrderType, UnitType, type MoveOrder, type Order } from '@/domain';
@@ -122,6 +123,26 @@ describe('支援命令: canSupportTargetInSupportOrder', () => {
     const ber = board.units.find((u) => u.id === 'GER-A-BER')!;
     const ok = canSupportTargetInSupportOrder(board, mun, ber, adjKeys);
     expect(ok).toBe(true);
+  });
+
+  it('移動支援の行き先候補には輸送経由のみで届く先を含めない', () => {
+    const board = {
+      ...MINI_MAP_INITIAL_STATE,
+      units: [
+        { id: 'SUP-F', type: UnitType.Fleet, powerId: 'ENG', provinceId: 'ENG' },
+        { id: 'ARM-LON', type: UnitType.Army, powerId: 'ENG', provinceId: 'LON' },
+      ],
+    };
+    const adjKeys = buildAdjacencyKeySet(board);
+    const supporter = board.units.find((u) => u.id === 'SUP-F')!;
+    const supported = board.units.find((u) => u.id === 'ARM-LON')!;
+    const ids = getSupportMoveDestinationProvinceIds(
+      board,
+      supporter,
+      supported,
+      adjKeys,
+    );
+    expect(ids.has('BEL')).toBe(false);
   });
 });
 
