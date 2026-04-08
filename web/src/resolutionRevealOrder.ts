@@ -494,6 +494,7 @@ export function buildResolutionRevealTimeline(
   };
   const moveIndexByKey = new Map<string, number>();
   const dislodgedHoldByMoveIndex = new Map<number, number>();
+  const dislodgingMoveByUnitId = new Map<string, number>();
 
   for (let i = 0; i < resolutions.length; i += 1) {
     const r = resolutions[i];
@@ -507,6 +508,7 @@ export function buildResolutionRevealTimeline(
         nxt.message.includes('押し出され')
       ) {
         dislodgedHoldByMoveIndex.set(i, i + 1);
+        dislodgingMoveByUnitId.set(resolutions[i + 1].order.unitId, i);
       }
     }
   }
@@ -531,102 +533,227 @@ export function buildResolutionRevealTimeline(
     }
   }
 
-  const convoyByMoveKey = new Map<string, number[]>();
+  const convoySuccessByMoveKey = new Map<string, number[]>();
   for (let i = 0; i < resolutions.length; i += 1) {
     const r = resolutions[i];
     if (r.order.type !== OrderType.Convoy) {
       continue;
     }
+    if (!r.success) {
+      continue;
+    }
     const c = r.order;
     const k = `${c.armyUnitId}|${c.fromProvinceId}|${c.toProvinceId}`;
-    const arr = convoyByMoveKey.get(k) ?? [];
+    const arr = convoySuccessByMoveKey.get(k) ?? [];
     arr.push(i);
-    convoyByMoveKey.set(k, arr);
+    convoySuccessByMoveKey.set(k, arr);
   }
 
-  const emitSupportCutPrelude = (idx: number): void => {
+  const supportCutFailsByPower = new Map<string, number[]>();
+  const supportCutFailByCuttingMove = new Map<number, number[]>();
+  const supportCutFailWithoutCuttingMove: number[] = [];
+
+  for (let i = 0; i < resolutions.length; i += 1) {
+    const r = resolutions[i];
+    if (
+      r.order.type !== OrderType.Support ||
+      r.success ||
+      !r.message.includes('カット')
+    ) {
+      continue;
+    }
+    const supportPower = powerOf(r.order.unitId);
+    const arr = supportCutFailsByPower.get(supportPower) ?? [];
+    arr.push(i);
+    supportCutFailsByPower.set(supportPower, arr);
+
+    const cuttingMoves = cuttingMovesForSupport(r.order, domainOrders, labelBoard);
+    const linkedMoveIndices = cuttingMoves
+      .map((m) => moveIndexByKey.get(moveKey(m)))
+      .filter((x): x is number => x != null);
+    if (linkedMoveIndices.length === 0) {
+      supportCutFailWithoutCuttingMove.push(i);
+      continue;
+    }
+    for (const mi of linkedMoveIndices) {
+      const cur = supportCutFailByCuttingMove.get(mi) ?? [];
+      cur.push(i);
+      supportCutFailByCuttingMove.set(mi, cur);
+    }
+  }
+
+  const convoyDisruptedFailByPower = new Map<string, number[]>();
+  const convoyDisruptedFailByDislodgingMove = new Map<number, number[]>();
+  const convoyDisruptedFailWithoutDislodgingMove: number[] = [];
+  for (let i = 0; i < resolutions.length; i += 1) {
+    const r = resolutions[i];
+    if (r.order.type !== OrderType.Convoy || r.success) {
+      continue;
+    }
+    if (!r.message.includes('輸送艦隊が押し出され輸送妨害')) {
+      continue;
+    }
+    const convoyPower = powerOf(r.order.unitId);
+    const arr = convoyDisruptedFailByPower.get(convoyPower) ?? [];
+    arr.push(i);
+    convoyDisruptedFailByPower.set(convoyPower, arr);
+
+    const dislodgingMoveIndex = dislodgingMoveByUnitId.get(r.order.unitId);
+    if (dislodgingMoveIndex == null) {
+      convoyDisruptedFailWithoutDislodgingMove.push(i);
+      continue;
+    }
+    const cur = convoyDisruptedFailByDislodgingMove.get(dislodgingMoveIndex) ?? [];
+    cur.push(i);
+    convoyDisruptedFailByDislodgingMove.set(dislodgingMoveIndex, cur);
+  }
+
+  const tentativeSupportCutDone = new Set<number>();
+  const emitTentativeSupportCut = (idx: number): void => {
+    if (tentativeSupportCutDone.has(idx)) {
+      return;
+    }
     const r = resolutions[idx];
-    if (r.order.type !== OrderType.Support || r.success) {
+    if (
+      r.order.type !== OrderType.Support ||
+      r.success ||
+      !r.message.includes('カット')
+    ) {
       return;
     }
-    if (!r.message.includes('カット')) {
-      return;
-    }
-    const s = r.order;
-    steps.push({ kind: 'tentativeSupportCut', sup: s });
+    steps.push({ kind: 'tentativeSupportCut', sup: r.order });
+    tentativeSupportCutDone.add(idx);
   };
 
   const emitResolution = (idx: number, revoke?: SupportLinkPair[]): void => {
     if (used.has(idx)) {
       return;
     }
-    const r = resolutions[idx];
-    if (r.order.type === OrderType.Support && !r.success && r.message.includes('カット')) {
-      emitSupportCutPrelude(idx);
-      steps.push({
-        kind: 'resolution',
-        r,
-        revokeSupportLinksBefore: revoke ?? [{
-          supporterUnitId: r.order.unitId,
-          supportedUnitId: r.order.supportedUnitId,
-        }],
-      });
-      used.add(idx);
-      return;
-    }
-    steps.push({ kind: 'resolution', r, revokeSupportLinksBefore: revoke });
+    steps.push({
+      kind: 'resolution',
+      r: resolutions[idx],
+      revokeSupportLinksBefore: revoke,
+    });
     used.add(idx);
   };
 
   const emitSupportAndConvoyForMove = (mv: MoveOrder): void => {
     const k = `${mv.unitId}|${mv.sourceProvinceId}|${mv.targetProvinceId}`;
     const supportIdx = supportSuccessByMoveKey.get(k) ?? [];
-    supportIdx.sort((a, b) => rankOf(resolutions[a].order.unitId) - rankOf(resolutions[b].order.unitId));
+    supportIdx.sort(
+      (a, b) =>
+        rankOf(resolutions[a].order.unitId) - rankOf(resolutions[b].order.unitId),
+    );
     for (const si of supportIdx) {
       emitResolution(si);
     }
-    const convoyIdx = convoyByMoveKey.get(k) ?? [];
-    convoyIdx.sort((a, b) => rankOf(resolutions[a].order.unitId) - rankOf(resolutions[b].order.unitId));
+    const convoyIdx = convoySuccessByMoveKey.get(k) ?? [];
+    convoyIdx.sort(
+      (a, b) =>
+        rankOf(resolutions[a].order.unitId) - rankOf(resolutions[b].order.unitId),
+    );
     for (const ci of convoyIdx) {
       emitResolution(ci);
     }
   };
 
-  const moveCategory = (r: OrderResolution): string => {
-    if (r.order.type !== OrderType.Move) {
-      return 'other';
+  const orderMovesByVacateDependency = (indices: number[]): number[] => {
+    if (indices.length <= 1) {
+      return indices;
     }
-    const k = `${r.order.unitId}|${r.order.sourceProvinceId}|${r.order.targetProvinceId}`;
-    const hasSupport = (supportSuccessByMoveKey.get(k)?.length ?? 0) > 0;
-    const msg = r.message;
-    if (r.success) {
-      if (msg.includes('勝利して移動成功')) {
-        return hasSupport ? 'supportedConflictWin' : 'singleConflictWin';
+    const idxSet = new Set(indices);
+    const sourceToIdx = new Map<string, number>();
+    for (const i of indices) {
+      const r = resolutions[i];
+      if (r.order.type !== OrderType.Move) {
+        continue;
       }
-      return hasSupport ? 'supportedNoConflictWin' : 'singleNoConflictWin';
+      sourceToIdx.set(r.order.sourceProvinceId, i);
     }
-    if (msg.includes('スタンドオフ')) {
-      return hasSupport ? 'supportedStandoff' : 'singleStandoff';
+    const outEdges = new Map<number, number[]>();
+    const indegree = new Map<number, number>();
+    for (const i of indices) {
+      outEdges.set(i, []);
+      indegree.set(i, 0);
     }
-    if (isMoveValidationFailure(r) || isFriendBlockFail(r)) {
-      return 'invalidOrBlocked';
+    for (const i of indices) {
+      const r = resolutions[i];
+      if (r.order.type !== OrderType.Move) {
+        continue;
+      }
+      const dep = sourceToIdx.get(r.order.targetProvinceId);
+      if (dep == null || dep === i || !idxSet.has(dep)) {
+        continue;
+      }
+      outEdges.get(dep)?.push(i);
+      indegree.set(i, (indegree.get(i) ?? 0) + 1);
     }
-    return hasSupport ? 'supportedLoss' : 'singleLoss';
+    const queue = indices.filter((i) => (indegree.get(i) ?? 0) === 0).sort((a, b) => a - b);
+    const ordered: number[] = [];
+    while (queue.length > 0) {
+      const v = queue.shift();
+      if (v == null) {
+        break;
+      }
+      ordered.push(v);
+      const nxt = outEdges.get(v) ?? [];
+      for (const to of nxt) {
+        const d = (indegree.get(to) ?? 0) - 1;
+        indegree.set(to, d);
+        if (d === 0) {
+          insertSortedUnique(queue, to, (x, y) => x - y);
+        }
+      }
+    }
+    for (const i of indices) {
+      if (!ordered.includes(i)) {
+        ordered.push(i);
+      }
+    }
+    return ordered;
   };
 
-  const moveCategoryOrder = [
-    'singleNoConflictWin',
-    'supportedNoConflictWin',
-    'supportedConflictWin',
-    'singleConflictWin',
-    'singleStandoff',
-    'supportedStandoff',
-    'singleLoss',
-    'supportedLoss',
-    'invalidOrBlocked',
-  ] as const;
+  const emitMoveWithCoupledFailures = (mi: number): void => {
+    const r = resolutions[mi];
+    if (r.order.type !== OrderType.Move) {
+      return;
+    }
+    emitSupportAndConvoyForMove(r.order);
+    emitResolution(mi);
+    const dislodgedHold = dislodgedHoldByMoveIndex.get(mi);
+    if (dislodgedHold != null) {
+      emitResolution(dislodgedHold);
+    }
+
+    const supportCuts = supportCutFailByCuttingMove.get(mi) ?? [];
+    supportCuts.sort((a, b) => a - b);
+    for (const si of supportCuts) {
+      const sr = resolutions[si];
+      if (sr.order.type !== OrderType.Support) {
+        continue;
+      }
+      emitResolution(si, [
+        {
+          supporterUnitId: sr.order.unitId,
+          supportedUnitId: sr.order.supportedUnitId,
+        },
+      ]);
+    }
+
+    const convoyDisrupted = convoyDisruptedFailByDislodgingMove.get(mi) ?? [];
+    convoyDisrupted.sort((a, b) => a - b);
+    for (const ci of convoyDisrupted) {
+      emitResolution(ci);
+    }
+  };
 
   for (const powerId of powerOrder) {
+    const preludeSupportCuts = supportCutFailsByPower.get(powerId) ?? [];
+    preludeSupportCuts.sort((a, b) => a - b);
+    for (const si of preludeSupportCuts) {
+      emitTentativeSupportCut(si);
+    }
+
     const moveIndices = resolutions
       .map((r, i) => ({ r, i }))
       .filter(
@@ -637,18 +764,169 @@ export function buildResolutionRevealTimeline(
       )
       .map(({ i }) => i);
 
-    for (const cat of moveCategoryOrder) {
-      const bucket = moveIndices
-        .filter((i) => !used.has(i) && moveCategory(resolutions[i]) === cat)
-        .sort((a, b) => a - b);
-      for (const mi of bucket) {
-        const mv = resolutions[mi].order as MoveOrder;
-        emitSupportAndConvoyForMove(mv);
-        emitResolution(mi);
-        const dislodged = dislodgedHoldByMoveIndex.get(mi);
-        if (dislodged != null) {
-          emitResolution(dislodged);
+    const successMoves = moveIndices.filter((i) => resolutions[i].success);
+    const singleSuccess = orderMovesByVacateDependency(
+      successMoves.filter((i) => {
+        const r = resolutions[i];
+        if (r.order.type !== OrderType.Move) {
+          return false;
         }
+        const k = `${r.order.unitId}|${r.order.sourceProvinceId}|${r.order.targetProvinceId}`;
+        return (supportSuccessByMoveKey.get(k)?.length ?? 0) === 0;
+      }),
+    );
+    for (const mi of singleSuccess) {
+      emitMoveWithCoupledFailures(mi);
+    }
+    const supportedNoConflict = orderMovesByVacateDependency(
+      successMoves.filter((i) => {
+        const r = resolutions[i];
+        if (r.order.type !== OrderType.Move) {
+          return false;
+        }
+        const k = `${r.order.unitId}|${r.order.sourceProvinceId}|${r.order.targetProvinceId}`;
+        const hasSupport = (supportSuccessByMoveKey.get(k)?.length ?? 0) > 0;
+        return hasSupport && !r.message.includes('勝利して移動成功');
+      }),
+    );
+    for (const mi of supportedNoConflict) {
+      emitMoveWithCoupledFailures(mi);
+    }
+    const supportedConflict = orderMovesByVacateDependency(
+      successMoves.filter((i) => {
+        const r = resolutions[i];
+        if (r.order.type !== OrderType.Move) {
+          return false;
+        }
+        const k = `${r.order.unitId}|${r.order.sourceProvinceId}|${r.order.targetProvinceId}`;
+        const hasSupport = (supportSuccessByMoveKey.get(k)?.length ?? 0) > 0;
+        return hasSupport && r.message.includes('勝利して移動成功');
+      }),
+    );
+    for (const mi of supportedConflict) {
+      emitMoveWithCoupledFailures(mi);
+    }
+
+    const singleConflict = orderMovesByVacateDependency(
+      successMoves.filter((i) => {
+        const r = resolutions[i];
+        return (
+          r.order.type === OrderType.Move &&
+          r.message.includes('勝利して移動成功') &&
+          (() => {
+            const k = `${r.order.unitId}|${r.order.sourceProvinceId}|${r.order.targetProvinceId}`;
+            return (supportSuccessByMoveKey.get(k)?.length ?? 0) === 0;
+          })()
+        );
+      }),
+    );
+    for (const mi of singleConflict) {
+      emitMoveWithCoupledFailures(mi);
+    }
+
+    const failedMoves = moveIndices.filter(
+      (i) => !used.has(i) && resolutions[i].success === false,
+    );
+    const standoffFails = failedMoves.filter((i) =>
+      isStandoffFail(resolutions[i]),
+    );
+    const friendBlockFails = failedMoves.filter((i) =>
+      isFriendBlockFail(resolutions[i]),
+    );
+    const otherMoveFails = failedMoves.filter(
+      (i) => !standoffFails.includes(i) && !friendBlockFails.includes(i),
+    );
+
+    const failedMoveBySourceProvince = new Map<string, number>();
+    for (const i of failedMoves) {
+      const r = resolutions[i];
+      if (r.order.type !== OrderType.Move) {
+        continue;
+      }
+      failedMoveBySourceProvince.set(r.order.sourceProvinceId, i);
+    }
+    const blockerByFriendFail = new Map<number, number>();
+    for (const fi of friendBlockFails) {
+      const r = resolutions[fi];
+      if (r.order.type !== OrderType.Move) {
+        continue;
+      }
+      const blocker = failedMoveBySourceProvince.get(r.order.targetProvinceId);
+      if (blocker != null && blocker !== fi) {
+        blockerByFriendFail.set(fi, blocker);
+      }
+    }
+
+    const rootStandoffByFriendFail = new Map<number, number>();
+    for (const fi of friendBlockFails) {
+      const visited = new Set<number>();
+      let cur = fi;
+      while (true) {
+        const blocker = blockerByFriendFail.get(cur);
+        if (blocker == null) {
+          break;
+        }
+        if (visited.has(blocker)) {
+          break;
+        }
+        visited.add(blocker);
+        if (standoffFails.includes(blocker)) {
+          rootStandoffByFriendFail.set(fi, blocker);
+          break;
+        }
+        cur = blocker;
+      }
+    }
+
+    const standoffGroupByTarget = new Map<string, number[]>();
+    for (const si of standoffFails) {
+      const r = resolutions[si];
+      if (r.order.type !== OrderType.Move) {
+        continue;
+      }
+      const g = standoffGroupByTarget.get(r.order.targetProvinceId) ?? [];
+      g.push(si);
+      standoffGroupByTarget.set(r.order.targetProvinceId, g);
+    }
+    const standoffGroups = [...standoffGroupByTarget.values()].map((g) =>
+      g.sort((a, b) => a - b),
+    );
+    const hasDependentFriendFail = (group: number[]): boolean =>
+      friendBlockFails.some((fi) =>
+        group.includes(rootStandoffByFriendFail.get(fi) ?? -1),
+      );
+    const unaffectedStandoffGroups = standoffGroups.filter(
+      (g) => !hasDependentFriendFail(g),
+    );
+    const affectingStandoffGroups = standoffGroups.filter((g) =>
+      hasDependentFriendFail(g),
+    );
+
+    for (const group of unaffectedStandoffGroups) {
+      for (const si of group) {
+        emitMoveWithCoupledFailures(si);
+      }
+    }
+    for (const group of affectingStandoffGroups) {
+      for (const si of group) {
+        emitMoveWithCoupledFailures(si);
+      }
+      const relatedFriendFails = friendBlockFails
+        .filter((fi) => group.includes(rootStandoffByFriendFail.get(fi) ?? -1))
+        .sort((a, b) => a - b);
+      for (const fi of relatedFriendFails) {
+        emitMoveWithCoupledFailures(fi);
+      }
+    }
+
+    for (const fi of friendBlockFails) {
+      if (!used.has(fi) && !rootStandoffByFriendFail.has(fi)) {
+        emitMoveWithCoupledFailures(fi);
+      }
+    }
+    for (const oi of otherMoveFails.sort((a, b) => a - b)) {
+      if (!used.has(oi)) {
+        emitMoveWithCoupledFailures(oi);
       }
     }
 
@@ -662,6 +940,13 @@ export function buildResolutionRevealTimeline(
       )
       .sort((a, b) => a.i - b.i);
     for (const { i } of supportOwn) {
+      const r = resolutions[i];
+      if (r.order.type === OrderType.Support && !r.success && r.message.includes('カット')) {
+        continue;
+      }
+      if (r.order.type === OrderType.Support && !r.success && r.message.includes('一致しません')) {
+        continue;
+      }
       emitResolution(i);
     }
 
@@ -675,6 +960,14 @@ export function buildResolutionRevealTimeline(
       )
       .sort((a, b) => a.i - b.i);
     for (const { i } of convoyOwn) {
+      const r = resolutions[i];
+      if (
+        r.order.type === OrderType.Convoy &&
+        !r.success &&
+        r.message.includes('輸送艦隊が押し出され輸送妨害')
+      ) {
+        continue;
+      }
       emitResolution(i);
     }
 
@@ -696,6 +989,54 @@ export function buildResolutionRevealTimeline(
         }
       }
       emitResolution(i);
+    }
+
+    const convoyDisruptedOwn = convoyDisruptedFailByPower.get(powerId) ?? [];
+    convoyDisruptedOwn.sort((a, b) => a - b);
+    for (const ci of convoyDisruptedOwn) {
+      if (!used.has(ci)) {
+        emitResolution(ci);
+      }
+    }
+
+    const supportMismatchOwn = resolutions
+      .map((r, i) => ({ r, i }))
+      .filter(
+        ({ r, i }) =>
+          r.order.type === OrderType.Support &&
+          powerOf(r.order.unitId) === powerId &&
+          !used.has(i) &&
+          !r.success &&
+          r.message.includes('一致しません'),
+      )
+      .sort((a, b) => a.i - b.i);
+    for (const { i } of supportMismatchOwn) {
+      emitResolution(i);
+    }
+  }
+
+  supportCutFailWithoutCuttingMove.sort((a, b) => a - b);
+  for (const si of supportCutFailWithoutCuttingMove) {
+    if (used.has(si)) {
+      continue;
+    }
+    const r = resolutions[si];
+    if (r.order.type !== OrderType.Support) {
+      continue;
+    }
+    emitTentativeSupportCut(si);
+    emitResolution(si, [
+      {
+        supporterUnitId: r.order.unitId,
+        supportedUnitId: r.order.supportedUnitId,
+      },
+    ]);
+  }
+
+  convoyDisruptedFailWithoutDislodgingMove.sort((a, b) => a - b);
+  for (const ci of convoyDisruptedFailWithoutDislodgingMove) {
+    if (!used.has(ci)) {
+      emitResolution(ci);
     }
   }
 

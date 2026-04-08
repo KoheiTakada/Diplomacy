@@ -33,34 +33,26 @@ function moveUnitIdsInOrder(timeline: RevealTimelineStep[]): string[] {
 }
 
 describe('buildResolutionRevealTimeline', () => {
-  it('同国内では単体移動成功が支援あり移動成功より先に並ぶ', () => {
+  it('連鎖移動では空ける移動（B→C）が入る移動（A→B）より先に並ぶ', () => {
     const board = {
       ...MINI_MAP_INITIAL_STATE,
       units: [
-        { id: 'A-PAR', type: UnitType.Army, powerId: 'FRA', provinceId: 'PAR' },
-        { id: 'A-MAR', type: UnitType.Army, powerId: 'FRA', provinceId: 'MAR' },
-        { id: 'A-GAS', type: UnitType.Army, powerId: 'FRA', provinceId: 'GAS' },
+        { id: 'A-PB', type: UnitType.Army, powerId: 'FRA', provinceId: 'PAR' },
+        { id: 'B-CM', type: UnitType.Army, powerId: 'FRA', provinceId: 'BUR' },
       ],
     };
     const orders = [
       {
         type: OrderType.Move,
-        unitId: 'A-PAR',
+        unitId: 'A-PB',
         sourceProvinceId: 'PAR',
         targetProvinceId: 'BUR',
       } as const,
       {
-        type: OrderType.Support,
-        unitId: 'A-GAS',
-        supportedUnitId: 'A-MAR',
-        fromProvinceId: 'MAR',
-        toProvinceId: 'SPA',
-      } as const,
-      {
         type: OrderType.Move,
-        unitId: 'A-MAR',
-        sourceProvinceId: 'MAR',
-        targetProvinceId: 'SPA',
+        unitId: 'B-CM',
+        sourceProvinceId: 'BUR',
+        targetProvinceId: 'MUN',
       } as const,
     ];
 
@@ -72,11 +64,11 @@ describe('buildResolutionRevealTimeline', () => {
       POWER_ORDER,
     );
     const ids = moveUnitIdsInOrder(timeline);
-    const iSingle = ids.indexOf('A-PAR');
-    const iSupported = ids.indexOf('A-MAR');
-    expect(iSingle).toBeGreaterThanOrEqual(0);
-    expect(iSupported).toBeGreaterThanOrEqual(0);
-    expect(iSingle).toBeLessThan(iSupported);
+    const iA = ids.indexOf('A-PB');
+    const iB = ids.indexOf('B-CM');
+    expect(iA).toBeGreaterThanOrEqual(0);
+    expect(iB).toBeGreaterThanOrEqual(0);
+    expect(iB).toBeLessThan(iA);
   });
 
   it('同一目標へのスタンドオフ失敗が、同勢力ブロック失敗より先に並ぶ', () => {
