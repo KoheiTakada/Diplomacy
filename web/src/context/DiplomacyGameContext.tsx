@@ -85,6 +85,17 @@ import {
   tryParsePersistedSnapshotJson,
   type PersistedSnapshot,
 } from '@/lib/persistedSnapshot';
+import {
+  buildTreatyMapVisuals,
+  canPowerViewTreaty,
+  detectTreatyViolations,
+  isTreatyParticipant,
+  isTreatyRatified,
+  type TreatyExpiry,
+  type TreatyMapVisuals,
+  type TreatyRecord,
+  type TreatyViolationNotice,
+} from '@/diplomacy/treaties';
 import { buildPowerOnlinePatchPayload } from '@/lib/onlinePowerPatchClient';
 import {
   clearOnlineActiveSession,
@@ -205,6 +216,8 @@ function mergePowerSecretSnapshotFromLocal(
     powerOrderSaved,
     powerAdjustmentSaved,
     powerRetreatSaved,
+    treaties: local.treaties,
+    treatyViolations: local.treatyViolations,
   };
 }
 
@@ -301,6 +314,12 @@ function mergeHostPersistedSnapshotThreeWay(
   const powerOrderSaved = { ...incoming.powerOrderSaved };
   const powerAdjustmentSaved = { ...incoming.powerAdjustmentSaved };
   const powerRetreatSaved = { ...incoming.powerRetreatSaved };
+  const treaties = jsonEq(local.treaties, base.treaties)
+    ? incoming.treaties
+    : local.treaties;
+  const treatyViolations = jsonEq(local.treatyViolations, base.treatyViolations)
+    ? incoming.treatyViolations
+    : local.treatyViolations;
   for (const pid of POWERS) {
     if (local.powerOrderSaved[pid] !== base.powerOrderSaved[pid]) {
       powerOrderSaved[pid] = local.powerOrderSaved[pid] === true;
@@ -327,6 +346,8 @@ function mergeHostPersistedSnapshotThreeWay(
     powerOrderSaved,
     powerAdjustmentSaved,
     powerRetreatSaved,
+    treaties,
+    treatyViolations,
   };
 }
 
@@ -471,6 +492,44 @@ export type DiplomacyGameContextValue = {
   setPowerRetreatSaved: React.Dispatch<
     React.SetStateAction<Record<string, boolean>>
   >;
+  treaties: TreatyRecord[];
+  setTreaties: React.Dispatch<React.SetStateAction<TreatyRecord[]>>;
+  treatyViolations: TreatyViolationNotice[];
+  setTreatyViolations: React.Dispatch<
+    React.SetStateAction<TreatyViolationNotice[]>
+  >;
+  treatyMapVisuals: TreatyMapVisuals;
+  createTreaty: (
+    draft: Omit<
+      TreatyRecord,
+      | 'id'
+      | 'createdAtIso'
+      | 'createdAtTurnKey'
+      | 'statusByPower'
+      | 'ratifiedAtIso'
+      | 'discardedAtIso'
+      | 'discardedByPowerId'
+      | 'extensionProposal'
+    >,
+  ) => void;
+  respondTreaty: (
+    treatyId: string,
+    powerId: string,
+    response: 'ratified' | 'rejected' | 'counterProposed',
+  ) => void;
+  discardTreaty: (treatyId: string, powerId: string) => void;
+  proposeTreatyExtension: (
+    treatyId: string,
+    powerId: string,
+    nextExpiry: TreatyExpiry,
+  ) => void;
+  respondTreatyExtension: (
+    treatyId: string,
+    powerId: string,
+    response: 'ratified' | 'rejected',
+  ) => void;
+  clearPowerTreatyViolations: (powerId: string) => void;
+  visibleTreatiesForPower: (powerId: string) => TreatyRecord[];
   revealGenRef: RefObject<number>;
   revealTimersRef: RefObject<number[]>;
   nextLogIdRef: RefObject<number>;
@@ -601,6 +660,10 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   const [powerRetreatSaved, setPowerRetreatSaved] = useState<
     Record<string, boolean>
   >(defaultSnap.powerRetreatSaved);
+  const [treaties, setTreaties] = useState<TreatyRecord[]>(defaultSnap.treaties);
+  const [treatyViolations, setTreatyViolations] = useState<
+    TreatyViolationNotice[]
+  >(defaultSnap.treatyViolations);
 
   const [gameSessionActive, setGameSessionActive] = useState(false);
   const [activeWorldlineStem, setActiveWorldlineStem] = useState('');
@@ -747,6 +810,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     setPowerOrderSaved(merged.powerOrderSaved);
     setPowerAdjustmentSaved(merged.powerAdjustmentSaved);
     setPowerRetreatSaved(merged.powerRetreatSaved);
+    setTreaties(merged.treaties);
+    setTreatyViolations(merged.treatyViolations);
   }, []);
 
   useEffect(() => {
@@ -876,6 +941,163 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     }
   }, []);
 
+  const createTreaty = useCallback<
+    DiplomacyGameContextValue['createTreaty']
+  >((draft) => {
+    const treatyId =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `treaty-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const statusByPower: Record<string, 'pending' | 'ratified'> = {};
+    for (const pid of draft.participantPowerIds) {
+      statusByPower[pid] = pid === draft.proposerPowerId ? 'ratified' : 'pending';
+    }
+    const now = new Date().toISOString();
+    setTreaties((prev) =>
+      prev.concat({
+        ...draft,
+        id: treatyId,
+        createdAtIso: now,
+        createdAtTurnKey: `${board.turn.year}-${board.turn.season}`,
+        statusByPower,
+        ratifiedAtIso: draft.participantPowerIds.length <= 1 ? now : undefined,
+      }),
+    );
+    const sess = onlineSessionRef.current;
+    if (sess?.kind === 'power') {
+      powerSubmitRequestedRef.current = true;
+    }
+  }, [board.turn.year, board.turn.season]);
+
+  const respondTreaty = useCallback<DiplomacyGameContextValue['respondTreaty']>(
+    (treatyId, powerId, response) => {
+      setTreaties((prev) =>
+        prev.map((t) => {
+          if (t.id !== treatyId || !isTreatyParticipant(t, powerId)) {
+            return t;
+          }
+          const nextStatus = { ...t.statusByPower, [powerId]: response };
+          const allRatified = t.participantPowerIds.every(
+            (pid) => nextStatus[pid] === 'ratified',
+          );
+          return {
+            ...t,
+            statusByPower: nextStatus,
+            ratifiedAtIso: allRatified ? new Date().toISOString() : t.ratifiedAtIso,
+          };
+        }),
+      );
+      const sess = onlineSessionRef.current;
+      if (sess?.kind === 'power') {
+        powerSubmitRequestedRef.current = true;
+      }
+    },
+    [],
+  );
+
+  const discardTreaty = useCallback<DiplomacyGameContextValue['discardTreaty']>(
+    (treatyId, powerId) => {
+      setTreaties((prev) =>
+        prev.map((t) => {
+          if (t.id !== treatyId || !isTreatyRatified(t) || !isTreatyParticipant(t, powerId)) {
+            return t;
+          }
+          return {
+            ...t,
+            discardedAtIso: new Date().toISOString(),
+            discardedByPowerId: powerId,
+          };
+        }),
+      );
+      const sess = onlineSessionRef.current;
+      if (sess?.kind === 'power') {
+        powerSubmitRequestedRef.current = true;
+      }
+    },
+    [],
+  );
+
+  const proposeTreatyExtension = useCallback<
+    DiplomacyGameContextValue['proposeTreatyExtension']
+  >((treatyId, powerId, nextExpiry) => {
+    setTreaties((prev) =>
+      prev.map((t) => {
+        if (t.id !== treatyId || !isTreatyRatified(t) || !isTreatyParticipant(t, powerId)) {
+          return t;
+        }
+        const statusByPower: Record<string, 'pending' | 'ratified'> = {};
+        for (const pid of t.participantPowerIds) {
+          statusByPower[pid] = pid === powerId ? 'ratified' : 'pending';
+        }
+        return {
+          ...t,
+          extensionProposal: {
+            proposedByPowerId: powerId,
+            proposedAtIso: new Date().toISOString(),
+            proposedExpiry: nextExpiry,
+            statusByPower,
+          },
+        };
+      }),
+    );
+    const sess = onlineSessionRef.current;
+    if (sess?.kind === 'power') {
+      powerSubmitRequestedRef.current = true;
+    }
+  }, []);
+
+  const respondTreatyExtension = useCallback<
+    DiplomacyGameContextValue['respondTreatyExtension']
+  >((treatyId, powerId, response) => {
+    setTreaties((prev) =>
+      prev.map((t) => {
+        if (t.id !== treatyId || t.extensionProposal == null || !isTreatyParticipant(t, powerId)) {
+          return t;
+        }
+        const ext = t.extensionProposal;
+        const nextStatus = { ...ext.statusByPower, [powerId]: response };
+        const allRatified = t.participantPowerIds.every(
+          (pid) => nextStatus[pid] === 'ratified',
+        );
+        if (allRatified) {
+          return {
+            ...t,
+            expiry: ext.proposedExpiry,
+            extensionProposal: undefined,
+          };
+        }
+        if (response === 'rejected') {
+          return { ...t, extensionProposal: undefined };
+        }
+        return {
+          ...t,
+          extensionProposal: { ...ext, statusByPower: nextStatus },
+        };
+      }),
+    );
+    const sess = onlineSessionRef.current;
+    if (sess?.kind === 'power') {
+      powerSubmitRequestedRef.current = true;
+    }
+  }, []);
+
+  const clearPowerTreatyViolations = useCallback<
+    DiplomacyGameContextValue['clearPowerTreatyViolations']
+  >((powerId) => {
+    setTreatyViolations((prev) =>
+      prev.filter((n) => !n.targetPowerIds.includes(powerId)),
+    );
+  }, []);
+
+  const visibleTreatiesForPower = useCallback<
+    DiplomacyGameContextValue['visibleTreatiesForPower']
+  >((powerId) => treaties.filter((t) => canPowerViewTreaty(t, powerId)), [treaties]);
+
+  const treatyMapVisuals = useMemo(
+    () => buildTreatyMapVisuals(treaties, board.turn),
+    [treaties, board.turn],
+  );
+
   const scheduleAppAutoSave = useCallback(() => {
     pendingAppAutoSaveRef.current = true;
   }, []);
@@ -926,6 +1148,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       powerOrderSaved,
       powerAdjustmentSaved,
       powerRetreatSaved,
+      treaties,
+      treatyViolations,
     };
     if (activeWorldlineStem.length > 0) {
       base.worldlineStem = activeWorldlineStem;
@@ -946,6 +1170,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     powerOrderSaved,
     powerAdjustmentSaved,
     powerRetreatSaved,
+    treaties,
+    treatyViolations,
   ]);
 
   buildCurrentSnapshotRef.current = buildCurrentSnapshot;
@@ -954,12 +1180,42 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
    * 同一ステップでフル再適用を避ける場合でも、他プレイヤーの入力完了状況だけは
    * 画面へ反映して進捗を共有する。
    *
+   * 保存済みフラグはフェーズ内で単調増加（一度 true になったら false に戻さない）。
+   * サーバー版が古いタイミングでポーリングしても、ローカルの「完了」状態を上書きしない。
+   * フラグのリセットは applyPersistedSnapshot 経由のフェーズ遷移時のみ行う。
+   *
    * @param incoming - サーバー再取得スナップショット
    */
   const applyRealtimeProgressFlags = useCallback((incoming: PersistedSnapshot) => {
-    setPowerOrderSaved(incoming.powerOrderSaved);
-    setPowerAdjustmentSaved(incoming.powerAdjustmentSaved);
-    setPowerRetreatSaved(incoming.powerRetreatSaved);
+    setPowerOrderSaved((prev) => {
+      const merged: Record<string, boolean> = { ...incoming.powerOrderSaved };
+      for (const pid of Object.keys(prev)) {
+        if (prev[pid] === true) {
+          merged[pid] = true;
+        }
+      }
+      return merged;
+    });
+    setPowerAdjustmentSaved((prev) => {
+      const merged: Record<string, boolean> = { ...incoming.powerAdjustmentSaved };
+      for (const pid of Object.keys(prev)) {
+        if (prev[pid] === true) {
+          merged[pid] = true;
+        }
+      }
+      return merged;
+    });
+    setPowerRetreatSaved((prev) => {
+      const merged: Record<string, boolean> = { ...incoming.powerRetreatSaved };
+      for (const pid of Object.keys(prev)) {
+        if (prev[pid] === true) {
+          merged[pid] = true;
+        }
+      }
+      return merged;
+    });
+    setTreaties(incoming.treaties);
+    setTreatyViolations(incoming.treatyViolations);
   }, []);
 
   const refetchOnlineSnapshot = useCallback(
@@ -1161,6 +1417,38 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           false,
           true,
         );
+        /**
+         * 409 復旧直後に最新版で即リトライする（ホストと同じ方式）。
+         * リトライも 409 になった場合は powerSubmitRequestedRef を true のまま残し、
+         * 次の React 状態変化（applyRealtimeProgressFlags 等）で useEffect が再試行する。
+         */
+        const retryPayload = buildPowerOnlinePatchPayload(
+          sess.powerId,
+          buildCurrentSnapshotRef.current(),
+        );
+        const retryRes = await fetch(`/api/online/rooms/${sess.roomId}/power`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...retryPayload,
+            powerSecret: sess.powerSecret,
+            expectedVersion: lastServerVersionRef.current,
+          }),
+        });
+        if (retryRes.status === 409) {
+          appendOnlineDebugLog('flush_power_409_retry_conflict');
+          /* フラグを残したまま返す → 次の状態変化で useEffect が再度 flush する */
+          return true;
+        }
+        if (!retryRes.ok) {
+          appendOnlineDebugLog('flush_power_retry_ng', `HTTP ${retryRes.status}`);
+          powerSubmitRequestedRef.current = false;
+          return false;
+        }
+        const retryData = (await retryRes.json()) as { version: number };
+        lastServerVersionRef.current = retryData.version;
+        setOnlineServerVersion(retryData.version);
+        appendOnlineDebugLog('flush_power_retry_ok', undefined, retryData.version);
         powerSubmitRequestedRef.current = false;
         return true;
       }
@@ -1647,6 +1935,17 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     }
 
     const currentTurn = board.turn;
+    const treatyViolationNotices = detectTreatyViolations(board, unitOrders, treaties);
+    if (treatyViolationNotices.length > 0) {
+      setTreatyViolations((prev) => {
+        const existingIds = new Set(prev.map((n) => n.id));
+        const appended = treatyViolationNotices.filter((n) => !existingIds.has(n.id));
+        return appended.length > 0 ? prev.concat(appended) : prev;
+      });
+      for (const notice of treatyViolationNotices) {
+        prependLogLine(`条約違反警告: ${notice.message}`);
+      }
+    }
     appendOnlineDebugLog(
       'adjudicate_start',
       `${currentTurn.year}-${currentTurn.season}`,
@@ -1862,6 +2161,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     isOrderLocked,
     prependLogLine,
     scheduleAppAutoSave,
+    treaties,
+    unitOrders,
   ]);
 
   const confirmRetreatPhase = useCallback(() => {
@@ -2111,6 +2412,18 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       setPowerAdjustmentSaved,
       powerRetreatSaved,
       setPowerRetreatSaved,
+      treaties,
+      setTreaties,
+      treatyViolations,
+      setTreatyViolations,
+      treatyMapVisuals,
+      createTreaty,
+      respondTreaty,
+      discardTreaty,
+      proposeTreatyExtension,
+      respondTreatyExtension,
+      clearPowerTreatyViolations,
+      visibleTreatiesForPower,
       revealGenRef,
       revealTimersRef,
       nextLogIdRef,
@@ -2163,6 +2476,16 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       powerOrderSaved,
       powerAdjustmentSaved,
       powerRetreatSaved,
+      treaties,
+      treatyViolations,
+      treatyMapVisuals,
+      createTreaty,
+      respondTreaty,
+      discardTreaty,
+      proposeTreatyExtension,
+      respondTreatyExtension,
+      clearPowerTreatyViolations,
+      visibleTreatiesForPower,
       prependLogLine,
       isOrderLocked,
       isAdjustmentPhasePanel,
