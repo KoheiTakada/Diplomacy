@@ -26,7 +26,7 @@ import {
 } from '@/diplomacy/gameHelpers';
 import {
   buildAdjacencyKeySet,
-  findAllConvoyPathProvinceIdsForMove,
+  findAllConvoyPathProvinceIdsForArmyDestination,
   isDirectMoveValid,
   isSplitProvince,
 } from '@/mapMovement';
@@ -43,6 +43,7 @@ export type OrderPreviewPolyline = {
   kind: 'move' | 'support' | 'convoy';
   stroke: string;
   points: Vec2[];
+  dashed?: boolean;
 };
 
 const ORDER_PREVIEW_MARKERS_GROUP_ID = 'order-preview-markers';
@@ -106,6 +107,57 @@ export function buildOrderPreviewPolylines(
   const adjKeys = buildAdjacencyKeySet(board);
   const domainOrders = buildDomainOrdersFromInputs(board, mergedUnitOrders);
   const result: OrderPreviewPolyline[] = [];
+  const fleetAtSeaByProvinceId = new Map(
+    board.units
+      .filter((u) => u.type === UnitType.Fleet)
+      .map((u) => [u.provinceId, u]),
+  );
+  const hasMatchingConvoyOrder = (
+    fleetUnitId: string,
+    armyUnitId: string,
+    targetProvinceId: string,
+  ): boolean => {
+    const o = mergedUnitOrders[fleetUnitId];
+    if (!o || o.type !== OrderType.Convoy) {
+      return false;
+    }
+    return o.convoyArmyId === armyUnitId && o.convoyToProvinceId === targetProvinceId;
+  };
+  const pushConvoySegmentsByPath = (
+    pathProvinceIds: readonly string[],
+    armyUnitId: string,
+    targetProvinceId: string,
+    dashed: boolean,
+  ): void => {
+    for (let i = 0; i < pathProvinceIds.length - 1; i += 1) {
+      const fromPid = pathProvinceIds[i]!;
+      const toPid = pathProvinceIds[i + 1]!;
+      const a = mapAnchorAlongConvoyPath(layers, board, fromPid);
+      const b = mapAnchorAlongConvoyPath(layers, board, toPid);
+      if (!a || !b) {
+        continue;
+      }
+      const fromSeaFleet = fleetAtSeaByProvinceId.get(fromPid);
+      const toSeaFleet = fleetAtSeaByProvinceId.get(toPid);
+      const responsibleFleet = fromSeaFleet ?? toSeaFleet;
+      let segStroke = '#9ca3af';
+      if (responsibleFleet) {
+        segStroke = hasMatchingConvoyOrder(
+          responsibleFleet.id,
+          armyUnitId,
+          targetProvinceId,
+        )
+          ? POWER_COLORS[responsibleFleet.powerId] ?? '#6366f1'
+          : '#9ca3af';
+      }
+      result.push({
+        kind: 'convoy',
+        stroke: segStroke,
+        points: [a, b],
+        dashed,
+      });
+    }
+  };
 
   for (const unit of board.units) {
     const input = mergedUnitOrders[unit.id] ?? emptyOrder();
@@ -143,10 +195,10 @@ export function buildOrderPreviewPolylines(
           { mode: 'adjudicate' },
         );
         if (!direct) {
-          const paths = findAllConvoyPathProvinceIdsForMove(
+          const paths = findAllConvoyPathProvinceIdsForArmyDestination(
             board,
-            domMove,
-            domainOrders,
+            unit,
+            domMove.targetProvinceId,
             adjKeys,
           );
           if (paths.length > 0) {
@@ -155,11 +207,13 @@ export function buildOrderPreviewPolylines(
               if (path.length < 2) {
                 continue;
               }
-              const wps = path
-                .map((pid) => mapAnchorAlongConvoyPath(layers, board, pid))
-                .filter((v): v is Vec2 => v != null);
-              if (wps.length >= 2) {
-                result.push({ kind: 'convoy', stroke, points: wps });
+              pushConvoySegmentsByPath(
+                path,
+                unit.id,
+                domMove.targetProvinceId,
+                false,
+              );
+              if (path.length >= 2) {
                 emitted = true;
               }
             }
@@ -205,25 +259,28 @@ export function buildOrderPreviewPolylines(
       if (!to) {
         continue;
       }
-      result.push({ kind: 'convoy', stroke, points: [from, to] });
-      const convoyMove: MoveOrder = {
-        type: OrderType.Move,
-        unitId: army.id,
-        sourceProvinceId: army.provinceId,
-        targetProvinceId: input.convoyToProvinceId,
-      };
-      const paths = findAllConvoyPathProvinceIdsForMove(
+      const paths = findAllConvoyPathProvinceIdsForArmyDestination(
         board,
-        convoyMove,
-        domainOrders,
+        army,
+        input.convoyToProvinceId,
         adjKeys,
       );
+      if (paths.length === 0) {
+        result.push({
+          kind: 'convoy',
+          stroke,
+          points: [from, to],
+          dashed: false,
+        });
+      }
       for (const path of paths) {
-        const wps = path
-          .map((pid) => mapAnchorAlongConvoyPath(layers, board, pid))
-          .filter((v): v is Vec2 => v != null);
-        if (wps.length >= 2) {
-          result.push({ kind: 'convoy', stroke, points: wps });
+        if (path.length >= 2) {
+          pushConvoySegmentsByPath(
+            path,
+            army.id,
+            input.convoyToProvinceId,
+            false,
+          );
         }
       }
     }
@@ -322,11 +379,26 @@ export function syncOrderPreviewOverlay(
     if (points.length < 2) {
       return '';
     }
-    if (!curved || points.length === 2) {
+    if (!curved) {
       return `M ${points[0]!.x} ${points[0]!.y} L ${points
         .slice(1)
         .map((p) => `${p.x} ${p.y}`)
         .join(' L ')}`;
+    }
+    if (points.length === 2) {
+      const a = points[0]!;
+      const b = points[1]!;
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.max(1, Math.hypot(dx, dy));
+      const nx = -dy / len;
+      const ny = dx / len;
+      const bend = Math.min(26, len * 0.18);
+      const cx = mx + nx * bend;
+      const cy = my + ny * bend;
+      return `M ${a.x} ${a.y} Q ${cx} ${cy} ${b.x} ${b.y}`;
     }
     const p0 = points[0]!;
     let d = `M ${p0.x} ${p0.y}`;
@@ -359,7 +431,7 @@ export function syncOrderPreviewOverlay(
     );
     if (pl.kind === 'support') {
       path.setAttribute('stroke-dasharray', '7 5');
-    } else if (pl.kind === 'convoy') {
+    } else if (pl.kind === 'convoy' && pl.dashed === true) {
       path.setAttribute('stroke-dasharray', '10 5 2 5');
     }
     g.appendChild(path);

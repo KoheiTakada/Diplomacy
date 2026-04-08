@@ -496,7 +496,19 @@ function bezierPathDFromPoints(points: readonly Vec2[]): string {
     return '';
   }
   if (points.length === 2) {
-    return `M ${points[0]!.x} ${points[0]!.y} L ${points[1]!.x} ${points[1]!.y}`;
+    const a = points[0]!;
+    const b = points[1]!;
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.max(1, Math.hypot(dx, dy));
+    const nx = -dy / len;
+    const ny = dx / len;
+    const bend = Math.min(26, len * 0.18);
+    const cx = mx + nx * bend;
+    const cy = my + ny * bend;
+    return `M ${a.x} ${a.y} Q ${cx} ${cy} ${b.x} ${b.y}`;
   }
   const p0 = points[0]!;
   let d = `M ${p0.x} ${p0.y}`;
