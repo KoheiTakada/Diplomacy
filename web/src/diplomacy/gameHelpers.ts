@@ -868,7 +868,7 @@ export function getRetreatableProvinces(
 
 /** セレクト共通クラス */
 export const selectClass =
-  'w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-800 shadow-sm transition-shadow focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/25';
+  'w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-800 shadow-sm transition-shadow focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400/20';
 
 /** 無効時セレクト */
 export const selectDisabledClass =

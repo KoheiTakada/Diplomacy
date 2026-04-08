@@ -531,7 +531,7 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
                         )}
                     </span>
                     <select
-                      className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/25"
+                      className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs shadow-sm focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400/20"
                       value={order.type}
                       onChange={(e) =>
                         changeOrderType(unit.id, e.target.value as OrderType)

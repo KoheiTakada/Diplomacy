@@ -526,7 +526,7 @@ function ProvinceAutocomplete(props: ProvinceAutocompleteProps) {
       ))}
       <div className="relative">
         <input
-          className="w-24 rounded border border-zinc-200 px-1.5 py-0.5 text-[11px] focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400/25"
+          className="w-24 rounded border border-zinc-200 px-1.5 py-0.5 text-[11px] focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400/20"
           value={query}
           placeholder={selected.length > 0 ? '＋追加' : '都市名…'}
           onChange={(e) => {
@@ -660,7 +660,7 @@ function SlotInput(props: SlotInputProps) {
       const v = typeof value === 'string' ? value : '';
       return (
         <select
-          className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[11px] text-zinc-800 focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400/25"
+          className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[11px] text-zinc-800 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400/20"
           value={v}
           onChange={(e) => onChange(e.target.value)}
         >
@@ -680,7 +680,7 @@ function SlotInput(props: SlotInputProps) {
       const v = typeof value === 'string' ? value : '';
       return (
         <input
-          className="w-40 rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[11px] text-zinc-800 focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400/25"
+          className="w-40 rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[11px] text-zinc-800 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400/20"
           value={v}
           placeholder={slot.label}
           onChange={(e) => onChange(e.target.value)}
@@ -1198,7 +1198,7 @@ export function PowerTreatyPanel(props: PowerTreatyPanelProps) {
       )}
       {/* 種類セレクト（交渉フェーズのみ） */}
       <select
-        className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/25"
+        className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-800 shadow-sm focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400/20"
         value={clause1Kind ?? ''}
         disabled={!isNegotiationPhase}
         onChange={(e) => {
@@ -1252,7 +1252,7 @@ export function PowerTreatyPanel(props: PowerTreatyPanelProps) {
                 かわりに
               </p>
               <select
-                className="mb-2 w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/25"
+                className="mb-2 w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-800 shadow-sm focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400/20"
                 value={clause2Kind ?? ''}
                 onChange={(e) => {
                   const next = e.target.value as TreatyClauseKind | '';
@@ -1291,7 +1291,7 @@ export function PowerTreatyPanel(props: PowerTreatyPanelProps) {
                 情報の詳細（任意）
               </p>
               <textarea
-                className="w-full rounded border border-zinc-200 px-2 py-1.5 text-[11px] focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400/25"
+                className="w-full rounded border border-zinc-200 px-2 py-1.5 text-[11px] focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400/20"
                 rows={3}
                 value={infoNote}
                 placeholder="共有する情報の内容を自由に記述…"

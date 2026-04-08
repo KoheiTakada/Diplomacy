@@ -97,7 +97,7 @@ export function TitleScreen() {
                   value={joinRoomId}
                   onChange={(e) => setJoinRoomId(e.target.value.trim())}
                   placeholder="UUID"
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 font-mono text-[11px] text-zinc-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/25"
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 font-mono text-[11px] text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400/20"
                 />
                 <label className="block text-[11px] font-medium text-zinc-700">
                   シークレット
@@ -107,7 +107,7 @@ export function TitleScreen() {
                   value={joinSecret}
                   onChange={(e) => setJoinSecret(e.target.value.trim())}
                   placeholder="シークレット"
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 font-mono text-[11px] text-zinc-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/25"
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 font-mono text-[11px] text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400/20"
                 />
                 <button
                   type="button"
@@ -168,7 +168,7 @@ export function TitleScreen() {
                 value={onlineStemDraft}
                 onChange={(e) => setOnlineStemDraft(e.target.value)}
                 placeholder="空欄のときは diplomacy として保存"
-                className="mt-2 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/25"
+                className="mt-2 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400/20"
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') {
                     setOnlineNewGameOpen(false);

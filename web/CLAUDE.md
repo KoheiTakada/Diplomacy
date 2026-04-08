@@ -131,7 +131,7 @@ STP / SPA / BUL はグラフ上1ノード。艦隊の所在岸は `Unit.fleetCoa
 
 **角丸**: `rounded-2xl`（大パネル）→ `rounded-xl`（中パネル・フルwidthボタン）→ `rounded-lg`（input・インラインボタン）→ `rounded`（極小インライン）。`rounded-md` は使わない。
 
-**select / input**: `gameHelpers.ts` の `selectClass` / `selectDisabledClass` を使う。フォーカスリングは `violet-400`（有彩色ルールの唯一の例外）。
+**select / input**: `gameHelpers.ts` の `selectClass` / `selectDisabledClass` を使う。フォーカスリングは `zinc-400/20`。
 
 ## やってはいけないこと
 
