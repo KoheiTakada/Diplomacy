@@ -44,11 +44,33 @@ export type OrderPreviewPolyline = {
   stroke: string;
   points: Vec2[];
   dashed?: boolean;
+  pathD?: string;
 };
 
 const ORDER_PREVIEW_MARKERS_GROUP_ID = 'order-preview-markers';
 const LEGACY_PREVIEW_MARKER_ID = 'order-preview-arrowhead';
 const ORDER_PREVIEW_LAYER_ID = 'order-preview-overlay';
+
+/**
+ * 4点文脈で区間ごとの滑らかな3次ベジェ経路を作る（Catmull-Rom 近似）。
+ */
+function segmentBezierPathDFromContext(
+  p0: Vec2,
+  p1: Vec2,
+  p2: Vec2,
+  p3: Vec2,
+): string {
+  const t = 1 / 6;
+  const c1 = {
+    x: p1.x + (p2.x - p0.x) * t,
+    y: p1.y + (p2.y - p0.y) * t,
+  };
+  const c2 = {
+    x: p2.x - (p3.x - p1.x) * t,
+    y: p2.y - (p3.y - p1.y) * t,
+  };
+  return `M ${p1.x} ${p1.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${p2.x} ${p2.y}`;
+}
 
 /**
  * stroke 文字列から一意なマーカー用 ID を作る（SVG id に安全な英数字）。
@@ -155,6 +177,16 @@ export function buildOrderPreviewPolylines(
         stroke: segStroke,
         points: [a, b],
         dashed,
+        pathD: segmentBezierPathDFromContext(
+          i > 0
+            ? mapAnchorAlongConvoyPath(layers, board, pathProvinceIds[i - 1]!) ?? a
+            : a,
+          a,
+          b,
+          i + 2 < pathProvinceIds.length
+            ? mapAnchorAlongConvoyPath(layers, board, pathProvinceIds[i + 2]!) ?? b
+            : b,
+        ),
       });
     }
   };
@@ -417,7 +449,7 @@ export function syncOrderPreviewOverlay(
   for (const pl of drawable) {
     const path = document.createElementNS(SVG_NS, 'path');
     const curved = pl.kind === 'convoy';
-    path.setAttribute('d', pathDForPoints(pl.points, curved));
+    path.setAttribute('d', pl.pathD ?? pathDForPoints(pl.points, curved));
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', pl.stroke);
     path.setAttribute('stroke-width', pl.kind === 'convoy' ? '2.5' : '2.2');
