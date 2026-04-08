@@ -289,7 +289,7 @@ export function MainDiplomacyHome() {
         </section>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-4">
-          <div className="flex min-h-0 w-full shrink-0 justify-center overflow-hidden lg:h-full lg:w-auto lg:max-w-[min(100%,52%)] lg:justify-start">
+          <div className="flex min-h-0 w-full shrink-0 justify-center overflow-hidden lg:h-full lg:w-auto lg:max-w-[calc(100%-268px)] lg:justify-start">
             <div
               className="box-border flex h-auto w-full max-w-full flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white p-3 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] sm:p-4 lg:h-full lg:w-auto lg:max-h-full lg:shrink-0"
               style={{ aspectRatio: mapAspectRatio }}

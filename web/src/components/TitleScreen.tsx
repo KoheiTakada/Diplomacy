@@ -80,7 +80,7 @@ export function TitleScreen() {
               type="button"
               disabled={onlineBusy}
               onClick={() => setJoinRoomFormOpen(true)}
-              className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-violet-900/20 transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-zinc-400"
+              className="w-full rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
             >
               Join room
             </button>
@@ -97,7 +97,7 @@ export function TitleScreen() {
                   value={joinRoomId}
                   onChange={(e) => setJoinRoomId(e.target.value.trim())}
                   placeholder="UUID"
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 font-mono text-[11px] text-zinc-900 outline-none ring-violet-400 focus:ring-2"
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 font-mono text-[11px] text-zinc-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/25"
                 />
                 <label className="block text-[11px] font-medium text-zinc-700">
                   シークレット
@@ -107,7 +107,7 @@ export function TitleScreen() {
                   value={joinSecret}
                   onChange={(e) => setJoinSecret(e.target.value.trim())}
                   placeholder="シークレット"
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 font-mono text-[11px] text-zinc-900 outline-none ring-violet-400 focus:ring-2"
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 font-mono text-[11px] text-zinc-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/25"
                 />
                 <button
                   type="button"
@@ -128,7 +128,7 @@ export function TitleScreen() {
                       setOnlineBusy(false);
                     }
                   }}
-                  className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-violet-900/20 transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-zinc-400"
+                  className="w-full rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
                 >
                   Join room
                 </button>
@@ -154,10 +154,10 @@ export function TitleScreen() {
             Create room
           </button>
           {onlineNewGameOpen ? (
-            <div className="rounded-xl border border-violet-200 bg-violet-50/90 p-3 shadow-sm">
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 shadow-sm">
               <label
                 htmlFor="title-online-worldline-name"
-                className="block text-xs font-medium text-violet-950"
+                className="block text-xs font-medium text-zinc-900"
               >
                 世界線の名前
               </label>
@@ -168,7 +168,7 @@ export function TitleScreen() {
                 value={onlineStemDraft}
                 onChange={(e) => setOnlineStemDraft(e.target.value)}
                 placeholder="空欄のときは diplomacy として保存"
-                className="mt-2 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-violet-400 focus:ring-2"
+                className="mt-2 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/25"
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') {
                     setOnlineNewGameOpen(false);
@@ -202,7 +202,7 @@ export function TitleScreen() {
                         setOnlineBusy(false);
                       }
                     }}
-                    className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:opacity-60"
+                    className="rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
                   >
                     始める
                   </button>
@@ -214,19 +214,19 @@ export function TitleScreen() {
                       setOnlineStemDraft('');
                       setCreatedOnlineLinks(null);
                     }}
-                    className="rounded-lg border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-900 hover:bg-violet-50 disabled:opacity-60"
+                    className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
                   >
                     キャンセル
                   </button>
                 </div>
               ) : (
                 <>
-                  <div className="mt-3 rounded-lg border border-violet-200 bg-white p-2">
+                  <div className="mt-3 rounded-lg border border-zinc-200 bg-white p-2">
                     <textarea
                       readOnly
                       value={createdOnlineLinks}
                       rows={22}
-                      className="w-full resize-y rounded border border-violet-200 bg-white p-2 font-mono text-[10px] text-zinc-800"
+                      className="w-full resize-y rounded border border-zinc-200 bg-white p-2 font-mono text-[10px] text-zinc-800"
                       onFocus={(e) => e.target.select()}
                     />
                   </div>
@@ -239,7 +239,7 @@ export function TitleScreen() {
                         setOnlineStemDraft('');
                         setCreatedOnlineLinks(null);
                       }}
-                      className="rounded-lg border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-900 hover:bg-violet-50 disabled:opacity-60"
+                      className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
                     >
                       キャンセル
                     </button>
@@ -252,17 +252,17 @@ export function TitleScreen() {
 
         {onlineDebugLogCount > 0 ? (
           <section
-            className="rounded-xl border border-amber-300 bg-amber-50/80 p-3 shadow-sm"
+            className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 shadow-sm"
             aria-label="直前のデバッグログ取得"
           >
-            <p className="text-[11px] font-medium text-amber-900">
+            <p className="text-[11px] font-medium text-zinc-700">
               直前のセッションログが残っています（{onlineDebugLogCount}件）
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={downloadOnlineDebugLog}
-                className="rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100"
               >
                 デバッグログを保存
               </button>
