@@ -26,7 +26,7 @@ import {
 } from '@/diplomacy/gameHelpers';
 import {
   buildAdjacencyKeySet,
-  findConvoyPathProvinceIdsForMove,
+  findAllConvoyPathProvinceIdsForMove,
   isDirectMoveValid,
   isSplitProvince,
 } from '@/mapMovement';
@@ -39,8 +39,8 @@ import { POWER_COLORS, SVG_NS } from '@/mapViewConstants';
 
 /** プレビュー折れ線1本 */
 export type OrderPreviewPolyline = {
-  /** true のとき破線（支援・輸送艦の補助線） */
-  dashed: boolean;
+  /** 表示種別 */
+  kind: 'move' | 'support' | 'convoy';
   stroke: string;
   points: Vec2[];
 };
@@ -143,25 +143,34 @@ export function buildOrderPreviewPolylines(
           { mode: 'adjudicate' },
         );
         if (!direct) {
-          const path = findConvoyPathProvinceIdsForMove(
+          const paths = findAllConvoyPathProvinceIdsForMove(
             board,
             domMove,
             domainOrders,
             adjKeys,
           );
-          if (path != null && path.length >= 2) {
-            const wps = path
-              .map((pid) => mapAnchorAlongConvoyPath(layers, board, pid))
-              .filter((v): v is Vec2 => v != null);
-            if (wps.length >= 2) {
-              result.push({ dashed: false, stroke, points: wps });
+          if (paths.length > 0) {
+            let emitted = false;
+            for (const path of paths) {
+              if (path.length < 2) {
+                continue;
+              }
+              const wps = path
+                .map((pid) => mapAnchorAlongConvoyPath(layers, board, pid))
+                .filter((v): v is Vec2 => v != null);
+              if (wps.length >= 2) {
+                result.push({ kind: 'convoy', stroke, points: wps });
+                emitted = true;
+              }
+            }
+            if (emitted) {
               continue;
             }
           }
         }
       }
 
-      result.push({ dashed: false, stroke, points: [from, to] });
+      result.push({ kind: 'move', stroke, points: [from, to] });
       continue;
     }
 
@@ -178,7 +187,7 @@ export function buildOrderPreviewPolylines(
       if (!to) {
         continue;
       }
-      result.push({ dashed: true, stroke, points: [from, to] });
+      result.push({ kind: 'support', stroke, points: [from, to] });
       continue;
     }
 
@@ -196,7 +205,27 @@ export function buildOrderPreviewPolylines(
       if (!to) {
         continue;
       }
-      result.push({ dashed: true, stroke, points: [from, to] });
+      result.push({ kind: 'convoy', stroke, points: [from, to] });
+      const convoyMove: MoveOrder = {
+        type: OrderType.Move,
+        unitId: army.id,
+        sourceProvinceId: army.provinceId,
+        targetProvinceId: input.convoyToProvinceId,
+      };
+      const paths = findAllConvoyPathProvinceIdsForMove(
+        board,
+        convoyMove,
+        domainOrders,
+        adjKeys,
+      );
+      for (const path of paths) {
+        const wps = path
+          .map((pid) => mapAnchorAlongConvoyPath(layers, board, pid))
+          .filter((v): v is Vec2 => v != null);
+        if (wps.length >= 2) {
+          result.push({ kind: 'convoy', stroke, points: wps });
+        }
+      }
     }
   }
 
@@ -289,26 +318,50 @@ export function syncOrderPreviewOverlay(
   while (g.firstChild) {
     g.removeChild(g.firstChild);
   }
+  const pathDForPoints = (points: readonly Vec2[], curved: boolean): string => {
+    if (points.length < 2) {
+      return '';
+    }
+    if (!curved || points.length === 2) {
+      return `M ${points[0]!.x} ${points[0]!.y} L ${points
+        .slice(1)
+        .map((p) => `${p.x} ${p.y}`)
+        .join(' L ')}`;
+    }
+    const p0 = points[0]!;
+    let d = `M ${p0.x} ${p0.y}`;
+    for (let i = 1; i < points.length - 1; i += 1) {
+      const p = points[i]!;
+      const n = points[i + 1]!;
+      const mx = (p.x + n.x) / 2;
+      const my = (p.y + n.y) / 2;
+      d += ` Q ${p.x} ${p.y} ${mx} ${my}`;
+    }
+    const prev = points[points.length - 2]!;
+    const last = points[points.length - 1]!;
+    d += ` Q ${prev.x} ${prev.y} ${last.x} ${last.y}`;
+    return d;
+  };
   for (const pl of drawable) {
-    const poly = document.createElementNS(SVG_NS, 'polyline');
-    poly.setAttribute(
-      'points',
-      pl.points.map((p) => `${p.x},${p.y}`).join(' '),
-    );
-    poly.setAttribute('fill', 'none');
-    poly.setAttribute('stroke', pl.stroke);
-    poly.setAttribute('stroke-width', '2.2');
-    poly.setAttribute('stroke-linecap', 'round');
-    poly.setAttribute('stroke-linejoin', 'round');
-    poly.setAttribute('vector-effect', 'non-scaling-stroke');
-    poly.setAttribute('opacity', '0.9');
-    poly.setAttribute(
+    const path = document.createElementNS(SVG_NS, 'path');
+    const curved = pl.kind === 'convoy';
+    path.setAttribute('d', pathDForPoints(pl.points, curved));
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', pl.stroke);
+    path.setAttribute('stroke-width', pl.kind === 'convoy' ? '2.5' : '2.2');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('vector-effect', 'non-scaling-stroke');
+    path.setAttribute('opacity', pl.kind === 'convoy' ? '0.95' : '0.9');
+    path.setAttribute(
       'marker-end',
       `url(#${markerElementIdForStroke(pl.stroke)})`,
     );
-    if (pl.dashed) {
-      poly.setAttribute('stroke-dasharray', '7 5');
+    if (pl.kind === 'support') {
+      path.setAttribute('stroke-dasharray', '7 5');
+    } else if (pl.kind === 'convoy') {
+      path.setAttribute('stroke-dasharray', '10 5 2 5');
     }
-    g.appendChild(poly);
+    g.appendChild(path);
   }
 }

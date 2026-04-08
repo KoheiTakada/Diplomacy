@@ -34,6 +34,7 @@ import {
 import { PowerLabelText } from '@/components/PowerLabelText';
 import {
   canSupportTargetInSupportOrder,
+  findAllConvoyPathProvinceIdsForArmyDestination,
   getConvoyOrderCandidateArmyIds,
   getConvoyOrderDestinationProvinces,
 } from '@/mapMovement';
@@ -211,6 +212,37 @@ export function HypotheticalForeignOrdersPanel(
                         orderAdjKeys,
                       )
                     : [];
+              const convoyRouteLabelForArmyMoveTarget = (
+                targetProvinceId: string,
+              ): string | null => {
+                if (unit.type !== UnitType.Army) {
+                  return null;
+                }
+                const paths = findAllConvoyPathProvinceIdsForArmyDestination(
+                  board,
+                  unit,
+                  targetProvinceId,
+                  orderAdjKeys,
+                  8,
+                );
+                if (paths.length === 0) {
+                  return null;
+                }
+                const routeLabels = paths.map((path) => {
+                  const seaIds = path.slice(1, -1);
+                  const fleetLabels = seaIds.map((seaId) => {
+                    const fleet = board.units.find(
+                      (u) => u.type === UnitType.Fleet && u.provinceId === seaId,
+                    );
+                    if (!fleet) {
+                      return provinceName(board, seaId);
+                    }
+                    return `${fleet.powerId}${provinceName(board, seaId)}`;
+                  });
+                  return fleetLabels.join('、');
+                });
+                return routeLabels.join(' or ');
+              };
 
                 return (
                   <div
@@ -290,7 +322,14 @@ export function HypotheticalForeignOrdersPanel(
                               </option>
                               {reachable.map((p) => (
                                 <option key={p.id} value={p.id}>
-                                  {p.name}
+                                {(() => {
+                                  const convoyLabel =
+                                    convoyRouteLabelForArmyMoveTarget(p.id);
+                                  if (!convoyLabel) {
+                                    return p.name;
+                                  }
+                                  return `${p.name}（輸送：${convoyLabel}）`;
+                                })()}
                                 </option>
                               ))}
                             </select>

@@ -42,6 +42,7 @@ import {
 } from '@/diplomacy/gameHelpers';
 import {
   canSupportTargetInSupportOrder,
+  findAllConvoyPathProvinceIdsForArmyDestination,
   getConvoyOrderCandidateArmyIds,
   getConvoyOrderDestinationProvinces,
   isProvinceOccupied,
@@ -130,6 +131,39 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
     }
     return true;
   });
+
+  const convoyRouteLabelForArmyMoveTarget = (
+    army: typeof units[number],
+    targetProvinceId: string,
+  ): string | null => {
+    if (army.type !== UnitType.Army) {
+      return null;
+    }
+    const paths = findAllConvoyPathProvinceIdsForArmyDestination(
+      board,
+      army,
+      targetProvinceId,
+      orderAdjKeys,
+      8,
+    );
+    if (paths.length === 0) {
+      return null;
+    }
+    const routeLabels = paths.map((path) => {
+      const seaIds = path.slice(1, -1);
+      const fleetLabels = seaIds.map((seaId) => {
+        const fleet = board.units.find(
+          (u) => u.type === UnitType.Fleet && u.provinceId === seaId,
+        );
+        if (!fleet) {
+          return provinceName(board, seaId);
+        }
+        return `${powerLabel(fleet.powerId)}${provinceName(board, seaId)}`;
+      });
+      return fleetLabels.join('、');
+    });
+    return routeLabels.join(' or ');
+  };
 
   return (
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col rounded-2xl border border-zinc-200/70 bg-white p-3 shadow-md ring-1 ring-black/[0.03] sm:p-4">
@@ -524,7 +558,16 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
                             </option>
                             {reachable.map((p) => (
                               <option key={p.id} value={p.id}>
-                                {p.name}
+                                {(() => {
+                                  const convoyLabel = convoyRouteLabelForArmyMoveTarget(
+                                    unit,
+                                    p.id,
+                                  );
+                                  if (!convoyLabel) {
+                                    return p.name;
+                                  }
+                                  return `${p.name}（輸送：${convoyLabel}）`;
+                                })()}
                               </option>
                             ))}
                           </select>

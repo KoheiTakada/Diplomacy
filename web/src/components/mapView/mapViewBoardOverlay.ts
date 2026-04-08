@@ -489,6 +489,31 @@ function startPathFollowAnimation(
 }
 
 /**
+ * 経路点列を、アンカー通過のベジェ曲線 path へ変換する。
+ */
+function bezierPathDFromPoints(points: readonly Vec2[]): string {
+  if (points.length < 2) {
+    return '';
+  }
+  if (points.length === 2) {
+    return `M ${points[0]!.x} ${points[0]!.y} L ${points[1]!.x} ${points[1]!.y}`;
+  }
+  const p0 = points[0]!;
+  let d = `M ${p0.x} ${p0.y}`;
+  for (let i = 1; i < points.length - 1; i += 1) {
+    const p = points[i]!;
+    const n = points[i + 1]!;
+    const mx = (p.x + n.x) / 2;
+    const my = (p.y + n.y) / 2;
+    d += ` Q ${p.x} ${p.y} ${mx} ${my}`;
+  }
+  const prev = points[points.length - 2]!;
+  const last = points[points.length - 1]!;
+  d += ` Q ${prev.x} ${prev.y} ${last.x} ${last.y}`;
+  return d;
+}
+
+/**
  * ユニット用の g を from から to へユーザー座標で移動させる。
  * DOM から外れたら中断する。
  *
@@ -695,6 +720,19 @@ export function applyBoardOverlay(
     svg.insertBefore(linkLayer, unitsLayer);
   }
 
+  let convoyLayer = svg.querySelector('#convoy-links-overlay');
+  if (!convoyLayer) {
+    convoyLayer = document.createElementNS(SVG_NS, 'g');
+    convoyLayer.setAttribute('id', 'convoy-links-overlay');
+    convoyLayer.setAttribute('class', 'map-overlay');
+    svg.insertBefore(convoyLayer, unitsLayer);
+  } else if (convoyLayer.nextSibling !== unitsLayer) {
+    svg.insertBefore(convoyLayer, unitsLayer);
+  }
+  while (convoyLayer.firstChild) {
+    convoyLayer.removeChild(convoyLayer.firstChild);
+  }
+
   while (unitsLayer.firstChild) {
     unitsLayer.removeChild(unitsLayer.firstChild);
   }
@@ -711,7 +749,8 @@ export function applyBoardOverlay(
       } else if (
         e.type === 'supportLink' ||
         e.type === 'supportLinkRevoke' ||
-        e.type === 'releaseSupportVisualsAfterMove'
+        e.type === 'releaseSupportVisualsAfterMove' ||
+        e.type === 'convoyPathLink'
       ) {
         // 支援線レイヤー・タイマーで別途処理
       } else {
@@ -719,6 +758,40 @@ export function applyBoardOverlay(
           effectByUnitId.set(e.unitId, e);
         }
       }
+    }
+  }
+
+  if (mapEffects != null) {
+    for (const e of mapEffects) {
+      if (e.type !== 'convoyPathLink') {
+        continue;
+      }
+      const wps: Vec2[] = [];
+      for (const pid of e.pathProvinceIds) {
+        const v = mapAnchorAlongConvoyPath(layers, board, pid);
+        if (v != null) {
+          wps.push(v);
+        }
+      }
+      if (wps.length < 2) {
+        continue;
+      }
+      const convoyUnit = board.units.find((u) => u.id === e.convoyUnitId);
+      const stroke = POWER_COLORS[convoyUnit?.powerId ?? ''] ?? '#0ea5e9';
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('d', bezierPathDFromPoints(wps));
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', stroke);
+      path.setAttribute('stroke-width', '2.4');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
+      path.setAttribute('vector-effect', 'non-scaling-stroke');
+      path.setAttribute(
+        'stroke-dasharray',
+        e.tentative === true ? '6 5 2 5' : '10 5 2 5',
+      );
+      path.setAttribute('opacity', e.tentative === true ? '0.8' : '0.95');
+      convoyLayer.appendChild(path);
     }
   }
 

@@ -33,6 +33,14 @@ export type MapVisualEffect =
     }
   | {
       id: string;
+      /** 輸送経路の可視化線（支援線とは別レイヤ） */
+      type: 'convoyPathLink';
+      convoyUnitId: string;
+      pathProvinceIds: string[];
+      tentative?: boolean;
+    }
+  | {
+      id: string;
       /** 支援元→支援先を結ぶ線。durationMs 間、毎フレーム座標を追従 */
       type: 'supportLink';
       supporterUnitId: string;

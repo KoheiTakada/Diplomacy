@@ -31,6 +31,7 @@ import {
 import { POWERS } from '@/miniMap';
 import {
   buildAdjacencyKeySet,
+  findAllConvoyPathProvinceIdsForMove,
   findConvoyPathProvinceIdsForMove,
   fleetArrivalCoasts,
   getDirectMoveTargets,
@@ -133,6 +134,35 @@ export function appendMapEffectsForRevealResolution(
   runGen: number,
   stepIndex: number,
 ): void {
+  if (r.order.type === OrderType.Convoy) {
+    const c = r.order;
+    const move: MoveOrder = {
+      type: OrderType.Move,
+      unitId: c.armyUnitId,
+      sourceProvinceId: c.fromProvinceId,
+      targetProvinceId: c.toProvinceId,
+    };
+    const adjKeys = buildAdjacencyKeySet(labelBoard);
+    const paths = findAllConvoyPathProvinceIdsForMove(
+      labelBoard,
+      move,
+      domainOrders,
+      adjKeys,
+      new Set(),
+      6,
+    );
+    for (let i = 0; i < paths.length; i += 1) {
+      out.push({
+        id: `cvl-${runGen}-${stepIndex}-${c.unitId}-${i}`,
+        type: 'convoyPathLink',
+        convoyUnitId: c.unitId,
+        pathProvinceIds: paths[i]!,
+        tentative: !r.success,
+      });
+    }
+    return;
+  }
+
   if (step.revokeSupportLinksBefore != null) {
     for (let j = 0; j < step.revokeSupportLinksBefore.length; j += 1) {
       const pair = step.revokeSupportLinksBefore[j];

@@ -1800,6 +1800,26 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           }
           return;
         }
+        if (step.kind === 'tentativeConvoyDisrupt') {
+          pendingMapEffectsRef.current = [
+            {
+              id: `tcd-${runGen}-${i}-${step.convoyUnitId}`,
+              type: 'convoyPathLink',
+              convoyUnitId: step.convoyUnitId,
+              pathProvinceIds: step.pathProvinceIds,
+              tentative: true,
+            },
+          ];
+          setBoard({
+            ...labelBoard,
+            turn: currentTurn,
+            units: workingUnits,
+          });
+          if (i === timeline.length - 1) {
+            finishReveal();
+          }
+          return;
+        }
 
         const r = step.r;
         workingUnits = applyResolutionRevealStep(

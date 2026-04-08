@@ -483,9 +483,6 @@ function seaProvincesWithFleet(board: BoardState): Set<string> {
 /**
  * 海域グラフ上で、start 集合から goal へ到達可能か（BFS）。
  */
-/** BFS 親ポインタ: 海域 ID → 直前の海域 ID（出発海域はマーカー文字列） */
-const CONVOY_PATH_PARENT_FROM_SOURCE = '__SRC__' as const;
-
 /**
  * 陸軍のコンボイ移動について、解決エンジンの hasConvoyRoute と同じ前提で
  * 通過する海域 ID の鎖（＋両端の陸）を返す。
@@ -555,58 +552,184 @@ export function findConvoyPathProvinceIdsForMove(
     return null;
   }
 
-  type ParentVal = string | typeof CONVOY_PATH_PARENT_FROM_SOURCE;
-  const parent = new Map<string, ParentVal>();
-  const queue: string[] = [];
-
-  for (const s of starts) {
-    if (!parent.has(s)) {
-      parent.set(s, CONVOY_PATH_PARENT_FROM_SOURCE);
-      queue.push(s);
-    }
-  }
-
-  let found: string | null = null;
-  while (queue.length > 0) {
-    const cur = queue.shift()!;
-    if (goals.has(cur)) {
-      found = cur;
-      break;
-    }
-    for (const next of aliveSeas) {
-      if (parent.has(next)) {
-        continue;
-      }
-      if (!adjKeys.has(`${cur}->${next}`)) {
-        continue;
-      }
-      if (provinceById.get(next)?.areaType !== AreaType.Sea) {
-        continue;
-      }
-      parent.set(next, cur);
-      queue.push(next);
-    }
-  }
-
-  if (found == null) {
+  const chains = enumerateConvoySeaChains(starts, goals, aliveSeas, adjKeys, 1);
+  if (chains.length === 0) {
     return null;
   }
+  return [move.sourceProvinceId, ...chains[0]!, move.targetProvinceId];
+}
 
-  const seaChain: string[] = [];
-  let cur: string | null = found;
-  while (cur != null) {
-    seaChain.unshift(cur);
-    const p = parent.get(cur);
-    if (p === CONVOY_PATH_PARENT_FROM_SOURCE) {
+/**
+ * コンボイ移動の海域チェーンを複数列挙する（重複なし、上限あり）。
+ *
+ * @param starts - 出発陸に隣接する開始海域
+ * @param goals - 目的陸に隣接する到達海域
+ * @param aliveSeas - 経由可能な海域集合
+ * @param adjKeys - 隣接キー集合
+ * @param maxPaths - 列挙上限
+ */
+function enumerateConvoySeaChains(
+  starts: string[],
+  goals: Set<string>,
+  aliveSeas: Set<string>,
+  adjKeys: Set<string>,
+  maxPaths: number,
+): string[][] {
+  const out: string[][] = [];
+  const seaList = [...aliveSeas].sort();
+  const pushChain = (chain: string[]): void => {
+    if (out.some((x) => x.length === chain.length && x.every((v, i) => v === chain[i]))) {
+      return;
+    }
+    out.push(chain);
+  };
+
+  for (const s of starts.sort()) {
+    if (out.length >= maxPaths) {
       break;
     }
-    if (p === undefined) {
-      return null;
+    const stack: Array<{ cur: string; path: string[]; visited: Set<string> }> = [
+      { cur: s, path: [s], visited: new Set([s]) },
+    ];
+    while (stack.length > 0 && out.length < maxPaths) {
+      const node = stack.pop()!;
+      if (goals.has(node.cur)) {
+        pushChain(node.path);
+        continue;
+      }
+      for (const next of seaList) {
+        if (node.visited.has(next)) {
+          continue;
+        }
+        if (!adjKeys.has(`${node.cur}->${next}`)) {
+          continue;
+        }
+        const visited = new Set(node.visited);
+        visited.add(next);
+        stack.push({
+          cur: next,
+          path: [...node.path, next],
+          visited,
+        });
+      }
     }
-    cur = p;
+  }
+  return out;
+}
+
+/**
+ * 指定移動命令で、命令中の輸送艦隊（Convoy）に基づく成立可能なコンボイ経路を列挙。
+ *
+ * @param board - 解決前盤面
+ * @param move - 移動命令（陸軍想定）
+ * @param orders - 当ターンの全命令（Convoy 参照）
+ * @param adjKeys - 隣接キー集合
+ * @param excludeSeas - 輸送妨害で除外する海域
+ * @param maxPaths - 列挙上限
+ */
+export function findAllConvoyPathProvinceIdsForMove(
+  board: BoardState,
+  move: MoveOrder,
+  orders: Order[],
+  adjKeys: Set<string>,
+  excludeSeas: Set<string> = new Set(),
+  maxPaths = 8,
+): string[][] {
+  const provinceById = new Map(board.provinces.map((p) => [p.id, p]));
+  const unitById = new Map(board.units.map((u) => [u.id, u]));
+  const army = unitById.get(move.unitId);
+  if (!army || army.type !== UnitType.Army) {
+    return [];
   }
 
-  return [move.sourceProvinceId, ...seaChain, move.targetProvinceId];
+  const convoySeaByArmy: Map<string, Set<string>> = new Map();
+  for (const c of orders) {
+    if (c.type !== OrderType.Convoy) {
+      continue;
+    }
+    const fleet = unitById.get(c.unitId);
+    if (!fleet || fleet.type !== UnitType.Fleet) {
+      continue;
+    }
+    const fleetProvince = provinceById.get(fleet.provinceId);
+    if (!fleetProvince || fleetProvince.areaType !== AreaType.Sea) {
+      continue;
+    }
+    const convoyKey = `${c.armyUnitId}:${c.fromProvinceId}:${c.toProvinceId}`;
+    const set = convoySeaByArmy.get(convoyKey) ?? new Set<string>();
+    set.add(fleet.provinceId);
+    convoySeaByArmy.set(convoyKey, set);
+  }
+
+  const moveKey = `${move.unitId}:${move.sourceProvinceId}:${move.targetProvinceId}`;
+  const seas = convoySeaByArmy.get(moveKey);
+  if (!seas || seas.size === 0) {
+    return [];
+  }
+  const aliveSeas = new Set([...seas].filter((id) => !excludeSeas.has(id)));
+  const starts = [...aliveSeas].filter(
+    (seaId) =>
+      adjKeys.has(`${move.sourceProvinceId}->${seaId}`) &&
+      provinceById.get(seaId)?.areaType === AreaType.Sea,
+  );
+  const goals = new Set(
+    [...aliveSeas].filter((seaId) =>
+      adjKeys.has(`${seaId}->${move.targetProvinceId}`),
+    ),
+  );
+  if (starts.length === 0 || goals.size === 0) {
+    return [];
+  }
+  return enumerateConvoySeaChains(starts, goals, aliveSeas, adjKeys, maxPaths).map(
+    (seaChain) => [move.sourceProvinceId, ...seaChain, move.targetProvinceId],
+  );
+}
+
+/**
+ * UI 補助: 盤面上の海軍だけを使って、陸軍の「輸送で到達できる」経路を列挙する。
+ *
+ * @param board - 盤面
+ * @param army - 陸軍
+ * @param targetLandProvinceId - 到達先（陸/沿岸）
+ * @param adjKeys - 隣接キー集合
+ * @param maxPaths - 列挙上限
+ */
+export function findAllConvoyPathProvinceIdsForArmyDestination(
+  board: BoardState,
+  army: Unit,
+  targetLandProvinceId: string,
+  adjKeys: Set<string>,
+  maxPaths = 8,
+): string[][] {
+  if (army.type !== UnitType.Army) {
+    return [];
+  }
+  if (
+    isDirectMoveValid(army, army.provinceId, targetLandProvinceId, board, adjKeys, {
+      mode: 'ui',
+    })
+  ) {
+    return [];
+  }
+  const seasWithFleet = seaProvincesWithFleet(board);
+  const starts = [...seasWithFleet].filter((seaId) =>
+    adjKeys.has(`${army.provinceId}->${seaId}`),
+  );
+  const goals = new Set(
+    [...seasWithFleet].filter((seaId) =>
+      adjKeys.has(`${seaId}->${targetLandProvinceId}`),
+    ),
+  );
+  if (starts.length === 0 || goals.size === 0) {
+    return [];
+  }
+  return enumerateConvoySeaChains(
+    starts,
+    goals,
+    seasWithFleet,
+    adjKeys,
+    maxPaths,
+  ).map((seaChain) => [army.provinceId, ...seaChain, targetLandProvinceId]);
 }
 
 function seaBfsReachableFrom(

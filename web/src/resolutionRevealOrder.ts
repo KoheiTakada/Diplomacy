@@ -18,12 +18,17 @@
 import {
   type AdjudicationResult,
   type BoardState,
+  type ConvoyOrder,
   type MoveOrder,
   type Order,
   type OrderResolution,
   OrderType,
   type SupportOrder,
 } from './domain';
+import {
+  buildAdjacencyKeySet,
+  findAllConvoyPathProvinceIdsForMove,
+} from './mapMovement';
 
 /** 支援線 revoke 用のペア */
 export type SupportLinkPair = {
@@ -37,7 +42,12 @@ export type RevealTimelineStep =
       r: OrderResolution;
       revokeSupportLinksBefore?: SupportLinkPair[];
     }
-  | { kind: 'tentativeSupportCut'; sup: SupportOrder };
+  | { kind: 'tentativeSupportCut'; sup: SupportOrder }
+  | {
+      kind: 'tentativeConvoyDisrupt';
+      convoyUnitId: string;
+      pathProvinceIds: string[];
+    };
 
 type MovePiece =
   | { kind: 'single'; main: OrderResolution }
@@ -718,6 +728,36 @@ export function buildResolutionRevealTimeline(
     if (r.order.type !== OrderType.Move) {
       return;
     }
+
+    const convoyDisruptedTentative = convoyDisruptedFailByDislodgingMove.get(mi) ?? [];
+    convoyDisruptedTentative.sort((a, b) => a - b);
+    for (const ci of convoyDisruptedTentative) {
+      const cr = resolutions[ci];
+      if (cr.order.type !== OrderType.Convoy) {
+        continue;
+      }
+      const cv = cr.order as ConvoyOrder;
+      const mv: MoveOrder = {
+        type: OrderType.Move,
+        unitId: cv.armyUnitId,
+        sourceProvinceId: cv.fromProvinceId,
+        targetProvinceId: cv.toProvinceId,
+      };
+      const paths = findAllConvoyPathProvinceIdsForMove(
+        labelBoard,
+        mv,
+        domainOrders,
+        buildAdjacencyKeySet(labelBoard),
+      );
+      for (const path of paths) {
+        steps.push({
+          kind: 'tentativeConvoyDisrupt',
+          convoyUnitId: cv.unitId,
+          pathProvinceIds: path,
+        });
+      }
+    }
+
     emitSupportAndConvoyForMove(r.order);
     emitResolution(mi);
     const dislodgedHold = dislodgedHoldByMoveIndex.get(mi);
