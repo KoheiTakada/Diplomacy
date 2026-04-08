@@ -89,6 +89,8 @@ export async function PATCH(
       buildPlan: body.buildPlan,
       disbandPlan: body.disbandPlan,
       retreatTargets: body.retreatTargets,
+      treaties: body.treaties,
+      treatyViolations: body.treatyViolations,
     };
 
   for (let attempt = 0; attempt < POWER_PATCH_CAS_MAX_ATTEMPTS; attempt++) {

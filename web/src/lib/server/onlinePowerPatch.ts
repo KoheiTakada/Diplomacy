@@ -77,6 +77,9 @@ export function applyPowerPatchToSnapshot(
     buildPlan: { ...snap.buildPlan },
     disbandPlan: { ...snap.disbandPlan },
     retreatTargets: { ...snap.retreatTargets },
+    treaties: snap.treaties.slice(),
+    treatyViolations: snap.treatyViolations.slice(),
+    pendingTreatyOps: snap.pendingTreatyOps.slice(),
   };
 
   if (patch.unitOrders != null) {
@@ -118,6 +121,29 @@ export function applyPowerPatchToSnapshot(
     for (const unitId of Object.keys(patch.retreatTargets)) {
       next.retreatTargets[unitId] = patch.retreatTargets[unitId];
     }
+  }
+
+  if (patch.treaties != null) {
+    next.treaties = patch.treaties;
+  }
+  if (patch.treatyViolations != null) {
+    next.treatyViolations = patch.treatyViolations;
+  }
+
+  if (patch.pendingTreatyOps != null) {
+    // Merge: keep other powers' ops, replace this power's ops (last-wins per treatyId+powerId)
+    const otherOps = next.pendingTreatyOps.filter(
+      (op) => op.powerId !== patch.powerId,
+    );
+    const incomingOps = patch.pendingTreatyOps.filter(
+      (op) => op.powerId === patch.powerId,
+    );
+    // Last-wins within incoming for same treatyId
+    const deduped = new Map<string, typeof incomingOps[number]>();
+    for (const op of incomingOps) {
+      deduped.set(op.treatyId, op);
+    }
+    next.pendingTreatyOps = [...otherOps, ...Array.from(deduped.values())];
   }
 
   return next;

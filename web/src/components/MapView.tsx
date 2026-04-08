@@ -41,6 +41,7 @@ import {
   buildOrderPreviewPolylines,
   syncOrderPreviewOverlay,
 } from '@/components/mapView/mapViewOrderPreview';
+import { syncTreatyOverlay } from '@/components/mapView/mapViewTreatyOverlay';
 import {
   clearAllBoostMoveSupportLinks,
   clearAllReleaseSupportTimeouts,
@@ -53,6 +54,7 @@ import {
   UNIT_FLEET_ICON_URL,
 } from '@/mapViewConstants';
 import type { AnchorLayers, UnitIconTemplates, ViewBox } from '@/components/mapView/mapViewTypes';
+import type { TreatyMapVisuals } from '@/diplomacy/treaties';
 import {
   useCallback,
   useEffect,
@@ -78,6 +80,7 @@ interface MapViewProps {
     unitOrders: Record<string, UnitOrderInput>;
     supportCountByUnitId: Record<string, number>;
   }[];
+  treatyVisuals?: TreatyMapVisuals | null;
 }
 
 function syncOrderPreviewLayer(
@@ -102,6 +105,7 @@ export default function MapView({
   pendingMapEffectsRef,
   orderPreviewMerged,
   historyEntries,
+  treatyVisuals,
 }: MapViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -229,6 +233,7 @@ export default function MapView({
           null,
           selectedHistory?.supportCountByUnitId,
         );
+        syncTreatyOverlay(svgEl, displayBoard, layersRef.current, treatyVisuals);
         prevBoardRef.current = displayBoard;
         syncOrderPreviewLayer(
           svgEl,
@@ -303,6 +308,7 @@ export default function MapView({
       selectedHistory != null ? null : (pending.length > 0 ? pending : null),
       displaySupportCount,
     );
+    syncTreatyOverlay(svg, displayBoard, layersRef.current, treatyVisuals);
     prevBoardRef.current = displayBoard;
     syncOrderPreviewLayer(
       svg,
@@ -318,6 +324,7 @@ export default function MapView({
     isResolutionRevealing,
     orderPreviewMerged,
     selectedHistory,
+    treatyVisuals,
   ]);
 
   useEffect(() => {

@@ -71,6 +71,9 @@ export function MainDiplomacyHome() {
     onlineDebugLogCount,
     downloadOnlineDebugLog,
     clearOnlineDebugLog,
+    treatyMapVisuals,
+    diplomacyPhase,
+    advanceToOrdersPhase,
   } = g;
 
   const hostPowerLinkSecrets = useMemo(() => {
@@ -168,7 +171,7 @@ export function MainDiplomacyHome() {
             <button
               type="button"
               onClick={() => setHostSecretsModalOpen(true)}
-              className="rounded-lg border border-violet-400 bg-violet-100 px-3 py-1.5 text-[11px] font-bold text-violet-950 shadow-sm hover:bg-violet-200"
+              className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-[11px] font-bold text-zinc-800 shadow-sm hover:bg-zinc-200"
             >
               シークレット一覧を開く
             </button>
@@ -199,7 +202,7 @@ export function MainDiplomacyHome() {
           />
         ) : null}
         {onlineSession != null ? (
-          <div className="shrink-0 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-950">
+          <div className="shrink-0 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] text-zinc-700">
             <p>
               オンライン卓に接続中（データ版{' '}
               <span className="tabular-nums">{onlineServerVersion}</span>
@@ -213,7 +216,7 @@ export function MainDiplomacyHome() {
               <button
                 type="button"
                 onClick={downloadOnlineDebugLog}
-                className="rounded border border-sky-400 bg-white px-2 py-0.5 text-[10px] font-semibold text-sky-800 hover:bg-sky-100"
+                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100"
               >
                 デバッグログを保存（{onlineDebugLogCount}件）
               </button>
@@ -296,6 +299,7 @@ export function MainDiplomacyHome() {
                 isResolutionRevealing={isResolutionRevealing}
                 pendingMapEffectsRef={pendingMapEffectsRef}
                 historyEntries={turnHistory}
+                treatyVisuals={treatyMapVisuals}
               />
             </div>
           </div>
@@ -322,7 +326,9 @@ export function MainDiplomacyHome() {
                 ? '解体フェーズ'
                 : isAdjustmentPhasePanel
                   ? '増産フェーズ'
-                  : '命令フェーズ'}
+                  : diplomacyPhase === 'negotiation'
+                    ? '交渉フェーズ'
+                    : '命令フェーズ'}
             </h2>
             <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
               {POWER_ORDER.map((pid) => {
@@ -332,8 +338,10 @@ export function MainDiplomacyHome() {
                   status = retreatStatusLine(pid);
                 } else if (isAdjustmentPhasePanel) {
                   status = adjustmentStatusLine(pid);
-                } else {
+                } else if (diplomacyPhase === 'orders') {
                   status = movementStatusLine(pid);
+                } else {
+                  status = '';
                 }
                 return (
                   <li
@@ -348,7 +356,9 @@ export function MainDiplomacyHome() {
                       <span className="min-w-0 truncate text-sm font-medium text-zinc-800">
                         <PowerLabelText powerId={pid} />
                       </span>
-                      <span className="text-[11px] text-zinc-500">({status})</span>
+                      {status ? (
+                        <span className="text-[11px] text-zinc-500">({status})</span>
+                      ) : null}
                     </div>
                     <PowerNationLink
                       powerId={pid}
@@ -357,9 +367,11 @@ export function MainDiplomacyHome() {
                         onlineSession?.kind === 'power' &&
                         pid !== onlineSession.powerId
                       }
-                      disabledTitle="参加中の国以外は命令入力できません"
+                      disabledTitle="参加中の国以外は操作できません"
                     >
-                      命令入力
+                      {diplomacyPhase === 'negotiation' && !isRetreatPhase && !isAdjustmentPhasePanel
+                        ? '作戦立案'
+                        : '命令入力'}
                     </PowerNationLink>
                   </li>
                 );
@@ -402,7 +414,25 @@ export function MainDiplomacyHome() {
               </>
             )}
 
-            {!isRetreatPhase && !isAdjustmentPhasePanel && (
+            {!isRetreatPhase && !isAdjustmentPhasePanel && diplomacyPhase === 'negotiation' && (
+              <>
+                <button
+                  type="button"
+                  disabled={isOnlinePowerPlayer}
+                  onClick={advanceToOrdersPhase}
+                  className="mt-3 w-full shrink-0 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
+                >
+                  交渉終了 → 命令フェーズへ
+                </button>
+                {isOnlinePowerPlayer ? (
+                  <p className="mt-2 text-[11px] text-zinc-600">
+                    命令フェーズへの移行はホストのみ操作できます。
+                  </p>
+                ) : null}
+              </>
+            )}
+
+            {!isRetreatPhase && !isAdjustmentPhasePanel && diplomacyPhase === 'orders' && (
               <>
                 <button
                   type="button"
@@ -421,16 +451,13 @@ export function MainDiplomacyHome() {
                     命令の実行（裁定）はホストのみ操作できます。
                   </p>
                 ) : null}
+                {isOrderLocked && (
+                  <p className="mt-2 text-xs text-zinc-500">
+                    解決演出中は命令実行できません。
+                  </p>
+                )}
               </>
             )}
-
-            {isOrderLocked &&
-              !isRetreatPhase &&
-              !isAdjustmentPhasePanel && (
-                <p className="mt-2 text-xs text-zinc-500">
-                  解決演出中は命令実行できません。
-                </p>
-              )}
           </div>
         </div>
 

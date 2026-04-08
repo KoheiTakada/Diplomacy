@@ -91,6 +91,8 @@ import {
   detectTreatyViolations,
   isTreatyParticipant,
   isTreatyRatified,
+  type PendingTreatyOp,
+  type TreatyApprovalState,
   type TreatyExpiry,
   type TreatyMapVisuals,
   type TreatyRecord,
@@ -157,6 +159,93 @@ function compareSnapshotProgress(
   return 0;
 }
 
+/* ─── 条約 ID ベースマージヘルパー ─────────────────────────── */
+
+/**
+ * 同一 ID を持つ 2 つの TreatyRecord をフィールドレベルでマージする。
+ * 破棄・批准などの「終端状態」を優先し、statusByPower はより進んだ状態を採用する。
+ */
+function mergeTreatyRecord(
+  local: TreatyRecord,
+  incoming: TreatyRecord,
+): TreatyRecord {
+  // 終端状態（破棄）はどちらかに存在すれば採用
+  const discardedAtIso = local.discardedAtIso ?? incoming.discardedAtIso;
+  const discardedByPowerId =
+    local.discardedByPowerId ?? incoming.discardedByPowerId;
+  // 批准完了もどちらかに存在すれば採用
+  const ratifiedAtIso = local.ratifiedAtIso ?? incoming.ratifiedAtIso;
+  // statusByPower: 各勢力について「より進んだ状態」を採用する
+  const statusRank = (s: string | undefined): number => {
+    if (s === 'ratified' || s === 'rejected') {
+      return 3;
+    }
+    if (s === 'counterProposed') {
+      return 2;
+    }
+    return 1; // 'pending' または未定義
+  };
+  const statusByPower: Record<string, TreatyApprovalState> = {
+    ...incoming.statusByPower,
+  };
+  for (const [pid, status] of Object.entries(local.statusByPower)) {
+    if (statusRank(status) >= statusRank(statusByPower[pid])) {
+      statusByPower[pid] = status;
+    }
+  }
+  // 延長提案はどちらかに存在すれば採用（競合時はローカル優先）
+  const extensionProposal =
+    local.extensionProposal ?? incoming.extensionProposal;
+  return {
+    ...local,
+    discardedAtIso,
+    discardedByPowerId,
+    ratifiedAtIso,
+    statusByPower,
+    extensionProposal,
+  };
+}
+
+/**
+ * 2 つの TreatyRecord 配列を ID ベースでマージする。
+ * 両方に存在する条約は mergeTreatyRecord で解決し、
+ * 片方にしかないものはそのまま含める。
+ */
+function mergeTreaties(
+  incoming: TreatyRecord[],
+  local: TreatyRecord[],
+): TreatyRecord[] {
+  const incomingMap = new Map(incoming.map((t) => [t.id, t]));
+  const localMap = new Map(local.map((t) => [t.id, t]));
+  const allIds = new Set([...incomingMap.keys(), ...localMap.keys()]);
+  const result: TreatyRecord[] = [];
+  for (const id of allIds) {
+    const inc = incomingMap.get(id);
+    const loc = localMap.get(id);
+    if (loc != null && inc != null) {
+      result.push(mergeTreatyRecord(loc, inc));
+    } else if (loc != null) {
+      result.push(loc);
+    } else if (inc != null) {
+      result.push(inc);
+    }
+  }
+  return result;
+}
+
+/**
+ * 2 つの TreatyViolationNotice 配列を ID ベースでマージする（union）。
+ */
+function mergeTreatyViolations(
+  incoming: TreatyViolationNotice[],
+  local: TreatyViolationNotice[],
+): TreatyViolationNotice[] {
+  const incomingIds = new Set(incoming.map((n) => n.id));
+  return [...incoming, ...local.filter((n) => !incomingIds.has(n.id))];
+}
+
+/* ────────────────────────────────────────────────────────── */
+
 /**
  * サーバー取得スナップショットへ、自国の命令・調整・退却・記録フラグだけをローカルから上書きする。
  * 進行が変わった盤面（ターン／フェーズ不一致）にはローカルを混ぜない。
@@ -216,8 +305,8 @@ function mergePowerSecretSnapshotFromLocal(
     powerOrderSaved,
     powerAdjustmentSaved,
     powerRetreatSaved,
-    treaties: local.treaties,
-    treatyViolations: local.treatyViolations,
+    treaties: mergeTreaties(incoming.treaties, local.treaties),
+    treatyViolations: mergeTreatyViolations(incoming.treatyViolations, local.treatyViolations),
   };
 }
 
@@ -314,12 +403,11 @@ function mergeHostPersistedSnapshotThreeWay(
   const powerOrderSaved = { ...incoming.powerOrderSaved };
   const powerAdjustmentSaved = { ...incoming.powerAdjustmentSaved };
   const powerRetreatSaved = { ...incoming.powerRetreatSaved };
-  const treaties = jsonEq(local.treaties, base.treaties)
-    ? incoming.treaties
-    : local.treaties;
-  const treatyViolations = jsonEq(local.treatyViolations, base.treatyViolations)
-    ? incoming.treatyViolations
-    : local.treatyViolations;
+  const treaties = mergeTreaties(incoming.treaties, local.treaties);
+  const treatyViolations = mergeTreatyViolations(
+    incoming.treatyViolations,
+    local.treatyViolations,
+  );
   for (const pid of POWERS) {
     if (local.powerOrderSaved[pid] !== base.powerOrderSaved[pid]) {
       powerOrderSaved[pid] = local.powerOrderSaved[pid] === true;
@@ -530,6 +618,11 @@ export type DiplomacyGameContextValue = {
   ) => void;
   clearPowerTreatyViolations: (powerId: string) => void;
   visibleTreatiesForPower: (powerId: string) => TreatyRecord[];
+  diplomacyPhase: 'negotiation' | 'orders';
+  pendingTreatyOps: PendingTreatyOp[];
+  addPendingTreatyOp: (op: Omit<PendingTreatyOp, 'id' | 'createdAtIso'>) => void;
+  removePendingTreatyOp: (treatyId: string, powerId: string) => void;
+  advanceToOrdersPhase: () => void;
   revealGenRef: RefObject<number>;
   revealTimersRef: RefObject<number[]>;
   nextLogIdRef: RefObject<number>;
@@ -664,6 +757,12 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   const [treatyViolations, setTreatyViolations] = useState<
     TreatyViolationNotice[]
   >(defaultSnap.treatyViolations);
+  const [pendingTreatyOps, setPendingTreatyOps] = useState<PendingTreatyOp[]>(
+    defaultSnap.pendingTreatyOps,
+  );
+  const [diplomacyPhase, setDiplomacyPhase] = useState<'negotiation' | 'orders'>(
+    defaultSnap.diplomacyPhase,
+  );
 
   const [gameSessionActive, setGameSessionActive] = useState(false);
   const [activeWorldlineStem, setActiveWorldlineStem] = useState('');
@@ -812,6 +911,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     setPowerRetreatSaved(merged.powerRetreatSaved);
     setTreaties(merged.treaties);
     setTreatyViolations(merged.treatyViolations);
+    setPendingTreatyOps(merged.pendingTreatyOps);
+    setDiplomacyPhase(merged.diplomacyPhase);
   }, []);
 
   useEffect(() => {
@@ -1098,9 +1199,76 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     [treaties, board.turn],
   );
 
+  const addPendingTreatyOp = useCallback<
+    DiplomacyGameContextValue['addPendingTreatyOp']
+  >((op) => {
+    const newOp: PendingTreatyOp = {
+      ...op,
+      id:
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `op-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      createdAtIso: new Date().toISOString(),
+    };
+    setPendingTreatyOps((prev) => {
+      // Last-wins: replace any existing op for same treatyId+powerId
+      const filtered = prev.filter(
+        (o) => !(o.treatyId === op.treatyId && o.powerId === op.powerId),
+      );
+      return [...filtered, newOp];
+    });
+    const sess = onlineSessionRef.current;
+    if (sess?.kind === 'power') {
+      powerSubmitRequestedRef.current = true;
+    }
+  }, []);
+
+  const removePendingTreatyOp = useCallback<
+    DiplomacyGameContextValue['removePendingTreatyOp']
+  >((treatyId, powerId) => {
+    setPendingTreatyOps((prev) =>
+      prev.filter((o) => !(o.treatyId === treatyId && o.powerId === powerId)),
+    );
+    const sess = onlineSessionRef.current;
+    if (sess?.kind === 'power') {
+      powerSubmitRequestedRef.current = true;
+    }
+  }, []);
+
   const scheduleAppAutoSave = useCallback(() => {
     pendingAppAutoSaveRef.current = true;
   }, []);
+
+  const advanceToOrdersPhase = useCallback<
+    DiplomacyGameContextValue['advanceToOrdersPhase']
+  >(() => {
+    const now = new Date().toISOString();
+    setPendingTreatyOps((currentOps) => {
+      if (currentOps.length > 0) {
+        setTreaties((prevTreaties) =>
+          prevTreaties.map((t) => {
+            const ops = currentOps.filter((op) => op.treatyId === t.id);
+            if (ops.length === 0) return t;
+            const nextStatus = { ...t.statusByPower };
+            for (const op of ops) {
+              nextStatus[op.powerId] = op.kind === 'ratify' ? 'ratified' : 'rejected';
+            }
+            const allRatified = t.participantPowerIds.every(
+              (pid) => nextStatus[pid] === 'ratified',
+            );
+            return {
+              ...t,
+              statusByPower: nextStatus,
+              ratifiedAtIso: allRatified && t.ratifiedAtIso == null ? now : t.ratifiedAtIso,
+            };
+          }),
+        );
+      }
+      return [];
+    });
+    setDiplomacyPhase('orders');
+    scheduleAppAutoSave();
+  }, [scheduleAppAutoSave]);
 
   const reportUnexpectedTitleNavigation = useCallback(
     (reason: string) => {
@@ -1150,6 +1318,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       powerRetreatSaved,
       treaties,
       treatyViolations,
+      pendingTreatyOps,
+      diplomacyPhase,
     };
     if (activeWorldlineStem.length > 0) {
       base.worldlineStem = activeWorldlineStem;
@@ -1172,6 +1342,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     powerRetreatSaved,
     treaties,
     treatyViolations,
+    pendingTreatyOps,
+    diplomacyPhase,
   ]);
 
   buildCurrentSnapshotRef.current = buildCurrentSnapshot;
@@ -2000,6 +2172,17 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       setIsResolutionRevealing(false);
       setPowerOrderSaved({ ...emptyFlags });
 
+      // ターン進行時、まだ誰にも批准されていない（=全員 pending）条約を自動破棄する
+      const autoDiscardNow = new Date().toISOString();
+      setTreaties((prev) =>
+        prev.map((t) => {
+          if (t.discardedAtIso != null || isTreatyRatified(t)) {
+            return t;
+          }
+          return { ...t, discardedAtIso: autoDiscardNow, discardedByPowerId: '__auto__' };
+        }),
+      );
+
       if (result.dislodgedUnits.length > 0) {
         setBoard(nextBoardState);
         setUnitOrders(buildDefaultOrders(nextBoardState));
@@ -2023,6 +2206,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         };
         setBoard(advancedBoard);
         setUnitOrders(buildDefaultOrders(advancedBoard));
+        setDiplomacyPhase('negotiation');
         scheduleAppAutoSave();
         return;
       }
@@ -2040,6 +2224,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         };
         setBoard(advancedBoard);
         setUnitOrders(buildDefaultOrders(advancedBoard));
+        setDiplomacyPhase('negotiation');
         scheduleAppAutoSave();
         return;
       }
@@ -2221,6 +2406,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       };
       setBoard(nextBoard);
       setUnitOrders(buildDefaultOrders(nextBoard));
+      setDiplomacyPhase('negotiation');
       prependLogLine('── 退却完了 ──');
       scheduleAppAutoSave();
       return;
@@ -2241,6 +2427,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       setUnitOrders(buildDefaultOrders(advancedBoard));
       setIsDisbandPhase(false);
       setIsBuildPhase(false);
+      setDiplomacyPhase('negotiation');
       prependLogLine('── 退却完了 ──');
       scheduleAppAutoSave();
       return;
@@ -2371,6 +2558,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     setDisbandPlan({});
     setPowerOrderSaved({ ...emptyFlags });
     setPowerAdjustmentSaved({ ...emptyFlags });
+    setDiplomacyPhase('negotiation');
     prependLogLine(`── ${board.turn.year}年 秋 調整完了 ──`);
     scheduleAppAutoSave();
   }, [
@@ -2424,6 +2612,11 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       respondTreatyExtension,
       clearPowerTreatyViolations,
       visibleTreatiesForPower,
+      diplomacyPhase,
+      pendingTreatyOps,
+      addPendingTreatyOp,
+      removePendingTreatyOp,
+      advanceToOrdersPhase,
       revealGenRef,
       revealTimersRef,
       nextLogIdRef,
@@ -2486,6 +2679,11 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       respondTreatyExtension,
       clearPowerTreatyViolations,
       visibleTreatiesForPower,
+      diplomacyPhase,
+      pendingTreatyOps,
+      addPendingTreatyOp,
+      removePendingTreatyOp,
+      advanceToOrdersPhase,
       prependLogLine,
       isOrderLocked,
       isAdjustmentPhasePanel,

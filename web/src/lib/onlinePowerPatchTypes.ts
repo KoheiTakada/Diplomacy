@@ -12,6 +12,7 @@
  */
 
 import type { BuildSlot, DisbandSlot, UnitOrderInput } from '@/diplomacy/gameHelpers';
+import type { PendingTreatyOp, TreatyRecord, TreatyViolationNotice } from '@/diplomacy/treaties';
 
 /** PATCH /api/online/rooms/[id]/power の JSON ボディ */
 export type OnlinePowerPatchBody = {
@@ -25,4 +26,7 @@ export type OnlinePowerPatchBody = {
   buildPlan?: BuildSlot[];
   disbandPlan?: DisbandSlot[];
   retreatTargets?: Record<string, string>;
+  treaties?: TreatyRecord[];
+  treatyViolations?: TreatyViolationNotice[];
+  pendingTreatyOps?: PendingTreatyOp[];
 };

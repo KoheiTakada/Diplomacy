@@ -52,8 +52,10 @@ export type HypotheticalScenarioState = {
 };
 
 type HypotheticalForeignOrdersPanelProps = {
-  /** 自国 ID（この国のユニットは一覧に出さない） */
+  /** 自国 ID */
   powerId: string;
+  /** true のとき自国ユニットも含む（交渉フェーズ用）。省略時 false */
+  includeSelf?: boolean;
   board: BoardState;
   orderAdjKeys: Set<string>;
   scenarios: HypotheticalScenarioState[];
@@ -105,6 +107,7 @@ export function HypotheticalForeignOrdersPanel(
 ) {
   const {
     powerId,
+    includeSelf = false,
     board,
     orderAdjKeys,
     scenarios,
@@ -115,22 +118,26 @@ export function HypotheticalForeignOrdersPanel(
     setHypotheticalOrders,
   } = props;
 
-  const foreignUnits = board.units.filter((u) => u.powerId !== powerId);
-  if (foreignUnits.length === 0) {
+  const shownUnits = includeSelf
+    ? board.units
+    : board.units.filter((u) => u.powerId !== powerId);
+  if (shownUnits.length === 0) {
     return null;
   }
 
   const tabBtnBase =
     'shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors';
-  const tabBtnActive = 'bg-sky-600 text-white shadow-sm';
+  const tabBtnActive = 'bg-zinc-900 text-white shadow-sm';
   const tabBtnIdle =
-    'bg-white/80 text-sky-900 ring-1 ring-sky-200/80 hover:bg-sky-100/80';
+    'bg-white/80 text-zinc-700 ring-1 ring-zinc-200 hover:bg-zinc-100';
 
   return (
-    <section className="mt-4 space-y-3 rounded-xl border border-sky-200/80 bg-sky-50/40 p-3">
+    <section className="mt-4 space-y-3 rounded-xl border border-zinc-200/80 bg-zinc-50/30 p-3">
       <div>
-        <h3 className="text-sm font-semibold text-sky-950">他国の想定行動</h3>
-        <p className="mt-0.5 text-[11px] text-sky-800/80">
+        <h3 className="text-sm font-semibold text-zinc-900">
+          {includeSelf ? '全勢力の想定行動' : '他国の想定行動'}
+        </h3>
+        <p className="mt-0.5 text-[11px] text-zinc-500">
           ページを閉じると消えます。
         </p>
       </div>
@@ -162,9 +169,9 @@ export function HypotheticalForeignOrdersPanel(
           ＋ 追加
         </button>
       </div>
-      <div className="max-h-[40vh] space-y-4 overflow-y-auto overflow-x-hidden pr-1 [scrollbar-width:thin]">
-        {POWERS.filter((pid) => pid !== powerId).map((pid) => {
-          const units = foreignUnits.filter((u) => u.powerId === pid);
+      <div className="space-y-4 overflow-x-hidden pr-1">
+        {POWERS.filter((pid) => includeSelf || pid !== powerId).map((pid) => {
+          const units = shownUnits.filter((u) => u.powerId === pid);
           if (units.length === 0) {
             return null;
           }

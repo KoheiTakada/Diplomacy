@@ -16,6 +16,7 @@
 
 'use client';
 
+import type { ReactNode } from 'react';
 import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
 import { AreaType, OrderType, UnitType } from '@/domain';
 import {
@@ -47,6 +48,7 @@ import {
   getConvoyOrderDestinationProvinces,
   isProvinceOccupied,
 } from '@/mapMovement';
+import { isTreatyParticipant } from '@/diplomacy/treaties';
 import { PowerLabelText } from '@/components/PowerLabelText';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -59,6 +61,11 @@ type PowerSecretWorkbenchProps = {
    * オンライン参加時はページ上部の導線と重複するため省略する。
    */
   showMainPageLink?: boolean;
+  /**
+   * ユニットリストのスクロール領域末尾に追記するコンテンツ。
+   * 命令入力パネルと想定行動パネルを単一スクロールにまとめるために使用する。
+   */
+  scrollAppendContent?: ReactNode;
 };
 
 /**
@@ -67,7 +74,7 @@ type PowerSecretWorkbenchProps = {
  * @param props - 属性
  */
 export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
-  const { powerId, showMainPageLink = true } = props;
+  const { powerId, showMainPageLink = true, scrollAppendContent } = props;
   const router = useRouter();
   const g = useDiplomacyGame();
   const {
@@ -92,6 +99,9 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
     powerOrderSaved,
     powerAdjustmentSaved,
     powerRetreatSaved,
+    diplomacyPhase,
+    treaties,
+    respondTreaty,
   } = g;
 
   const meta = POWER_META[powerId] ?? { color: '#334155', label: powerId };
@@ -180,7 +190,7 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
         {showMainPageLink ? (
           <Link
             href="/"
-            className="text-xs font-medium text-violet-600 hover:text-violet-500"
+            className="text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline"
           >
             ← メインページへ
           </Link>
@@ -466,7 +476,8 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
         !isOrderLocked &&
         units.length > 0 && (
         <>
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden pr-1 [scrollbar-width:thin]">
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1 [scrollbar-width:thin]">
+            <div className="space-y-2">
             {units.map((unit) => {
               const order = unitOrders[unit.id] ?? emptyOrder();
               const prov = board.provinces.find((p) => p.id === unit.provinceId);
@@ -734,21 +745,48 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
                 </div>
               );
             })}
+            </div>
+            {scrollAppendContent}
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              markPowerOrderSaved(powerId);
-              router.push('/');
-            }}
-            className="mt-3 w-full shrink-0 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-violet-500"
-          >
-            命令送信
-          </button>
-          <p className="mt-2 text-[11px] text-zinc-600">
-            内容が妥当: {ordersComplete ? 'はい' : 'いいえ'}／記録済み:{' '}
-            {powerOrderSaved[powerId] ? 'はい' : 'いいえ'}
-          </p>
+          {diplomacyPhase === 'orders' ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  const unanswered = treaties.filter(
+                    (t) =>
+                      t.discardedAtIso == null &&
+                      isTreatyParticipant(t, powerId) &&
+                      t.statusByPower[powerId] === 'pending',
+                  );
+                  if (unanswered.length > 0) {
+                    const ok = window.confirm(
+                      `${unanswered.length}件の未回答の条約があります。すべて却下して命令を送信しますか？`,
+                    );
+                    if (!ok) {
+                      return;
+                    }
+                    for (const t of unanswered) {
+                      respondTreaty(t.id, powerId, 'rejected');
+                    }
+                  }
+                  markPowerOrderSaved(powerId);
+                  router.push('/');
+                }}
+                className="mt-3 w-full shrink-0 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-zinc-800"
+              >
+                命令送信
+              </button>
+              <p className="mt-2 text-[11px] text-zinc-600">
+                内容が妥当: {ordersComplete ? 'はい' : 'いいえ'}／記録済み:{' '}
+                {powerOrderSaved[powerId] ? 'はい' : 'いいえ'}
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 text-[11px] text-zinc-500">
+              命令フェーズで命令を送信できます。
+            </p>
+          )}
         </>
       )}
 

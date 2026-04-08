@@ -22,6 +22,7 @@ import {
 } from '@/components/HypotheticalForeignOrdersPanel';
 import MapView from '@/components/MapView';
 import { PowerSecretWorkbench } from '@/components/PowerSecretWorkbench';
+import { PowerTreatyPanel } from '@/components/PowerTreatyPanel';
 import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
 import { mergePowerPageOrderPreview, type UnitOrderInput } from '@/diplomacy/gameHelpers';
 import { readOnlineSessionForPowerPageRestore } from '@/lib/onlineSessionBrowser';
@@ -82,8 +83,10 @@ export default function PowerPageClient() {
     isOrderLocked,
     isAdjustmentPhasePanel,
     isRetreatPhase,
+    diplomacyPhase,
     joinOnlineGame,
     reportUnexpectedTitleNavigation,
+    treatyMapVisuals,
   } = g;
   const [isRestoringSession, setIsRestoringSession] = useState(false);
 
@@ -141,17 +144,27 @@ export default function PowerPageClient() {
 
   const orderAdjKeys = useMemo(() => buildAdjacencyKeySet(board), [board]);
 
-  const showMovementOrderPreview =
+  /** 移動フェーズ（命令フェーズ or 交渉フェーズ）かどうか */
+  const isMovementPhase =
     !isOrderLocked && !isAdjustmentPhasePanel && !isRetreatPhase;
+  /** 交渉フェーズ中の移動命令プレビュー（全勢力を想定行動で表示） */
+  const showNegotiationHypothetical =
+    isMovementPhase && diplomacyPhase === 'negotiation';
+  /** 命令フェーズ中の移動命令入力 */
+  const showOrdersInput = isMovementPhase && diplomacyPhase === 'orders';
 
   const orderPreviewMerged = useMemo(() => {
-    if (!showMovementOrderPreview) {
+    if (!isMovementPhase) {
       return null;
     }
+    // 交渉フェーズでは自国も想定行動でプレビューする
+    const committedForPreview = showNegotiationHypothetical
+      ? activeHypotheticalOrders
+      : unitOrders;
     return mergePowerPageOrderPreview(
       board,
       powerId,
-      unitOrders,
+      committedForPreview,
       activeHypotheticalOrders,
     );
   }, [
@@ -159,7 +172,8 @@ export default function PowerPageClient() {
     powerId,
     unitOrders,
     activeHypotheticalOrders,
-    showMovementOrderPreview,
+    isMovementPhase,
+    showNegotiationHypothetical,
   ]);
 
   useEffect(() => {
@@ -225,16 +239,16 @@ export default function PowerPageClient() {
           <div className="flex shrink-0 justify-end">
             <Link
               href="/"
-              className="text-[11px] font-medium text-sky-700 underline-offset-2 hover:underline"
+              className="text-[11px] font-medium text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline"
             >
               メイン画面（地図・全体進捗）
             </Link>
           </div>
         ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-4">
-          <div className="flex min-h-0 w-full shrink-0 justify-center overflow-hidden lg:h-full lg:w-auto lg:max-w-[min(100%,52%)] lg:justify-start">
+          <div className="flex min-h-0 w-full shrink-0 flex-col overflow-hidden lg:h-full lg:w-auto lg:max-w-[min(100%,52%)] lg:justify-start">
             <div
-              className="box-border flex h-auto w-full max-w-full flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white p-3 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] sm:p-4 lg:h-full lg:w-auto lg:max-h-full lg:shrink-0"
+              className="box-border flex h-auto w-full max-w-full flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white p-3 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] sm:p-4 lg:h-auto lg:w-auto lg:max-h-[70%] lg:shrink-0"
               style={{ aspectRatio: mapAspectRatio }}
             >
               <MapView
@@ -242,27 +256,54 @@ export default function PowerPageClient() {
                 isResolutionRevealing={isResolutionRevealing}
                 pendingMapEffectsRef={pendingMapEffectsRef}
                 orderPreviewMerged={orderPreviewMerged}
+                treatyVisuals={treatyMapVisuals}
               />
+            </div>
+            <div className="min-h-0 overflow-y-auto pr-1 [scrollbar-width:thin]">
+              <PowerTreatyPanel powerId={powerId} />
             </div>
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <PowerSecretWorkbench
-              powerId={powerId}
-              showMainPageLink={onlineSession == null}
-            />
-            {showMovementOrderPreview ? (
-              <HypotheticalForeignOrdersPanel
+            {showNegotiationHypothetical ? (
+              // 交渉フェーズ: 全勢力の想定行動パネルのみ（単独スクロール）
+              <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+                <HypotheticalForeignOrdersPanel
+                  powerId={powerId}
+                  includeSelf={true}
+                  board={board}
+                  orderAdjKeys={orderAdjKeys}
+                  scenarios={hypotheticalUi.scenarios}
+                  activeScenarioIndex={hypotheticalUi.activeIndex}
+                  onSelectScenario={handleSelectHypotheticalScenario}
+                  onAddScenario={handleAddHypotheticalScenario}
+                  hypotheticalOrders={activeHypotheticalOrders}
+                  setHypotheticalOrders={setActiveHypotheticalOrders}
+                />
+              </div>
+            ) : (
+              // 命令フェーズ / 退却 / 調整 / ロック中: 命令入力ワークベンチ
+              // 命令フェーズのみ他国想定行動をスクロール領域末尾に追記
+              <PowerSecretWorkbench
                 powerId={powerId}
-                board={board}
-                orderAdjKeys={orderAdjKeys}
-                scenarios={hypotheticalUi.scenarios}
-                activeScenarioIndex={hypotheticalUi.activeIndex}
-                onSelectScenario={handleSelectHypotheticalScenario}
-                onAddScenario={handleAddHypotheticalScenario}
-                hypotheticalOrders={activeHypotheticalOrders}
-                setHypotheticalOrders={setActiveHypotheticalOrders}
+                showMainPageLink={onlineSession == null}
+                scrollAppendContent={
+                  showOrdersInput ? (
+                    <HypotheticalForeignOrdersPanel
+                      powerId={powerId}
+                      includeSelf={false}
+                      board={board}
+                      orderAdjKeys={orderAdjKeys}
+                      scenarios={hypotheticalUi.scenarios}
+                      activeScenarioIndex={hypotheticalUi.activeIndex}
+                      onSelectScenario={handleSelectHypotheticalScenario}
+                      onAddScenario={handleAddHypotheticalScenario}
+                      hypotheticalOrders={activeHypotheticalOrders}
+                      setHypotheticalOrders={setActiveHypotheticalOrders}
+                    />
+                  ) : undefined
+                }
               />
-            ) : null}
+            )}
           </div>
         </div>
       </main>

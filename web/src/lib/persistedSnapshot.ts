@@ -27,6 +27,7 @@ import {
   type BoardState,
   type DislodgedUnit,
 } from '@/domain';
+import type { PendingTreatyOp, TreatyRecord, TreatyViolationNotice } from '@/diplomacy/treaties';
 
 /** v:1 永続化スナップショット */
 export type PersistedSnapshot = {
@@ -49,6 +50,12 @@ export type PersistedSnapshot = {
   powerOrderSaved: Record<string, boolean>;
   powerAdjustmentSaved: Record<string, boolean>;
   powerRetreatSaved: Record<string, boolean>;
+  treaties: TreatyRecord[];
+  treatyViolations: TreatyViolationNotice[];
+  /** 交渉フェーズ中にステージングされた条約応答操作。交渉終了時に一括適用する */
+  pendingTreatyOps: PendingTreatyOp[];
+  /** 現在のゲームフェーズ */
+  diplomacyPhase: 'negotiation' | 'orders';
 };
 
 /**
@@ -74,6 +81,10 @@ export function createDefaultPersistedSnapshot(): PersistedSnapshot {
     powerOrderSaved: { ...emptyFlags },
     powerAdjustmentSaved: { ...emptyFlags },
     powerRetreatSaved: { ...emptyFlags },
+    treaties: [],
+    treatyViolations: [],
+    pendingTreatyOps: [],
+    diplomacyPhase: 'negotiation',
   };
 }
 
@@ -91,6 +102,12 @@ export function normalizeLoadedSnapshot(loaded: PersistedSnapshot): PersistedSna
     powerOrderSaved: { ...emptyFlags, ...loaded.powerOrderSaved },
     powerAdjustmentSaved: { ...emptyFlags, ...loaded.powerAdjustmentSaved },
     powerRetreatSaved: { ...emptyFlags, ...loaded.powerRetreatSaved },
+    treaties: Array.isArray(loaded.treaties) ? loaded.treaties : [],
+    treatyViolations: Array.isArray(loaded.treatyViolations)
+      ? loaded.treatyViolations
+      : [],
+    pendingTreatyOps: Array.isArray(loaded.pendingTreatyOps) ? loaded.pendingTreatyOps : [],
+    diplomacyPhase: loaded.diplomacyPhase ?? 'orders',
   };
 }
 

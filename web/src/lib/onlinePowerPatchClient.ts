@@ -67,5 +67,8 @@ export function buildPowerOnlinePatchPayload(
     buildPlan: snap.buildPlan[powerId] ?? [],
     disbandPlan: snap.disbandPlan[powerId] ?? [],
     retreatTargets: retreatTargetsForPower(snap, powerId),
+    treaties: snap.treaties,
+    treatyViolations: snap.treatyViolations,
+    pendingTreatyOps: snap.pendingTreatyOps.filter((op) => op.powerId === powerId),
   };
 }
