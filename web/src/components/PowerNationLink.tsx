@@ -91,7 +91,7 @@ export function PowerNationLink(props: PowerNationLinkProps) {
           </button>
           <button
             type="button"
-            className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-500"
+            className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800"
             onClick={() => {
               dialogRef.current?.close();
               router.push(`/power/${powerId}`);
