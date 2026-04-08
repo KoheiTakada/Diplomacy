@@ -118,6 +118,35 @@ function sameOnlineGameStepForMerge(
 }
 
 /**
+ * スナップショットの進行順（年・季・フェーズ）を比較するためのキー。
+ * 小さいほど過去。大きいほど未来。
+ */
+function snapshotProgressOrderKey(s: PersistedSnapshot): number {
+  const seasonRank = s.board.turn.season === Season.Spring ? 0 : 1;
+  const phaseRank = s.isBuildPhase || s.isDisbandPhase
+    ? 2
+    : s.isRetreatPhase
+      ? 1
+      : 0;
+  return s.board.turn.year * 100 + seasonRank * 10 + phaseRank;
+}
+
+function compareSnapshotProgress(
+  a: PersistedSnapshot,
+  b: PersistedSnapshot,
+): number {
+  const ka = snapshotProgressOrderKey(a);
+  const kb = snapshotProgressOrderKey(b);
+  if (ka < kb) {
+    return -1;
+  }
+  if (ka > kb) {
+    return 1;
+  }
+  return 0;
+}
+
+/**
  * サーバー取得スナップショットへ、自国の命令・調整・退却・記録フラグだけをローカルから上書きする。
  * 進行が変わった盤面（ターン／フェーズ不一致）にはローカルを混ぜない。
  * ポールで flush 成功後も GET が一瞬古い場合や、デバウンス外の再編集を防ぐために勢力クライアントで使う。
@@ -1000,6 +1029,23 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           undefined,
           data.version,
         );
+      } else if (
+        fromVersionConflict === true &&
+        sess.kind === 'host' &&
+        compareSnapshotProgress(incomingSnap, localNow) < 0
+      ) {
+        /**
+         * 409 復旧時に、サーバー側がローカルより古いステップを返すことがある。
+         * この場合はローカル進行を優先し、巻き戻し適用を行わない。
+         */
+        lastServerVersionRef.current = data.version;
+        setOnlineServerVersion(data.version);
+        appendOnlineDebugLog(
+          'refetch_snapshot_409_keep_local_host_newer',
+          undefined,
+          data.version,
+        );
+        return;
       } else if (sess.kind === 'power' && mergePowerLocalSnapshot != null) {
         toApply = mergePowerSecretSnapshotFromLocal(
           incomingSnap,
@@ -1057,6 +1103,33 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         if (res.status === 409) {
           appendOnlineDebugLog('flush_host_409');
           await refetchOnlineSnapshot(sess, undefined, false, true);
+          /**
+           * 409 復旧直後は expectedVersion を更新して 1 回だけ再送する。
+           * 古い snapshot 適用を回避した場合でも、ローカル最新状態を確実に押し込む。
+           */
+          const retrySnap = buildCurrentSnapshotRef.current();
+          const retryRes = await fetch(`/api/online/rooms/${sess.roomId}/snapshot`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              hostSecret: sess.hostSecret,
+              expectedVersion: lastServerVersionRef.current,
+              snapshotJson: serializeSnapshotForStorage(retrySnap),
+            }),
+          });
+          if (retryRes.status === 409) {
+            appendOnlineDebugLog('flush_host_409_retry_conflict');
+            return true;
+          }
+          if (!retryRes.ok) {
+            appendOnlineDebugLog('flush_host_retry_ng', `HTTP ${retryRes.status}`);
+            return false;
+          }
+          const retryData = (await retryRes.json()) as { version: number };
+          lastServerVersionRef.current = retryData.version;
+          setOnlineServerVersion(retryData.version);
+          onlineHostSyncBaselineRef.current = retrySnap;
+          appendOnlineDebugLog('flush_host_retry_ok', undefined, retryData.version);
           return true;
         }
         if (!res.ok) {

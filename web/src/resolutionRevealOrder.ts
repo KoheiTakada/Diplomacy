@@ -484,267 +484,225 @@ export function buildResolutionRevealTimeline(
 ): RevealTimelineStep[] {
   const resolutions = result.orderResolutions;
   const steps: RevealTimelineStep[] = [];
+  const used = new Set<number>();
+  const powerByUnitId = new Map(labelBoard.units.map((u) => [u.id, u.powerId]));
+  const powerOf = (unitId: string): string => powerByUnitId.get(unitId) ?? '';
+  const rankOf = (unitId: string): number => {
+    const p = powerOf(unitId);
+    const i = powerOrder.indexOf(p);
+    return i >= 0 ? i : 999;
+  };
+  const moveIndexByKey = new Map<string, number>();
+  const dislodgedHoldByMoveIndex = new Map<number, number>();
 
-  const supportSuccessPool = resolutions.filter(
-    (r) => r.order.type === OrderType.Support && r.success,
-  );
-  const convoyPool = resolutions.filter((r) => r.order.type === OrderType.Convoy);
-  const usedConvoys = new Set<OrderResolution>();
-
-  const allMovePieces = buildMovePieces(resolutions);
-  const validationPieces = allMovePieces.filter((p) =>
-    isMoveValidationFailure(p.main),
-  );
-  const combatPieces = allMovePieces.filter(
-    (p) => !isMoveValidationFailure(p.main),
-  );
-
-  const validationSorted = [...validationPieces].sort((a, b) =>
-    compareUnitIds(
-      pieceMainMove(a).unitId,
-      pieceMainMove(b).unitId,
-      labelBoard,
-      powerOrder,
-    ),
-  );
-  for (const p of validationSorted) {
-    steps.push(
-      ...emitPieceSteps(
-        p,
-        labelBoard,
-        domainOrders,
-        resolutions,
-        powerOrder,
-        supportSuccessPool,
-        convoyPool,
-        usedConvoys,
-      ),
-    );
-  }
-
-  let fullTopo = topologicalMovePieces(
-    combatPieces,
-    labelBoard,
-    powerOrder,
-  );
-  fullTopo = sortStandoffClustersWithinCombatOrder(
-    fullTopo,
-    combatPieces,
-    labelBoard,
-    powerOrder,
-  );
-
-  const cutFailRes = resolutions.filter(
-    (r) =>
-      r.order.type === OrderType.Support &&
-      !r.success &&
-      r.message.includes('カット'),
-  );
-
-  const cutGroupMap = new Map<string, CutGroup>();
-  for (const fr of cutFailRes) {
-    const s = fr.order as SupportOrder;
-    const cms = cuttingMovesForSupport(s, domainOrders, labelBoard);
-    const gkey = cuttingMovesGroupKey(cms);
-    let g = cutGroupMap.get(gkey);
-    if (g == null) {
-      g = {
-        supportOrders: [],
-        failResolutions: [],
-        cuttingMoves: cms,
-        pieceIndices: [],
-        anchorPos: 0,
-      };
-      cutGroupMap.set(gkey, g);
-    }
-    g.supportOrders.push(s);
-    g.failResolutions.push(fr);
-  }
-
-  for (const g of cutGroupMap.values()) {
-    g.supportOrders.sort((a, b) =>
-      compareUnitIds(a.unitId, b.unitId, labelBoard, powerOrder),
-    );
-    g.failResolutions.sort((a, b) =>
-      compareUnitIds(a.order.unitId, b.order.unitId, labelBoard, powerOrder),
-    );
-    for (const m of g.cuttingMoves) {
-      const pIdx = combatPieces.findIndex(
-        (cp) => moveKey(pieceMainMove(cp)) === moveKey(m),
-      );
-      if (pIdx >= 0) {
-        insertSortedUnique(
-          g.pieceIndices,
-          pIdx,
-          (a, b) =>
-            compareUnitIds(
-              pieceMainMove(combatPieces[a]).unitId,
-              pieceMainMove(combatPieces[b]).unitId,
-              labelBoard,
-              powerOrder,
-            ),
-        );
+  for (let i = 0; i < resolutions.length; i += 1) {
+    const r = resolutions[i];
+    if (r.order.type === OrderType.Move) {
+      moveIndexByKey.set(moveKey(r.order), i);
+      const nxt = resolutions[i + 1];
+      if (
+        nxt &&
+        nxt.order.type === OrderType.Hold &&
+        !nxt.success &&
+        nxt.message.includes('押し出され')
+      ) {
+        dislodgedHoldByMoveIndex.set(i, i + 1);
       }
     }
-    if (g.pieceIndices.length > 0) {
-      const positions = g.pieceIndices.map((pi) => fullTopo.indexOf(pi));
-      g.anchorPos = Math.min(...positions.filter((x) => x >= 0));
-    } else {
-      g.anchorPos = 0;
-    }
   }
 
-  const cuttingPieceSet = new Set<number>();
-  for (const g of cutGroupMap.values()) {
-    for (const pi of g.pieceIndices) {
-      cuttingPieceSet.add(pi);
-    }
-  }
-
-  const cutChunks = [...cutGroupMap.values()].sort(
-    (a, b) => a.anchorPos - b.anchorPos,
-  );
-
-  const merged: Array<MovePiece | { cut: CutGroup }> = [];
-  for (let pos = 0; pos < fullTopo.length; pos++) {
-    const chunkHere = cutChunks.filter((c) => c.anchorPos === pos);
-    for (const cg of chunkHere) {
-      merged.push({ cut: cg });
-    }
-    const pIdx = fullTopo[pos];
-    if (cuttingPieceSet.has(pIdx)) {
+  const supportSuccessByMoveKey = new Map<string, number[]>();
+  const supportSuccessByHoldUnitId = new Map<string, number[]>();
+  for (let i = 0; i < resolutions.length; i += 1) {
+    const r = resolutions[i];
+    if (r.order.type !== OrderType.Support || !r.success) {
       continue;
     }
-    merged.push(combatPieces[pIdx]);
-  }
-
-  for (const item of merged) {
-    if ('cut' in item) {
-      const cg = item.cut;
-      const pairs: SupportLinkPair[] = cg.supportOrders.map((s) => ({
-        supporterUnitId: s.unitId,
-        supportedUnitId: s.supportedUnitId,
-      }));
-      for (const s of cg.supportOrders) {
-        steps.push({ kind: 'tentativeSupportCut', sup: s });
-      }
-      if (cg.pieceIndices.length > 0) {
-        const sortedPi = [...cg.pieceIndices].sort((a, b) =>
-          compareUnitIds(
-            pieceMainMove(combatPieces[a]).unitId,
-            pieceMainMove(combatPieces[b]).unitId,
-            labelBoard,
-            powerOrder,
-          ),
-        );
-        sortedPi.forEach((pi, idx) => {
-          const p = combatPieces[pi];
-          steps.push(
-            ...emitPieceSteps(
-              p,
-              labelBoard,
-              domainOrders,
-              resolutions,
-              powerOrder,
-              supportSuccessPool,
-              convoyPool,
-              usedConvoys,
-              idx === 0 ? pairs : undefined,
-            ),
-          );
-        });
-      }
-      for (const fr of cg.failResolutions) {
-        const needRevoke =
-          cg.pieceIndices.length === 0 ? pairs : undefined;
-        steps.push({
-          kind: 'resolution',
-          r: fr,
-          revokeSupportLinksBefore: needRevoke,
-        });
-      }
+    const s = r.order;
+    if (s.fromProvinceId === s.toProvinceId) {
+      const arr = supportSuccessByHoldUnitId.get(s.supportedUnitId) ?? [];
+      arr.push(i);
+      supportSuccessByHoldUnitId.set(s.supportedUnitId, arr);
     } else {
-      steps.push(
-        ...emitPieceSteps(
-          item,
-          labelBoard,
-          domainOrders,
-          resolutions,
-          powerOrder,
-          supportSuccessPool,
-          convoyPool,
-          usedConvoys,
-        ),
-      );
+      const k = `${s.supportedUnitId}|${s.fromProvinceId}|${s.toProvinceId}`;
+      const arr = supportSuccessByMoveKey.get(k) ?? [];
+      arr.push(i);
+      supportSuccessByMoveKey.set(k, arr);
     }
   }
 
-  for (const c of convoyPool) {
-    if (!usedConvoys.has(c)) {
-      steps.push({ kind: 'resolution', r: c });
+  const convoyByMoveKey = new Map<string, number[]>();
+  for (let i = 0; i < resolutions.length; i += 1) {
+    const r = resolutions[i];
+    if (r.order.type !== OrderType.Convoy) {
+      continue;
     }
+    const c = r.order;
+    const k = `${c.armyUnitId}|${c.fromProvinceId}|${c.toProvinceId}`;
+    const arr = convoyByMoveKey.get(k) ?? [];
+    arr.push(i);
+    convoyByMoveKey.set(k, arr);
   }
 
-  const supportFailOther = resolutions.filter(
-    (r) =>
-      r.order.type === OrderType.Support &&
-      !r.success &&
-      !r.message.includes('カット'),
-  );
-  supportFailOther.sort((a, b) =>
-    compareUnitIds(a.order.unitId, b.order.unitId, labelBoard, powerOrder),
-  );
-  for (const r of supportFailOther) {
-    steps.push({ kind: 'resolution', r });
-  }
-
-  const holdRows = resolutions.filter((r, i, arr) => {
-    if (r.order.type !== OrderType.Hold) {
-      return false;
+  const emitSupportCutPrelude = (idx: number): void => {
+    const r = resolutions[idx];
+    if (r.order.type !== OrderType.Support || r.success) {
+      return;
     }
-    const prev = arr[i - 1];
-    if (
-      prev?.order.type === OrderType.Move &&
-      prev.success &&
-      !r.success &&
-      r.message.includes('押し出され')
-    ) {
-      return false;
+    if (!r.message.includes('カット')) {
+      return;
     }
-    return true;
-  });
-  holdRows.sort((a, b) =>
-    compareUnitIds(a.order.unitId, b.order.unitId, labelBoard, powerOrder),
-  );
+    const s = r.order;
+    steps.push({ kind: 'tentativeSupportCut', sup: s });
+  };
 
-  for (const hr of holdRows) {
-    const hid = hr.order.unitId;
-    const hu = labelBoard.units.find((u) => u.id === hid);
-    const hProv = hu?.provinceId ?? '';
-    for (const o of domainOrders) {
-      if (o.type !== OrderType.Support) {
-        continue;
+  const emitResolution = (idx: number, revoke?: SupportLinkPair[]): void => {
+    if (used.has(idx)) {
+      return;
+    }
+    const r = resolutions[idx];
+    if (r.order.type === OrderType.Support && !r.success && r.message.includes('カット')) {
+      emitSupportCutPrelude(idx);
+      steps.push({
+        kind: 'resolution',
+        r,
+        revokeSupportLinksBefore: revoke ?? [{
+          supporterUnitId: r.order.unitId,
+          supportedUnitId: r.order.supportedUnitId,
+        }],
+      });
+      used.add(idx);
+      return;
+    }
+    steps.push({ kind: 'resolution', r, revokeSupportLinksBefore: revoke });
+    used.add(idx);
+  };
+
+  const emitSupportAndConvoyForMove = (mv: MoveOrder): void => {
+    const k = `${mv.unitId}|${mv.sourceProvinceId}|${mv.targetProvinceId}`;
+    const supportIdx = supportSuccessByMoveKey.get(k) ?? [];
+    supportIdx.sort((a, b) => rankOf(resolutions[a].order.unitId) - rankOf(resolutions[b].order.unitId));
+    for (const si of supportIdx) {
+      emitResolution(si);
+    }
+    const convoyIdx = convoyByMoveKey.get(k) ?? [];
+    convoyIdx.sort((a, b) => rankOf(resolutions[a].order.unitId) - rankOf(resolutions[b].order.unitId));
+    for (const ci of convoyIdx) {
+      emitResolution(ci);
+    }
+  };
+
+  const moveCategory = (r: OrderResolution): string => {
+    if (r.order.type !== OrderType.Move) {
+      return 'other';
+    }
+    const k = `${r.order.unitId}|${r.order.sourceProvinceId}|${r.order.targetProvinceId}`;
+    const hasSupport = (supportSuccessByMoveKey.get(k)?.length ?? 0) > 0;
+    const msg = r.message;
+    if (r.success) {
+      if (msg.includes('勝利して移動成功')) {
+        return hasSupport ? 'supportedConflictWin' : 'singleConflictWin';
       }
-      if (o.supportedUnitId !== hid) {
-        continue;
-      }
-      if (o.fromProvinceId !== hProv || o.toProvinceId !== hProv) {
-        continue;
-      }
-      const sr = findResolutionForSupport(resolutions, o);
-      if (sr?.success) {
-        const ix = supportSuccessPool.indexOf(sr);
-        if (ix >= 0) {
-          supportSuccessPool.splice(ix, 1);
+      return hasSupport ? 'supportedNoConflictWin' : 'singleNoConflictWin';
+    }
+    if (msg.includes('スタンドオフ')) {
+      return hasSupport ? 'supportedStandoff' : 'singleStandoff';
+    }
+    if (isMoveValidationFailure(r) || isFriendBlockFail(r)) {
+      return 'invalidOrBlocked';
+    }
+    return hasSupport ? 'supportedLoss' : 'singleLoss';
+  };
+
+  const moveCategoryOrder = [
+    'singleNoConflictWin',
+    'supportedNoConflictWin',
+    'supportedConflictWin',
+    'singleConflictWin',
+    'singleStandoff',
+    'supportedStandoff',
+    'singleLoss',
+    'supportedLoss',
+    'invalidOrBlocked',
+  ] as const;
+
+  for (const powerId of powerOrder) {
+    const moveIndices = resolutions
+      .map((r, i) => ({ r, i }))
+      .filter(
+        ({ r, i }) =>
+          r.order.type === OrderType.Move &&
+          powerOf(r.order.unitId) === powerId &&
+          !used.has(i),
+      )
+      .map(({ i }) => i);
+
+    for (const cat of moveCategoryOrder) {
+      const bucket = moveIndices
+        .filter((i) => !used.has(i) && moveCategory(resolutions[i]) === cat)
+        .sort((a, b) => a - b);
+      for (const mi of bucket) {
+        const mv = resolutions[mi].order as MoveOrder;
+        emitSupportAndConvoyForMove(mv);
+        emitResolution(mi);
+        const dislodged = dislodgedHoldByMoveIndex.get(mi);
+        if (dislodged != null) {
+          emitResolution(dislodged);
         }
-        steps.push({ kind: 'resolution', r: sr });
       }
     }
-    steps.push({ kind: 'resolution', r: hr });
+
+    const supportOwn = resolutions
+      .map((r, i) => ({ r, i }))
+      .filter(
+        ({ r, i }) =>
+          r.order.type === OrderType.Support &&
+          powerOf(r.order.unitId) === powerId &&
+          !used.has(i),
+      )
+      .sort((a, b) => a.i - b.i);
+    for (const { i } of supportOwn) {
+      emitResolution(i);
+    }
+
+    const convoyOwn = resolutions
+      .map((r, i) => ({ r, i }))
+      .filter(
+        ({ r, i }) =>
+          r.order.type === OrderType.Convoy &&
+          powerOf(r.order.unitId) === powerId &&
+          !used.has(i),
+      )
+      .sort((a, b) => a.i - b.i);
+    for (const { i } of convoyOwn) {
+      emitResolution(i);
+    }
+
+    const holdOwn = resolutions
+      .map((r, i) => ({ r, i }))
+      .filter(
+        ({ r, i }) =>
+          r.order.type === OrderType.Hold &&
+          powerOf(r.order.unitId) === powerId &&
+          !used.has(i),
+      )
+      .sort((a, b) => a.i - b.i);
+    for (const { r, i } of holdOwn) {
+      if (r.success) {
+        const hs = supportSuccessByHoldUnitId.get(r.order.unitId) ?? [];
+        hs.sort((a, b) => rankOf(resolutions[a].order.unitId) - rankOf(resolutions[b].order.unitId));
+        for (const si of hs) {
+          emitResolution(si);
+        }
+      }
+      emitResolution(i);
+    }
   }
 
-  for (const leftover of supportSuccessPool) {
-    steps.push({ kind: 'resolution', r: leftover });
+  for (let i = 0; i < resolutions.length; i += 1) {
+    if (!used.has(i)) {
+      emitResolution(i);
+    }
   }
 
   return steps;
