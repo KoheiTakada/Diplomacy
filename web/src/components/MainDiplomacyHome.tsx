@@ -288,7 +288,7 @@ export function MainDiplomacyHome() {
           </div>
         </section>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-0">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-4">
           <div className="flex min-h-0 min-w-0 flex-1 justify-center overflow-hidden lg:h-full lg:justify-start">
             <div
               className="box-border flex h-auto w-full max-w-full flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white p-3 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] sm:p-4 lg:h-full lg:shrink-0"
