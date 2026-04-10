@@ -106,6 +106,7 @@ import {
   storeOnlinePowerSecrets,
   syncOnlineSecretsSessionStorageToLocalStorage,
 } from '@/lib/onlineSessionBrowser';
+import type { HypotheticalScenarioState } from '@/components/HypotheticalForeignOrdersPanel';
 
 /** 旧版 localStorage キー（起動時に削除して移行するのみ） */
 const LEGACY_STORAGE_KEY = 'diplomacy-game-state-v1';
@@ -623,6 +624,8 @@ export type DiplomacyGameContextValue = {
   addPendingTreatyOp: (op: Omit<PendingTreatyOp, 'id' | 'createdAtIso'>) => void;
   removePendingTreatyOp: (treatyId: string, powerId: string) => void;
   advanceToOrdersPhase: () => void;
+  hypotheticalScenarios: HypotheticalScenarioState[];
+  setHypotheticalScenarios: React.Dispatch<React.SetStateAction<HypotheticalScenarioState[]>>;
   revealGenRef: RefObject<number>;
   revealTimersRef: RefObject<number[]>;
   nextLogIdRef: RefObject<number>;
@@ -762,6 +765,9 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   );
   const [diplomacyPhase, setDiplomacyPhase] = useState<'negotiation' | 'orders'>(
     defaultSnap.diplomacyPhase,
+  );
+  const [hypotheticalScenarios, setHypotheticalScenarios] = useState(
+    defaultSnap.hypotheticalScenarios ?? [],
   );
 
   const [gameSessionActive, setGameSessionActive] = useState(false);
@@ -913,6 +919,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     setTreatyViolations(merged.treatyViolations);
     setPendingTreatyOps(merged.pendingTreatyOps);
     setDiplomacyPhase(merged.diplomacyPhase);
+    setHypotheticalScenarios(merged.hypotheticalScenarios);
   }, []);
 
   useEffect(() => {
@@ -1320,6 +1327,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       treatyViolations,
       pendingTreatyOps,
       diplomacyPhase,
+      hypotheticalScenarios,
     };
     if (activeWorldlineStem.length > 0) {
       base.worldlineStem = activeWorldlineStem;
@@ -1344,6 +1352,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     treatyViolations,
     pendingTreatyOps,
     diplomacyPhase,
+    hypotheticalScenarios,
   ]);
 
   buildCurrentSnapshotRef.current = buildCurrentSnapshot;
@@ -2617,6 +2626,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       addPendingTreatyOp,
       removePendingTreatyOp,
       advanceToOrdersPhase,
+      hypotheticalScenarios,
+      setHypotheticalScenarios,
       revealGenRef,
       revealTimersRef,
       nextLogIdRef,
@@ -2684,6 +2695,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       addPendingTreatyOp,
       removePendingTreatyOp,
       advanceToOrdersPhase,
+      hypotheticalScenarios,
+      setHypotheticalScenarios,
       prependLogLine,
       isOrderLocked,
       isAdjustmentPhasePanel,

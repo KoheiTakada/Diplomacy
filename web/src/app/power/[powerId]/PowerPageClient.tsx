@@ -87,12 +87,14 @@ export default function PowerPageClient() {
     joinOnlineGame,
     reportUnexpectedTitleNavigation,
     treatyMapVisuals,
+    hypotheticalScenarios: savedScenarios,
+    setHypotheticalScenarios,
   } = g;
   const [isRestoringSession, setIsRestoringSession] = useState(false);
 
   const [hypotheticalUi, setHypotheticalUi] = useState<HypotheticalUiState>(
     () => ({
-      scenarios: createDefaultHypotheticalScenarios(),
+      scenarios: savedScenarios.length > 0 ? savedScenarios : createDefaultHypotheticalScenarios(),
       activeIndex: 0,
     }),
   );
@@ -141,6 +143,11 @@ export default function PowerPageClient() {
       };
     });
   }, []);
+
+  // 想定行動パターンを Context に保存
+  useEffect(() => {
+    setHypotheticalScenarios(hypotheticalUi.scenarios);
+  }, [hypotheticalUi.scenarios, setHypotheticalScenarios]);
 
   const orderAdjKeys = useMemo(() => buildAdjacencyKeySet(board), [board]);
 

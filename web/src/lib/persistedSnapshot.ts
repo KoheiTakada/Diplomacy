@@ -28,6 +28,7 @@ import {
   type DislodgedUnit,
 } from '@/domain';
 import type { PendingTreatyOp, TreatyRecord, TreatyViolationNotice } from '@/diplomacy/treaties';
+import type { HypotheticalScenarioState } from '@/components/HypotheticalForeignOrdersPanel';
 
 /** v:1 永続化スナップショット */
 export type PersistedSnapshot = {
@@ -56,6 +57,8 @@ export type PersistedSnapshot = {
   pendingTreatyOps: PendingTreatyOp[];
   /** 現在のゲームフェーズ */
   diplomacyPhase: 'negotiation' | 'orders';
+  /** 想定行動パターン（複数タブ） */
+  hypotheticalScenarios?: HypotheticalScenarioState[];
 };
 
 /**
@@ -85,6 +88,7 @@ export function createDefaultPersistedSnapshot(): PersistedSnapshot {
     treatyViolations: [],
     pendingTreatyOps: [],
     diplomacyPhase: 'negotiation',
+    hypotheticalScenarios: [],
   };
 }
 
@@ -108,6 +112,7 @@ export function normalizeLoadedSnapshot(loaded: PersistedSnapshot): PersistedSna
       : [],
     pendingTreatyOps: Array.isArray(loaded.pendingTreatyOps) ? loaded.pendingTreatyOps : [],
     diplomacyPhase: loaded.diplomacyPhase ?? 'orders',
+    hypotheticalScenarios: Array.isArray(loaded.hypotheticalScenarios) ? loaded.hypotheticalScenarios : [],
   };
 }
 
