@@ -113,7 +113,7 @@ const CLAUSE_DEFS: Record<TreatyClauseKind, ClauseDef> = {
   alliance: {
     slots: [
       { key: 'powers', type: 'powerList', label: '同盟国', defaultSelf: true },
-      { key: 'thirdPower', type: 'power', label: '第三国' },
+      { key: 'thirdPower', type: 'power', label: '第三国', excludeFromParticipants: true },
     ],
     parts: [
       { slotKey: 'powers' },
@@ -770,46 +770,49 @@ function TreatyCard(props: TreatyCardProps) {
   const actionButtons: React.ReactNode[] = [];
 
   if (isParticipant && !ratified && myStatus === 'pending') {
-    if (isNegotiationPhase) {
-      if (pendingOp != null) {
-        // ステージング済み: 予定表示と取消ボタン
+    if (pendingOp != null) {
+      // ステージング済み: 予定表示と取消ボタン
+      actionButtons.push(
+        <span
+          key="staged-label"
+          className={`inline-block rounded px-2 py-1 text-[10px] font-semibold text-white ${
+            pendingOp.kind === 'ratify' ? 'bg-emerald-600' : 'bg-rose-600'
+          }`}
+        >
+          {pendingOp.kind === 'ratify' ? '批准予定' : '却下予定'}
+        </span>,
+        <button
+          key="cancel-op"
+          type="button"
+          className="rounded bg-zinc-400 px-2 py-1 text-[10px] font-semibold text-white hover:bg-zinc-500"
+          onClick={() => removePendingTreatyOp(t.id, powerId)}
+        >
+          取消
+        </button>,
+      );
+    } else {
+      // 未回答: ステージングボタン
+      actionButtons.push(
+        <button
+          key="ratify"
+          type="button"
+          className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-emerald-500"
+          onClick={() => addPendingTreatyOp({ treatyId: t.id, powerId, kind: 'ratify' })}
+        >
+          批准
+        </button>,
+        <button
+          key="reject"
+          type="button"
+          className="rounded bg-rose-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-rose-500"
+          onClick={() => addPendingTreatyOp({ treatyId: t.id, powerId, kind: 'reject' })}
+        >
+          却下
+        </button>,
+      );
+      // 修正ボタンは交渉フェーズのみ
+      if (isNegotiationPhase) {
         actionButtons.push(
-          <span
-            key="staged-label"
-            className={`inline-block rounded px-2 py-1 text-[10px] font-semibold text-white ${
-              pendingOp.kind === 'ratify' ? 'bg-emerald-600' : 'bg-rose-600'
-            }`}
-          >
-            {pendingOp.kind === 'ratify' ? '批准予定' : '却下予定'}
-          </span>,
-          <button
-            key="cancel-op"
-            type="button"
-            className="rounded bg-zinc-400 px-2 py-1 text-[10px] font-semibold text-white hover:bg-zinc-500"
-            onClick={() => removePendingTreatyOp(t.id, powerId)}
-          >
-            取消
-          </button>,
-        );
-      } else {
-        // 未回答: ステージングボタン
-        actionButtons.push(
-          <button
-            key="ratify"
-            type="button"
-            className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-emerald-500"
-            onClick={() => addPendingTreatyOp({ treatyId: t.id, powerId, kind: 'ratify' })}
-          >
-            批准
-          </button>,
-          <button
-            key="reject"
-            type="button"
-            className="rounded bg-rose-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-rose-500"
-            onClick={() => addPendingTreatyOp({ treatyId: t.id, powerId, kind: 'reject' })}
-          >
-            却下
-          </button>,
           <button
             key="counter"
             type="button"
@@ -821,7 +824,6 @@ function TreatyCard(props: TreatyCardProps) {
         );
       }
     }
-    // 命令フェーズ以降は批准/却下ボタンを表示しない（提出時に未回答アラートで処理）
   }
 
   if (ratified && active && isParticipant && isNegotiationPhase) {
