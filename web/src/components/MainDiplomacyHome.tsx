@@ -305,7 +305,7 @@ export function MainDiplomacyHome() {
           </div>
 
           <div
-            className={`flex min-h-0 shrink-0 flex-col rounded-2xl border p-3 shadow-md ring-1 sm:p-4 lg:w-auto lg:min-w-[300px] ${
+            className={`flex min-h-0 shrink-0 flex-col rounded-2xl border p-3 shadow-md ring-1 sm:p-4 lg:w-auto lg:min-w-[380px] ${
               isRetreatPhase
                 ? 'border-amber-300/80 bg-amber-50/50 shadow-amber-900/[0.06] ring-amber-900/[0.08]'
                 : isAdjustmentPhasePanel
