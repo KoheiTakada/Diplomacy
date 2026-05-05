@@ -1953,6 +1953,10 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         setOnlineServerVersion(0);
         setActiveWorldlineStem(stem);
         applyPersistedSnapshot(merged);
+        // IndexedDB やファイルからのロードなので hypotheticalScenarios も復元する
+        if (merged.hypotheticalScenarios != null && merged.hypotheticalScenarios.length > 0) {
+          setHypotheticalScenarios(merged.hypotheticalScenarios);
+        }
         setGameSessionActive(true);
         pendingAppAutoSaveRef.current = false;
         void writeWorldlineSave(stem, serializeSnapshotForStorage(merged));
