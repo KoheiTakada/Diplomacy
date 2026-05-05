@@ -24,7 +24,7 @@ import MapView from '@/components/MapView';
 import { PowerSecretWorkbench } from '@/components/PowerSecretWorkbench';
 import { PowerTreatyPanel } from '@/components/PowerTreatyPanel';
 import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
-import { mergePowerPageOrderPreview, POWER_META, type UnitOrderInput } from '@/diplomacy/gameHelpers';
+import { mergePowerPageOrderPreview, type UnitOrderInput } from '@/diplomacy/gameHelpers';
 import { buildTreatyMapVisuals, canPowerViewTreaty } from '@/diplomacy/treaties';
 import { readOnlineSessionForPowerPageRestore } from '@/lib/onlineSessionBrowser';
 import { buildAdjacencyKeySet } from '@/mapMovement';
@@ -328,22 +328,20 @@ export default function PowerPageClient() {
   }
 
   const mapAspectRatio = '641.66 / 595.28';
-  const powerLabel = POWER_META[powerId]?.label ?? powerId;
 
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden font-sans text-zinc-900">
       <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col gap-2 px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
-        <div className="flex shrink-0 items-center justify-between">
-          <h1 className="text-3xl font-bold text-zinc-900">{powerLabel}</h1>
-          {onlineSession != null ? (
+        {onlineSession != null ? (
+          <div className="flex shrink-0 justify-end">
             <Link
               href="/"
               className="text-[11px] font-medium text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline"
             >
               メイン画面（地図・全体進捗）
             </Link>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-4">
           <div className="flex min-h-0 w-full shrink-0 flex-col overflow-hidden lg:h-full lg:w-auto lg:max-w-[calc(100%-268px)] lg:justify-start">
             <div
