@@ -175,6 +175,39 @@ export default function PowerPageClient() {
     setHypotheticalScenarios(hypotheticalUi.scenarios);
   }, [hypotheticalUi.scenarios, setHypotheticalScenarios]);
 
+  // 命令フェーズ中に unitOrders が変更されたら、現在のパターンに自国分を反映
+  useEffect(() => {
+    // 命令フェーズのみ（isMovementPhase && diplomacyPhase === 'orders'）
+    const isMovement = !isOrderLocked && !isAdjustmentPhasePanel && !isRetreatPhase;
+    if (!(isMovement && diplomacyPhase === 'orders')) return;
+    setHypotheticalUi((s) => {
+      const i = s.activeIndex;
+      const sc = s.scenarios[i];
+      if (!sc) return s;
+      // 現在のパターンの orders を更新（自国分のみ）
+      const nextOrders = { ...sc.orders };
+      let changed = false;
+      for (const u of board.units) {
+        if (u.powerId === powerId) {
+          const cur = unitOrders[u.id];
+          const prev = nextOrders[u.id];
+          if (cur !== prev) {
+            if (cur != null) {
+              nextOrders[u.id] = cur;
+            } else {
+              delete nextOrders[u.id];
+            }
+            changed = true;
+          }
+        }
+      }
+      if (!changed) return s;
+      const scenarios = s.scenarios.slice();
+      scenarios[i] = { ...sc, orders: nextOrders };
+      return { ...s, scenarios };
+    });
+  }, [unitOrders, diplomacyPhase, isOrderLocked, isAdjustmentPhasePanel, isRetreatPhase, board, powerId]);
+
   const orderAdjKeys = useMemo(() => buildAdjacencyKeySet(board), [board]);
 
   /** 移動フェーズ（命令フェーズ or 交渉フェーズ）かどうか */
