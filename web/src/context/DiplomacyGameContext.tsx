@@ -112,6 +112,27 @@ import type { HypotheticalScenarioState } from '@/components/HypotheticalForeign
 const LEGACY_STORAGE_KEY = 'diplomacy-game-state-v1';
 
 /**
+ * 想定行動パターン用の新規 ID を生成する。
+ */
+function newHypotheticalScenarioId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `hyp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * デフォルトの想定行動パターン（パターン1, 2, 3）を作成する。
+ */
+function createDefaultHypotheticalScenarios(): HypotheticalScenarioState[] {
+  return [1, 2, 3].map((n) => ({
+    id: newHypotheticalScenarioId(),
+    label: `パターン ${n}`,
+    orders: {},
+  }));
+}
+
+/**
  * オンライン pull 後に自国ローカル編集をマージしてよいかの判定用。
  * ターン・季・調整／退却フェーズが一致するときのみ true。
  *
@@ -919,7 +940,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     setTreatyViolations(merged.treatyViolations);
     setPendingTreatyOps(merged.pendingTreatyOps);
     setDiplomacyPhase(merged.diplomacyPhase);
-    setHypotheticalScenarios(merged.hypotheticalScenarios);
+    setHypotheticalScenarios(merged.hypotheticalScenarios ?? []);
   }, []);
 
   useEffect(() => {
@@ -2030,6 +2051,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     powerAdjustmentSaved,
     powerRetreatSaved,
     flushOnlinePush,
+    treaties,
+    pendingTreatyOps,
   ]);
 
   useEffect(() => {
@@ -2180,6 +2203,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       isResolutionRevealingRef.current = false;
       setIsResolutionRevealing(false);
       setPowerOrderSaved({ ...emptyFlags });
+      // ターン進行時、想定行動パターンをリセット
+      setHypotheticalScenarios(createDefaultHypotheticalScenarios());
 
       // ターン進行時、まだ誰にも批准されていない（=全員 pending）条約を自動破棄する
       const autoDiscardNow = new Date().toISOString();
@@ -2416,6 +2441,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       setBoard(nextBoard);
       setUnitOrders(buildDefaultOrders(nextBoard));
       setDiplomacyPhase('negotiation');
+      setHypotheticalScenarios(createDefaultHypotheticalScenarios());
       prependLogLine('── 退却完了 ──');
       scheduleAppAutoSave();
       return;
@@ -2437,6 +2463,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       setIsDisbandPhase(false);
       setIsBuildPhase(false);
       setDiplomacyPhase('negotiation');
+      setHypotheticalScenarios(createDefaultHypotheticalScenarios());
       prependLogLine('── 退却完了 ──');
       scheduleAppAutoSave();
       return;
@@ -2568,6 +2595,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     setPowerOrderSaved({ ...emptyFlags });
     setPowerAdjustmentSaved({ ...emptyFlags });
     setDiplomacyPhase('negotiation');
+    setHypotheticalScenarios(createDefaultHypotheticalScenarios());
     prependLogLine(`── ${board.turn.year}年 秋 調整完了 ──`);
     scheduleAppAutoSave();
   }, [

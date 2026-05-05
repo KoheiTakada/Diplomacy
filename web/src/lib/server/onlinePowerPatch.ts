@@ -124,7 +124,12 @@ export function applyPowerPatchToSnapshot(
   }
 
   if (patch.treaties != null) {
-    next.treaties = patch.treaties;
+    // IDベースマージ: 同じIDは上書き、新しいIDは追加、他プレイヤーが追加した条約は保持
+    const map = new Map(next.treaties.map(t => [t.id, t]));
+    for (const t of patch.treaties) {
+      map.set(t.id, t);
+    }
+    next.treaties = Array.from(map.values());
   }
   if (patch.treatyViolations != null) {
     next.treatyViolations = patch.treatyViolations;

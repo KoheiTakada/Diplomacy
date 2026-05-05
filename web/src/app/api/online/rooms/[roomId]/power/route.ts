@@ -91,6 +91,7 @@ export async function PATCH(
       retreatTargets: body.retreatTargets,
       treaties: body.treaties,
       treatyViolations: body.treatyViolations,
+      pendingTreatyOps: body.pendingTreatyOps,
     };
 
   for (let attempt = 0; attempt < POWER_PATCH_CAS_MAX_ATTEMPTS; attempt++) {
