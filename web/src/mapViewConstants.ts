@@ -55,15 +55,15 @@ export const UNIT_BADGE_STROKE = '#d4d4d8';
  */
 export const UNIT_BADGE_STROKE_WIDTH = 0.1;
 
-/** 勢力 ID → 地図上の代表色（HEX） */
+/** 勢力 ID → 地図上の代表色（HEX、色覚異常対応パレット） */
 export const POWER_COLORS: Record<string, string> = {
-  ENG: '#ef4444',
-  FRA: '#3b82f6',
-  GER: '#0d9488',
-  ITA: '#22c55e',
-  AUS: '#eab308',
-  RUS: '#a855f7',
-  TUR: '#f97316',
+  ENG: '#E51E3D',
+  FRA: '#0173B2',
+  GER: '#029E73',
+  ITA: '#FFE119',
+  AUS: '#CC78BC',
+  RUS: '#56B4E9',
+  TUR: '#D45113',
 };
 
 /** SVG 名前空間 URI */
