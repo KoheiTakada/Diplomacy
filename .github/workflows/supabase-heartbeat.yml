@@ -1,0 +1,25 @@
+name: Supabase Heartbeat
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # 毎週月曜 00:00 UTC
+  workflow_dispatch:       # 手動実行も可能
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${SUPABASE_URL}/rest/v1/diplomacy_online_rooms?select=id&limit=1" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}")
+          echo "HTTP status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Heartbeat failed with status $STATUS" && exit 1
+          fi
+          echo "✓ Supabase heartbeat successful"
