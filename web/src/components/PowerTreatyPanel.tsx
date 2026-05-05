@@ -791,13 +791,17 @@ function TreatyCard(props: TreatyCardProps) {
         </button>,
       );
     } else {
-      // 未回答: ステージングボタン
+      // 未回答: 交渉フェーズなら即座に適用、命令フェーズなら保留
       actionButtons.push(
         <button
           key="ratify"
           type="button"
           className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-emerald-500"
-          onClick={() => addPendingTreatyOp({ treatyId: t.id, powerId, kind: 'ratify' })}
+          onClick={() =>
+            isNegotiationPhase
+              ? respondTreaty(t.id, powerId, 'ratified')
+              : addPendingTreatyOp({ treatyId: t.id, powerId, kind: 'ratify' })
+          }
         >
           批准
         </button>,
@@ -805,7 +809,11 @@ function TreatyCard(props: TreatyCardProps) {
           key="reject"
           type="button"
           className="rounded bg-rose-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-rose-500"
-          onClick={() => addPendingTreatyOp({ treatyId: t.id, powerId, kind: 'reject' })}
+          onClick={() =>
+            isNegotiationPhase
+              ? respondTreaty(t.id, powerId, 'rejected')
+              : addPendingTreatyOp({ treatyId: t.id, powerId, kind: 'reject' })
+          }
         >
           却下
         </button>,
