@@ -137,9 +137,6 @@ export function HypotheticalForeignOrdersPanel(
         <h3 className="text-sm font-semibold text-zinc-900">
           {includeSelf ? '全勢力の想定行動' : '他国の想定行動'}
         </h3>
-        <p className="mt-0.5 text-[11px] text-zinc-500">
-          ページを閉じると消えます。
-        </p>
       </div>
       <div
         className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]"
