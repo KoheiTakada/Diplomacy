@@ -329,6 +329,16 @@ function mergePowerSecretSnapshotFromLocal(
     powerRetreatSaved,
     treaties: mergeTreaties(incoming.treaties, local.treaties),
     treatyViolations: mergeTreatyViolations(incoming.treatyViolations, local.treatyViolations),
+    pendingTreatyOps: (() => {
+      const map = new Map<string, PendingTreatyOp>();
+      for (const op of incoming.pendingTreatyOps) {
+        map.set(`${op.treatyId}:${op.powerId}`, op);
+      }
+      for (const op of local.pendingTreatyOps) {
+        map.set(`${op.treatyId}:${op.powerId}`, op);  // ローカル優先
+      }
+      return Array.from(map.values());
+    })(),
   };
 }
 
@@ -447,6 +457,23 @@ function mergeHostPersistedSnapshotThreeWay(
       powerRetreatSaved[pid] = incoming.powerRetreatSaved[pid] === true;
     }
   }
+  const pendingTreatyOps = (() => {
+    const map = new Map<string, PendingTreatyOp>();
+    // base から変わっていなければ incoming を、変わっていれば local を採用
+    for (const op of incoming.pendingTreatyOps) {
+      map.set(`${op.treatyId}:${op.powerId}`, op);
+    }
+    const baseMap = new Map(base.pendingTreatyOps.map(op => [`${op.treatyId}:${op.powerId}`, op]));
+    for (const op of local.pendingTreatyOps) {
+      const key = `${op.treatyId}:${op.powerId}`;
+      const baseOp = baseMap.get(key);
+      if (baseOp == null || JSON.stringify(op) !== JSON.stringify(baseOp)) {
+        map.set(key, op);  // ローカルが base から変わっていれば local を採用
+      }
+    }
+    return Array.from(map.values());
+  })();
+
   return {
     ...incoming,
     unitOrders,
@@ -458,6 +485,7 @@ function mergeHostPersistedSnapshotThreeWay(
     powerRetreatSaved,
     treaties,
     treatyViolations,
+    pendingTreatyOps,
   };
 }
 
@@ -1985,6 +2013,11 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     powerOrderSaved,
     powerAdjustmentSaved,
     powerRetreatSaved,
+    treaties,
+    treatyViolations,
+    pendingTreatyOps,
+    diplomacyPhase,
+    hypotheticalScenarios,
   ]);
 
   useEffect(() => {
@@ -2037,6 +2070,10 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     powerOrderSaved,
     powerAdjustmentSaved,
     powerRetreatSaved,
+    treaties,
+    treatyViolations,
+    pendingTreatyOps,
+    diplomacyPhase,
     isResolutionRevealing,
     flushOnlinePush,
   ]);

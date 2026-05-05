@@ -93,14 +93,18 @@ export function applyPowerPatchToSnapshot(
     }
   }
 
+  // 確定フラグは OR マージ: 一度 true になったら false に戻さない
   if (patch.powerOrderSaved !== undefined) {
-    next.powerOrderSaved[patch.powerId] = patch.powerOrderSaved;
+    next.powerOrderSaved[patch.powerId] =
+      next.powerOrderSaved[patch.powerId] === true || patch.powerOrderSaved === true;
   }
   if (patch.powerAdjustmentSaved !== undefined) {
-    next.powerAdjustmentSaved[patch.powerId] = patch.powerAdjustmentSaved;
+    next.powerAdjustmentSaved[patch.powerId] =
+      next.powerAdjustmentSaved[patch.powerId] === true || patch.powerAdjustmentSaved === true;
   }
   if (patch.powerRetreatSaved !== undefined) {
-    next.powerRetreatSaved[patch.powerId] = patch.powerRetreatSaved;
+    next.powerRetreatSaved[patch.powerId] =
+      next.powerRetreatSaved[patch.powerId] === true || patch.powerRetreatSaved === true;
   }
 
   if (patch.buildPlan !== undefined) {
@@ -132,7 +136,12 @@ export function applyPowerPatchToSnapshot(
     next.treaties = Array.from(map.values());
   }
   if (patch.treatyViolations != null) {
-    next.treatyViolations = patch.treatyViolations;
+    // ID ベースマージ: 同じ ID は上書き、他プレイヤーの違反は保持
+    const map = new Map(next.treatyViolations.map(v => [v.id, v]));
+    for (const v of patch.treatyViolations) {
+      map.set(v.id, v);
+    }
+    next.treatyViolations = Array.from(map.values());
   }
 
   if (patch.pendingTreatyOps != null) {
