@@ -168,13 +168,29 @@ export function MainDiplomacyHome() {
       <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col gap-2 px-3 py-2 sm:gap-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
           {onlineSession?.kind === 'host' ? (
-            <button
-              type="button"
-              onClick={() => setHostSecretsModalOpen(true)}
-              className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-[11px] font-bold text-zinc-800 shadow-sm hover:bg-zinc-200"
-            >
-              シークレット一覧を開く
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setHostSecretsModalOpen(true)}
+                className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-[11px] font-bold text-zinc-800 shadow-sm hover:bg-zinc-200"
+              >
+                シークレット一覧を開く
+              </button>
+              <button
+                type="button"
+                onClick={downloadOnlineDebugLog}
+                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100"
+              >
+                デバッグログを保存（{onlineDebugLogCount}件）
+              </button>
+              <button
+                type="button"
+                onClick={clearOnlineDebugLog}
+                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100"
+              >
+                ログをクリア
+              </button>
+            </div>
           ) : (
             <div className="min-w-0 flex-1" aria-hidden />
           )}
@@ -200,35 +216,6 @@ export function MainDiplomacyHome() {
             hostSecretFromContext={onlineSession.hostSecret}
             powerSecrets={hostPowerLinkSecrets}
           />
-        ) : null}
-        {onlineSession != null ? (
-          <div className="shrink-0 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] text-zinc-700">
-            <p>
-              オンライン卓に接続中（データ版{' '}
-              <span className="tabular-nums">{onlineServerVersion}</span>
-              ・
-              {onlineSession.kind === 'host'
-                ? 'ホスト'
-                : `${onlineSession.powerId} 参加`}
-              ）
-            </p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={downloadOnlineDebugLog}
-                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100"
-              >
-                デバッグログを保存（{onlineDebugLogCount}件）
-              </button>
-              <button
-                type="button"
-                onClick={clearOnlineDebugLog}
-                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100"
-              >
-                ログをクリア
-              </button>
-            </div>
-          </div>
         ) : null}
         <section
           aria-label="勢力別の補給拠点数とユニット数"
@@ -299,7 +286,6 @@ export function MainDiplomacyHome() {
                 isResolutionRevealing={isResolutionRevealing}
                 pendingMapEffectsRef={pendingMapEffectsRef}
                 historyEntries={turnHistory}
-                treatyVisuals={treatyMapVisuals}
               />
             </div>
           </div>
