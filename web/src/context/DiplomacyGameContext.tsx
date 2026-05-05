@@ -1416,8 +1416,20 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       }
       return merged;
     });
-    setTreaties(incoming.treaties);
-    setTreatyViolations(incoming.treatyViolations);
+    setTreaties((prev) => mergeTreaties(incoming.treaties, prev));
+    setTreatyViolations((prev) => mergeTreatyViolations(incoming.treatyViolations, prev));
+    setPendingTreatyOps((prev) => {
+      // サーバーの pendingTreatyOps とローカルを ID ベースでマージ
+      // ローカルの方が新しい可能性があるため、ローカルを優先
+      const map = new Map<string, PendingTreatyOp>();
+      for (const op of incoming.pendingTreatyOps) {
+        map.set(`${op.treatyId}:${op.powerId}`, op);
+      }
+      for (const op of prev) {
+        map.set(`${op.treatyId}:${op.powerId}`, op);  // ローカル優先
+      }
+      return Array.from(map.values());
+    });
   }, []);
 
   const refetchOnlineSnapshot = useCallback(
