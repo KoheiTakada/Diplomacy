@@ -968,7 +968,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     setTreatyViolations(merged.treatyViolations);
     setPendingTreatyOps(merged.pendingTreatyOps);
     setDiplomacyPhase(merged.diplomacyPhase);
-    setHypotheticalScenarios(merged.hypotheticalScenarios ?? []);
+    // hypotheticalScenarios はプライベートメモなので、サーバーから上書きしない
   }, []);
 
   useEffect(() => {
