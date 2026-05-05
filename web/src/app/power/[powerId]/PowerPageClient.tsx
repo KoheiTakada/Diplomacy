@@ -34,6 +34,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type SetStateAction,
 } from 'react';
@@ -80,6 +81,7 @@ export default function PowerPageClient() {
     pendingMapEffectsRef,
     onlineSession,
     unitOrders,
+    setUnitOrders,
     isOrderLocked,
     isAdjustmentPhasePanel,
     isRetreatPhase,
@@ -101,6 +103,11 @@ export default function PowerPageClient() {
 
   const activeHypotheticalOrders =
     hypotheticalUi.scenarios[hypotheticalUi.activeIndex]?.orders ?? {};
+
+  // ref で常に最新の activeHypotheticalOrders と diplomacyPhase を追跡
+  const activeHypotheticalOrdersRef = useRef(activeHypotheticalOrders);
+  activeHypotheticalOrdersRef.current = activeHypotheticalOrders;
+  const prevDiplomacyPhaseRef = useRef(diplomacyPhase);
 
   const setActiveHypotheticalOrders = useCallback(
     (action: SetStateAction<Record<string, UnitOrderInput>>) => {
@@ -125,7 +132,24 @@ export default function PowerPageClient() {
       ...s,
       activeIndex: Math.max(0, Math.min(index, s.scenarios.length - 1)),
     }));
-  }, []);
+    // 命令フェーズ中にパターンを切り替えたら、自国命令も切り替わる
+    const nextIndex = Math.max(0, Math.min(index, hypotheticalUi.scenarios.length - 1));
+    const nextScenario = hypotheticalUi.scenarios[nextIndex];
+    if (nextScenario != null && diplomacyPhase === 'orders') {
+      setUnitOrders((cur) => {
+        const next = { ...cur };
+        for (const u of board.units) {
+          if (u.powerId === powerId) {
+            const h = nextScenario.orders[u.id];
+            if (h != null) {
+              next[u.id] = h;
+            }
+          }
+        }
+        return next;
+      });
+    }
+  }, [hypotheticalUi.scenarios, diplomacyPhase, board, powerId, setUnitOrders]);
 
   const handleAddHypotheticalScenario = useCallback(() => {
     setHypotheticalUi((s) => {
@@ -159,6 +183,26 @@ export default function PowerPageClient() {
     isMovementPhase && diplomacyPhase === 'negotiation';
   /** 命令フェーズ中の移動命令入力 */
   const showOrdersInput = isMovementPhase && diplomacyPhase === 'orders';
+
+  // 交渉フェーズから命令フェーズへ移行したとき、自国の想定行動を unitOrders にコピー
+  useEffect(() => {
+    const prev = prevDiplomacyPhaseRef.current;
+    prevDiplomacyPhaseRef.current = diplomacyPhase;
+    if (prev !== 'negotiation' || diplomacyPhase !== 'orders') return;
+    const hypotheticals = activeHypotheticalOrdersRef.current;
+    setUnitOrders((cur) => {
+      const next = { ...cur };
+      for (const u of board.units) {
+        if (u.powerId === powerId) {
+          const h = hypotheticals[u.id];
+          if (h != null) {
+            next[u.id] = h;
+          }
+        }
+      }
+      return next;
+    });
+  }, [diplomacyPhase, board, powerId, setUnitOrders]);
 
   const orderPreviewMerged = useMemo(() => {
     if (!isMovementPhase) {
