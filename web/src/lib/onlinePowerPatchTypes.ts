@@ -29,4 +29,5 @@ export type OnlinePowerPatchBody = {
   treaties?: TreatyRecord[];
   treatyViolations?: TreatyViolationNotice[];
   pendingTreatyOps?: PendingTreatyOp[];
+  diplomacyPhase?: 'negotiation' | 'orders';
 };

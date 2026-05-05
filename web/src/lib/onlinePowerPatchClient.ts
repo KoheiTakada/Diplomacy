@@ -70,5 +70,6 @@ export function buildPowerOnlinePatchPayload(
     treaties: snap.treaties,
     treatyViolations: snap.treatyViolations,
     pendingTreatyOps: snap.pendingTreatyOps.filter((op) => op.powerId === powerId),
+    diplomacyPhase: snap.diplomacyPhase,
   };
 }
