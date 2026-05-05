@@ -148,7 +148,8 @@ function sameOnlineGameStepForMerge(
     incoming.board.turn.season === local.board.turn.season &&
     incoming.isBuildPhase === local.isBuildPhase &&
     incoming.isDisbandPhase === local.isDisbandPhase &&
-    incoming.isRetreatPhase === local.isRetreatPhase
+    incoming.isRetreatPhase === local.isRetreatPhase &&
+    incoming.diplomacyPhase === local.diplomacyPhase
   );
 }
 
