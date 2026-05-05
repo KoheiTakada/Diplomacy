@@ -34,7 +34,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type SetStateAction,
 } from 'react';
@@ -103,11 +102,6 @@ export default function PowerPageClient() {
 
   const activeHypotheticalOrders =
     hypotheticalUi.scenarios[hypotheticalUi.activeIndex]?.orders ?? {};
-
-  // ref で常に最新の activeHypotheticalOrders と diplomacyPhase を追跡
-  const activeHypotheticalOrdersRef = useRef(activeHypotheticalOrders);
-  activeHypotheticalOrdersRef.current = activeHypotheticalOrders;
-  const prevDiplomacyPhaseRef = useRef(diplomacyPhase);
 
   const setActiveHypotheticalOrders = useCallback(
     (action: SetStateAction<Record<string, UnitOrderInput>>) => {
@@ -183,26 +177,6 @@ export default function PowerPageClient() {
     isMovementPhase && diplomacyPhase === 'negotiation';
   /** 命令フェーズ中の移動命令入力 */
   const showOrdersInput = isMovementPhase && diplomacyPhase === 'orders';
-
-  // 交渉フェーズから命令フェーズへ移行したとき、自国の想定行動を unitOrders にコピー
-  useEffect(() => {
-    const prev = prevDiplomacyPhaseRef.current;
-    prevDiplomacyPhaseRef.current = diplomacyPhase;
-    if (prev !== 'negotiation' || diplomacyPhase !== 'orders') return;
-    const hypotheticals = activeHypotheticalOrdersRef.current;
-    setUnitOrders((cur) => {
-      const next = { ...cur };
-      for (const u of board.units) {
-        if (u.powerId === powerId) {
-          const h = hypotheticals[u.id];
-          if (h != null) {
-            next[u.id] = h;
-          }
-        }
-      }
-      return next;
-    });
-  }, [diplomacyPhase, board, powerId, setUnitOrders]);
 
   const orderPreviewMerged = useMemo(() => {
     if (!isMovementPhase) {
@@ -333,7 +307,7 @@ export default function PowerPageClient() {
               </div>
             ) : (
               // 命令フェーズ / 退却 / 調整 / ロック中: 命令入力ワークベンチ
-              // 命令フェーズのみ他国想定行動をスクロール領域末尾に追記
+              // 命令フェーズのみ想定行動テーブルをスクロール領域末尾に追記（交渉フェーズと同じテーブル）
               <PowerSecretWorkbench
                 powerId={powerId}
                 showMainPageLink={onlineSession == null}
@@ -341,7 +315,7 @@ export default function PowerPageClient() {
                   showOrdersInput ? (
                     <HypotheticalForeignOrdersPanel
                       powerId={powerId}
-                      includeSelf={false}
+                      includeSelf={true}
                       board={board}
                       orderAdjKeys={orderAdjKeys}
                       scenarios={hypotheticalUi.scenarios}
