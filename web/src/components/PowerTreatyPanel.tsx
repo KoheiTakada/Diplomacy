@@ -40,6 +40,7 @@ import {
   provinceName,
   unitLabel,
 } from '@/diplomacy/gameHelpers';
+import { ProvinceAutocomplete } from '@/components/ProvinceAutocomplete';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /* ──────────────── テンプレート定義 ──────────────── */
@@ -454,18 +455,18 @@ function buildAutoTitle(
   return `${name1} ${label1}・${name2} ${label2}`;
 }
 
-/* ──────────────── 都市オートコンプリート ──────────────── */
+/* ──────────────── 多選択プロヴィンスセレクター ──────────────── */
 
-type ProvinceAutocompleteProps = {
+/**
+ * 複数選択用のプロヴィンスセレクター（条約パネル専用）
+ * 共有 ProvinceAutocomplete の上に、選択済みタグと削除機能をラップ
+ */
+function MultiSelectProvinceAutocomplete(props: {
   board: BoardState;
   selected: string[];
   onSelect: (ids: string[]) => void;
-  multiple: boolean;
-};
-
-/** 都市オートコンプリート入力 */
-function ProvinceAutocomplete(props: ProvinceAutocompleteProps) {
-  const { board, selected, onSelect, multiple } = props;
+}) {
+  const { board, selected, onSelect } = props;
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -493,11 +494,11 @@ function ProvinceAutocomplete(props: ProvinceAutocompleteProps) {
 
   const handlePick = useCallback(
     (provinceId: string) => {
-      onSelect(multiple ? selected.concat(provinceId) : [provinceId]);
+      onSelect(selected.concat(provinceId));
       setQuery('');
       setOpen(false);
     },
-    [multiple, onSelect, selected],
+    [onSelect, selected],
   );
 
   const handleRemove = useCallback(
@@ -645,13 +646,12 @@ function SlotInput(props: SlotInputProps) {
           ? [value]
           : [];
       return (
-        <ProvinceAutocomplete
+        <MultiSelectProvinceAutocomplete
           board={board}
           selected={arr}
           onSelect={(ids) => {
             onChange(slot.type === 'province' ? (ids[0] ?? '') : ids);
           }}
-          multiple={slot.type === 'provinceList'}
         />
       );
     }

@@ -30,7 +30,7 @@ import {
 } from '@/diplomacy/gameHelpers';
 import MapView from '@/components/MapView';
 import { HostSecretsOverviewModal } from '@/components/HostSecretsOverviewModal';
-import { HostBoardEditModal } from '@/components/HostBoardEditModal';
+import { HostBoardEditPanel } from '@/components/HostBoardEditPanel';
 import { PowerLabelText } from '@/components/PowerLabelText';
 import { PowerNationLink } from '@/components/PowerNationLink';
 import { readOnlinePowerSecrets } from '@/lib/onlineSessionBrowser';
@@ -92,9 +92,9 @@ export function MainDiplomacyHome() {
     setHostSecretsModalOpen(false);
   }, []);
 
-  const [boardEditModalOpen, setBoardEditModalOpen] = useState(false);
-  const closeBoardEditModal = useCallback(() => {
-    setBoardEditModalOpen(false);
+  const [boardEditPanelOpen, setBoardEditPanelOpen] = useState(false);
+  const closeBoardEditPanel = useCallback(() => {
+    setBoardEditPanelOpen(false);
   }, []);
 
   const handleApplyBoardEdit = useCallback(
@@ -192,7 +192,7 @@ export function MainDiplomacyHome() {
               </button>
               <button
                 type="button"
-                onClick={() => setBoardEditModalOpen(true)}
+                onClick={() => setBoardEditPanelOpen(true)}
                 className="rounded-lg border border-orange-300 bg-orange-100 px-3 py-1.5 text-[11px] font-bold text-orange-800 shadow-sm hover:bg-orange-200"
               >
                 盤面修正
@@ -238,12 +238,6 @@ export function MainDiplomacyHome() {
             powerSecrets={hostPowerLinkSecrets}
           />
         ) : null}
-        <HostBoardEditModal
-          open={boardEditModalOpen}
-          board={board}
-          onClose={closeBoardEditModal}
-          onApply={handleApplyBoardEdit}
-        />
         <section
           aria-label="勢力別の補給拠点数とユニット数"
           className="w-full shrink-0 rounded-2xl border border-zinc-200/70 bg-white/90 p-2.5 shadow-sm shadow-zinc-900/5 backdrop-blur-sm sm:p-3"
@@ -319,30 +313,40 @@ export function MainDiplomacyHome() {
 
           <div
             className={`flex min-h-0 shrink-0 flex-col rounded-2xl border p-3 shadow-md ring-1 sm:p-4 lg:w-[380px] ${
-              isRetreatPhase
-                ? 'border-amber-300/80 bg-amber-50/50 shadow-amber-900/[0.06] ring-amber-900/[0.08]'
-                : isAdjustmentPhasePanel
-                  ? 'border-emerald-300/80 bg-emerald-50/50 shadow-emerald-900/[0.06] ring-emerald-900/[0.08]'
-                  : 'border-zinc-200/70 bg-white shadow-zinc-900/[0.06] ring-black/[0.03]'
+              boardEditPanelOpen
+                ? 'border-zinc-200/70 bg-white shadow-zinc-900/[0.06] ring-black/[0.03]'
+                : isRetreatPhase
+                  ? 'border-amber-300/80 bg-amber-50/50 shadow-amber-900/[0.06] ring-amber-900/[0.08]'
+                  : isAdjustmentPhasePanel
+                    ? 'border-emerald-300/80 bg-emerald-50/50 shadow-emerald-900/[0.06] ring-emerald-900/[0.08]'
+                    : 'border-zinc-200/70 bg-white shadow-zinc-900/[0.06] ring-black/[0.03]'
             }`}
           >
-            <h2
-              className={`mb-2 text-lg font-semibold tracking-tight ${
-                isRetreatPhase
-                  ? 'text-amber-950'
-                  : isAdjustmentPhasePanel
-                    ? 'text-emerald-950'
-                    : 'text-zinc-900'
-              }`}
-            >
-              {isRetreatPhase
-                ? '解体フェーズ'
-                : isAdjustmentPhasePanel
-                  ? '増産フェーズ'
-                  : diplomacyPhase === 'negotiation'
-                    ? '交渉フェーズ'
-                    : '命令フェーズ'}
-            </h2>
+            {boardEditPanelOpen ? (
+              <HostBoardEditPanel
+                board={board}
+                onClose={closeBoardEditPanel}
+                onApply={handleApplyBoardEdit}
+              />
+            ) : (
+              <>
+                <h2
+                  className={`mb-2 text-lg font-semibold tracking-tight ${
+                    isRetreatPhase
+                      ? 'text-amber-950'
+                      : isAdjustmentPhasePanel
+                        ? 'text-emerald-950'
+                        : 'text-zinc-900'
+                  }`}
+                >
+                  {isRetreatPhase
+                    ? '解体フェーズ'
+                    : isAdjustmentPhasePanel
+                      ? '増産フェーズ'
+                      : diplomacyPhase === 'negotiation'
+                        ? '交渉フェーズ'
+                        : '命令フェーズ'}
+                </h2>
             <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
               {POWER_ORDER.map((pid) => {
                 const meta = POWER_META[pid] ?? { color: '#334155', label: pid };
@@ -469,6 +473,8 @@ export function MainDiplomacyHome() {
                     解決演出中は命令実行できません。
                   </p>
                 )}
+              </>
+            )}
               </>
             )}
           </div>
