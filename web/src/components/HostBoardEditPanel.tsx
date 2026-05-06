@@ -19,7 +19,7 @@ import {
   changeUnitType,
   changeSupplyCenterOwner,
 } from '@/lib/boardEditHelpers';
-import { POWER_META } from '@/diplomacy/gameHelpers';
+import { POWER_META, provinceName } from '@/diplomacy/gameHelpers';
 import { ProvinceAutocomplete } from '@/components/ProvinceAutocomplete';
 
 type HostBoardEditPanelProps = {
@@ -158,6 +158,11 @@ export function HostBoardEditPanel({
                 onChange={(p) => setFormData({ ...formData, provinceId: p })}
                 placeholder="プロヴィンス"
               />
+              {formData.provinceId && (
+                <div className="text-xs text-zinc-600">
+                  選択: {provinceName(editedBoard, formData.provinceId)}
+                </div>
+              )}
               {/* 陸軍/海軍トグル */}
               <div className="flex gap-2">
                 <button
@@ -249,12 +254,17 @@ export function HostBoardEditPanel({
                     </button>
                   </div>
                   {/* プロヴィンス入力 */}
-                  <ProvinceAutocomplete
-                    board={editedBoard}
-                    value={unit.provinceId}
-                    onChange={(p) => handleMoveUnit(unit.id, p, unit.fleetCoast)}
-                    placeholder="位置"
-                  />
+                  <div>
+                    <div className="mb-1 text-xs text-zinc-600">
+                      {provinceName(editedBoard, unit.provinceId)}
+                    </div>
+                    <ProvinceAutocomplete
+                      board={editedBoard}
+                      value={unit.provinceId}
+                      onChange={(p) => handleMoveUnit(unit.id, p, unit.fleetCoast)}
+                      placeholder="位置を変更"
+                    />
+                  </div>
                   {/* 陸軍/海軍トグル */}
                   <div className="flex gap-2">
                     <button
@@ -306,7 +316,7 @@ export function HostBoardEditPanel({
             const ownerMeta = owner ? POWER_META[owner] : null;
             return (
               <div key={sc.id} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-2">
-                <span className="w-12 text-xs font-medium text-zinc-700">{sc.id}</span>
+                <span className="min-w-12 text-xs font-medium text-zinc-700">{provinceName(editedBoard, sc.id)}</span>
                 <select
                   value={owner ?? ''}
                   onChange={(e) =>

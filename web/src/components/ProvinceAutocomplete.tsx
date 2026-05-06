@@ -62,10 +62,10 @@ export function ProvinceAutocomplete({
     <div ref={wrapRef} className="relative">
       <input
         type="text"
-        value={query || value}
+        value={query}
         placeholder={placeholder}
         onChange={(e) => {
-          setQuery(e.target.value.toUpperCase());
+          setQuery(e.target.value);
           setOpen(true);
         }}
         onFocus={() => {
@@ -85,7 +85,7 @@ export function ProvinceAutocomplete({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handlePick(p.id)}
               >
-                {p.id} {p.name}
+                {p.name}
               </button>
             </li>
           ))}
