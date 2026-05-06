@@ -546,9 +546,14 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
                           onClick={() => changeOrderType(unit.id, option.value)}
                           className={`flex-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
                             order.type === option.value
-                              ? 'bg-zinc-900 text-white'
+                              ? 'text-white'
                               : 'bg-white text-zinc-700 hover:bg-zinc-100'
                           }`}
+                          style={
+                            order.type === option.value
+                              ? { backgroundColor: meta.color }
+                              : undefined
+                          }
                         >
                           {option.label}
                         </button>
