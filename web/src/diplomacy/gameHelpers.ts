@@ -29,6 +29,7 @@ import {
   type Unit,
 } from '@/domain';
 import { POWERS } from '@/miniMap';
+import { POWER_COLORS } from '@/mapViewConstants';
 import {
   buildAdjacencyKeySet,
   findAllConvoyPathProvinceIdsForMove,
@@ -705,17 +706,17 @@ export type PowerMeta = {
 };
 
 export const POWER_META: Record<string, PowerMeta> = {
-  ENG: { color: '#ef4444', label: 'イギリス' },
-  FRA: { color: '#3b82f6', label: 'フランス' },
-  GER: { color: '#0d9488', label: 'ドイツ' },
-  ITA: { color: '#22c55e', label: 'イタリア' },
+  ENG: { color: POWER_COLORS.ENG, label: 'イギリス' },
+  FRA: { color: POWER_COLORS.FRA, label: 'フランス' },
+  GER: { color: POWER_COLORS.GER, label: 'ドイツ' },
+  ITA: { color: POWER_COLORS.ITA, label: 'イタリア' },
   AUS: {
-    color: '#eab308',
+    color: POWER_COLORS.AUS,
     label: 'オーストリア・ハンガリー',
     labelCompact: 'オーハン',
   },
-  RUS: { color: '#a855f7', label: 'ロシア' },
-  TUR: { color: '#f97316', label: 'トルコ' },
+  RUS: { color: POWER_COLORS.RUS, label: 'ロシア' },
+  TUR: { color: POWER_COLORS.TUR, label: 'トルコ' },
 };
 
 /** 確認ダイアログ用の役職名（各国のイメージに合わせた呼称） */
