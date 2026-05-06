@@ -270,22 +270,33 @@ export function HypotheticalForeignOrdersPanel(
                             </span>
                           )}
                       </span>
-                      <select
-                        className="rounded-md border border-zinc-200 bg-white px-1.5 py-0.5 text-[11px] shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/25"
-                        value={order.type}
-                        onChange={(e) =>
-                          setHypotheticalType(
-                            setHypotheticalOrders,
-                            unit.id,
-                            e.target.value as OrderType,
-                          )
-                        }
-                      >
-                        <option value={OrderType.Hold}>維持</option>
-                        <option value={OrderType.Move}>移動</option>
-                        <option value={OrderType.Support}>支援</option>
-                        <option value={OrderType.Convoy}>輸送</option>
-                      </select>
+                      <div className="flex gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 shadow-sm">
+                        {[
+                          { value: OrderType.Hold, label: '維持' },
+                          { value: OrderType.Move, label: '移動' },
+                          { value: OrderType.Support, label: '支援' },
+                          { value: OrderType.Convoy, label: '輸送' },
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() =>
+                              setHypotheticalType(
+                                setHypotheticalOrders,
+                                unit.id,
+                                option.value,
+                              )
+                            }
+                            className={`flex-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+                              order.type === option.value
+                                ? 'bg-zinc-900 text-white'
+                                : 'bg-white text-zinc-700 hover:bg-zinc-100'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
                       {(() => {
                         const isMove = order.type === OrderType.Move;
                         const reachable = isMove
