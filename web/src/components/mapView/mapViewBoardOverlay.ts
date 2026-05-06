@@ -676,6 +676,7 @@ export function clampViewBoxToMapExtent(v: ViewBox, extent: ViewBox): ViewBox {
  * @param unitIcons - 未ロード時は null（ユニット記号は描画しない）
  * @param previousBoard - 直前の盤面。指定時、同一ユニットの座標変化に移動アニメーションを付ける
  * @param mapEffects - スタンドオフ・コンボイなど盤面だけでは足りない演出
+ * @param highlightedProvinceIds - 強調表示するプロヴィンスのセット（盤面修正パネル用）
  */
 export function applyBoardOverlay(
   svg: SVGSVGElement,
@@ -685,6 +686,7 @@ export function applyBoardOverlay(
   previousBoard: BoardState | null,
   mapEffects: readonly MapVisualEffect[] | null,
   staticSupportCountByUnitId?: Record<string, number>,
+  highlightedProvinceIds?: ReadonlySet<string>,
 ): void {
   applyProvinceOccupationFills(svg, board);
 
@@ -703,15 +705,22 @@ export function applyBoardOverlay(
     c.style.setProperty('fill-opacity', '1');
     const meta = board.provinces.find((p) => p.id === id);
     const owner = board.supplyCenterOwnership[id];
-    const strokeCol =
-      meta?.homePowerId != null
-        ? '#231815'
-        : owner
-          ? (POWER_COLORS[owner] ?? '#231815')
-          : '#231815';
-    c.style.setProperty('stroke', strokeCol);
-    const strokeW = meta?.homePowerId ? '1.6' : '1.1';
-    c.style.setProperty('stroke-width', strokeW);
+
+    // 強調表示がある場合、優先的に適用
+    if (highlightedProvinceIds?.has(id)) {
+      c.style.setProperty('stroke', '#f97316');
+      c.style.setProperty('stroke-width', '3');
+    } else {
+      const strokeCol =
+        meta?.homePowerId != null
+          ? '#231815'
+          : owner
+            ? (POWER_COLORS[owner] ?? '#231815')
+            : '#231815';
+      c.style.setProperty('stroke', strokeCol);
+      const strokeW = meta?.homePowerId ? '1.6' : '1.1';
+      c.style.setProperty('stroke-width', strokeW);
+    }
   });
 
   let unitsLayer = svg.querySelector('#units-overlay');
@@ -831,6 +840,19 @@ export function applyBoardOverlay(
       badgeStage,
       staticBoost,
     );
+
+    // 盤面修正パネルで変更されたユニットに強調リングを追加
+    if (highlightedProvinceIds?.has(u.provinceId)) {
+      const ring = document.createElementNS(SVG_NS, 'circle');
+      ring.setAttribute('cx', '0');
+      ring.setAttribute('cy', '0');
+      ring.setAttribute('r', '13');
+      ring.setAttribute('fill', 'none');
+      ring.setAttribute('stroke', '#f97316');
+      ring.setAttribute('stroke-width', '2.5');
+      ring.setAttribute('opacity', '0.9');
+      g.insertBefore(ring, g.firstChild);
+    }
 
     const fx = effectByUnitId.get(u.id);
 

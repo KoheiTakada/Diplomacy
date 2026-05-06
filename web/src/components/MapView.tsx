@@ -81,6 +81,8 @@ interface MapViewProps {
     supportCountByUnitId: Record<string, number>;
   }[];
   treatyVisuals?: TreatyMapVisuals | null;
+  /** 盤面修正パネルで変更されたプロヴィンスを強調表示 */
+  highlightedProvinceIds?: ReadonlySet<string>;
   onUnitClick?: (unitId: string) => void;
 }
 
@@ -107,6 +109,7 @@ export default function MapView({
   orderPreviewMerged,
   historyEntries,
   treatyVisuals,
+  highlightedProvinceIds,
   onUnitClick,
 }: MapViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -318,6 +321,7 @@ export default function MapView({
       previousBoard,
       selectedHistory != null ? null : (pending.length > 0 ? pending : null),
       displaySupportCount,
+      highlightedProvinceIds,
     );
     syncTreatyOverlay(svg, displayBoard, layersRef.current, treatyVisuals);
     prevBoardRef.current = displayBoard;
@@ -332,6 +336,7 @@ export default function MapView({
     displayBoard,
     displayOrderPreview,
     displaySupportCount,
+    highlightedProvinceIds,
     isResolutionRevealing,
     orderPreviewMerged,
     selectedHistory,

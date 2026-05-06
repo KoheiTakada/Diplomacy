@@ -24,16 +24,19 @@ import { ProvinceAutocomplete } from '@/components/ProvinceAutocomplete';
 
 type HostBoardEditPanelProps = {
   board: BoardState;
+  editedBoard: BoardState;
+  onEditedBoardChange: (newBoard: BoardState) => void;
   onClose: () => void;
   onApply: (newBoard: BoardState) => void;
 };
 
 export function HostBoardEditPanel({
   board,
+  editedBoard,
+  onEditedBoardChange,
   onClose,
   onApply,
 }: HostBoardEditPanelProps) {
-  const [editedBoard, setEditedBoard] = useState<BoardState>(board);
   const [addUnitFormOpen, setAddUnitFormOpen] = useState(false);
   const [formData, setFormData] = useState({
     powerId: 'ENG',
@@ -43,8 +46,8 @@ export function HostBoardEditPanel({
   });
 
   const handleReset = useCallback(() => {
-    setEditedBoard(board);
-  }, [board]);
+    onEditedBoardChange(board);
+  }, [board, onEditedBoardChange]);
 
   const handleApply = useCallback(() => {
     onApply(editedBoard);
@@ -60,7 +63,7 @@ export function HostBoardEditPanel({
       formData.unitType,
       formData.fleetCoast,
     );
-    setEditedBoard(newBoard);
+    onEditedBoardChange(newBoard);
     setAddUnitFormOpen(false);
     setFormData({
       powerId: 'ENG',
@@ -68,36 +71,36 @@ export function HostBoardEditPanel({
       unitType: UnitType.Army as UnitType,
       fleetCoast: 'NC',
     });
-  }, [editedBoard, formData]);
+  }, [editedBoard, formData, onEditedBoardChange]);
 
   const handleRemoveUnit = useCallback((unitId: string) => {
     const newBoard = removeUnitFromBoard(editedBoard, unitId);
-    setEditedBoard(newBoard);
-  }, [editedBoard]);
+    onEditedBoardChange(newBoard);
+  }, [editedBoard, onEditedBoardChange]);
 
   const handleMoveUnit = useCallback(
     (unitId: string, newProvinceId: string, newFleetCoast?: string) => {
       if (!newProvinceId) return;
       const newBoard = moveUnitOnBoard(editedBoard, unitId, newProvinceId, newFleetCoast);
-      setEditedBoard(newBoard);
+      onEditedBoardChange(newBoard);
     },
-    [editedBoard],
+    [editedBoard, onEditedBoardChange],
   );
 
   const handleChangeUnitType = useCallback(
     (unitId: string, newType: UnitType) => {
       const newBoard = changeUnitType(editedBoard, unitId, newType);
-      setEditedBoard(newBoard);
+      onEditedBoardChange(newBoard);
     },
-    [editedBoard],
+    [editedBoard, onEditedBoardChange],
   );
 
   const handleChangeSupplyCenterOwner = useCallback(
     (provinceId: string, newOwnerId: string | null) => {
       const newBoard = changeSupplyCenterOwner(editedBoard, provinceId, newOwnerId);
-      setEditedBoard(newBoard);
+      onEditedBoardChange(newBoard);
     },
-    [editedBoard],
+    [editedBoard, onEditedBoardChange],
   );
 
   const supplyCenters = useMemo(

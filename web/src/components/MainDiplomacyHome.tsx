@@ -93,16 +93,61 @@ export function MainDiplomacyHome() {
   }, []);
 
   const [boardEditPanelOpen, setBoardEditPanelOpen] = useState(false);
+  const [editedBoard, setEditedBoard] = useState<typeof board | null>(null);
+
   const closeBoardEditPanel = useCallback(() => {
     setBoardEditPanelOpen(false);
+    setEditedBoard(null);
   }, []);
+
+  const handleBoardEditPanelOpen = useCallback(() => {
+    setEditedBoard(board);
+    setBoardEditPanelOpen(true);
+  }, [board]);
 
   const handleApplyBoardEdit = useCallback(
     (newBoard: typeof board) => {
       setBoard(newBoard);
+      setEditedBoard(null);
+      setBoardEditPanelOpen(false);
     },
     [setBoard],
   );
+
+  const boardEditHighlightSet = useMemo<Set<string> | null>(() => {
+    if (!boardEditPanelOpen || !editedBoard) return null;
+    const changed = new Set<string>();
+    const origIds = new Map(board.units.map((u) => [u.id, u]));
+    const editedIds = new Map(editedBoard.units.map((u) => [u.id, u]));
+    // ユニット削除・移動・種別変更
+    for (const [id, u] of origIds) {
+      if (!editedIds.has(id)) {
+        changed.add(u.provinceId);
+        continue;
+      }
+      const eu = editedIds.get(id)!;
+      if (eu.provinceId !== u.provinceId) {
+        changed.add(u.provinceId);
+        changed.add(eu.provinceId);
+      }
+      if (eu.type !== u.type) {
+        changed.add(u.provinceId);
+      }
+    }
+    // ユニット追加
+    for (const [id, u] of editedIds) {
+      if (!origIds.has(id)) {
+        changed.add(u.provinceId);
+      }
+    }
+    // 補給拠点所有権変更
+    for (const [pid, owner] of Object.entries(editedBoard.supplyCenterOwnership)) {
+      if (board.supplyCenterOwnership[pid] !== owner) {
+        changed.add(pid);
+      }
+    }
+    return changed.size > 0 ? changed : null;
+  }, [board, editedBoard, boardEditPanelOpen]);
 
   const supplyCenterRankByPower = useMemo(() => {
     const sorted = [...POWER_ORDER]
@@ -192,7 +237,7 @@ export function MainDiplomacyHome() {
               </button>
               <button
                 type="button"
-                onClick={() => setBoardEditPanelOpen(true)}
+                onClick={handleBoardEditPanelOpen}
                 className="rounded-lg border border-orange-300 bg-orange-100 px-3 py-1.5 text-[11px] font-bold text-orange-800 shadow-sm hover:bg-orange-200"
               >
                 盤面修正
@@ -303,7 +348,8 @@ export function MainDiplomacyHome() {
               style={{ aspectRatio: mapAspectRatio }}
             >
               <MapView
-                board={board}
+                board={boardEditPanelOpen && editedBoard ? editedBoard : board}
+                highlightedProvinceIds={boardEditHighlightSet ?? undefined}
                 isResolutionRevealing={isResolutionRevealing}
                 pendingMapEffectsRef={pendingMapEffectsRef}
                 historyEntries={turnHistory}
@@ -325,6 +371,8 @@ export function MainDiplomacyHome() {
             {boardEditPanelOpen ? (
               <HostBoardEditPanel
                 board={board}
+                editedBoard={editedBoard ?? board}
+                onEditedBoardChange={setEditedBoard}
                 onClose={closeBoardEditPanel}
                 onApply={handleApplyBoardEdit}
               />
