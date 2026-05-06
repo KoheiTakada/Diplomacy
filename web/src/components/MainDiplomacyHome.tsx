@@ -30,6 +30,7 @@ import {
 } from '@/diplomacy/gameHelpers';
 import MapView from '@/components/MapView';
 import { HostSecretsOverviewModal } from '@/components/HostSecretsOverviewModal';
+import { HostBoardEditModal } from '@/components/HostBoardEditModal';
 import { PowerLabelText } from '@/components/PowerLabelText';
 import { PowerNationLink } from '@/components/PowerNationLink';
 import { readOnlinePowerSecrets } from '@/lib/onlineSessionBrowser';
@@ -44,6 +45,7 @@ export function MainDiplomacyHome() {
   const g = useDiplomacyGame();
   const {
     board,
+    setBoard,
     unitOrders,
     log,
     turnHistory,
@@ -89,6 +91,18 @@ export function MainDiplomacyHome() {
   const closeHostSecretsModal = useCallback(() => {
     setHostSecretsModalOpen(false);
   }, []);
+
+  const [boardEditModalOpen, setBoardEditModalOpen] = useState(false);
+  const closeBoardEditModal = useCallback(() => {
+    setBoardEditModalOpen(false);
+  }, []);
+
+  const handleApplyBoardEdit = useCallback(
+    (newBoard: typeof board) => {
+      setBoard(newBoard);
+    },
+    [setBoard],
+  );
 
   const supplyCenterRankByPower = useMemo(() => {
     const sorted = [...POWER_ORDER]
@@ -178,6 +192,13 @@ export function MainDiplomacyHome() {
               </button>
               <button
                 type="button"
+                onClick={() => setBoardEditModalOpen(true)}
+                className="rounded-lg border border-orange-300 bg-orange-100 px-3 py-1.5 text-[11px] font-bold text-orange-800 shadow-sm hover:bg-orange-200"
+              >
+                盤面修正
+              </button>
+              <button
+                type="button"
                 onClick={downloadOnlineDebugLog}
                 className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100"
               >
@@ -217,6 +238,12 @@ export function MainDiplomacyHome() {
             powerSecrets={hostPowerLinkSecrets}
           />
         ) : null}
+        <HostBoardEditModal
+          open={boardEditModalOpen}
+          board={board}
+          onClose={closeBoardEditModal}
+          onApply={handleApplyBoardEdit}
+        />
         <section
           aria-label="勢力別の補給拠点数とユニット数"
           className="w-full shrink-0 rounded-2xl border border-zinc-200/70 bg-white/90 p-2.5 shadow-sm shadow-zinc-900/5 backdrop-blur-sm sm:p-3"
