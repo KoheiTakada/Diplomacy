@@ -109,6 +109,7 @@ export default function PowerPageClient() {
   const activeHypotheticalOrdersRef = useRef(activeHypotheticalOrders);
   activeHypotheticalOrdersRef.current = activeHypotheticalOrders;
   const prevDiplomacyPhaseRef = useRef(diplomacyPhase);
+  const workbenchScrollRef = useRef<HTMLDivElement>(null);
 
   const setActiveHypotheticalOrders = useCallback(
     (action: SetStateAction<Record<string, UnitOrderInput>>) => {
@@ -354,6 +355,10 @@ export default function PowerPageClient() {
                 pendingMapEffectsRef={pendingMapEffectsRef}
                 orderPreviewMerged={orderPreviewMerged}
                 treatyVisuals={powerTreatyMapVisuals}
+                onUnitClick={(uid) => {
+                  const el = workbenchScrollRef.current?.querySelector(`#unit-panel-${uid}`);
+                  el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                }}
               />
             </div>
             <div className="min-h-0 overflow-y-auto pr-1 [scrollbar-width:thin]">
@@ -400,6 +405,7 @@ export default function PowerPageClient() {
                     />
                   ) : undefined
                 }
+                scrollContainerRef={workbenchScrollRef}
               />
             )}
           </div>

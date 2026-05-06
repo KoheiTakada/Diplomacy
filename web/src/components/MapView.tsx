@@ -81,6 +81,7 @@ interface MapViewProps {
     supportCountByUnitId: Record<string, number>;
   }[];
   treatyVisuals?: TreatyMapVisuals | null;
+  onUnitClick?: (unitId: string) => void;
 }
 
 function syncOrderPreviewLayer(
@@ -106,6 +107,7 @@ export default function MapView({
   orderPreviewMerged,
   historyEntries,
   treatyVisuals,
+  onUnitClick,
 }: MapViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -251,12 +253,21 @@ export default function MapView({
           setHoverId(pid);
         };
         const onLeave = () => setHoverId(null);
+        const onClick = (e: PointerEvent) => {
+          const unitEl = (e.target as Element | null)?.closest('[data-unit-id]');
+          const uid = unitEl?.getAttribute('data-unit-id');
+          if (uid) {
+            onUnitClick?.(uid);
+          }
+        };
         svgEl.addEventListener('pointermove', onMove);
         svgEl.addEventListener('pointerleave', onLeave);
+        svgEl.addEventListener('click', onClick);
         (svgEl as unknown as { _cleanupMap?: () => void })._cleanupMap = () => {
           svgEl?.removeEventListener('wheel', handleWheel);
           svgEl?.removeEventListener('pointermove', onMove);
           svgEl?.removeEventListener('pointerleave', onLeave);
+          svgEl?.removeEventListener('click', onClick);
         };
       })
       .catch((err: unknown) => {

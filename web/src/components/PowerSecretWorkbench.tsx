@@ -66,6 +66,8 @@ type PowerSecretWorkbenchProps = {
    * 命令入力パネルと想定行動パネルを単一スクロールにまとめるために使用する。
    */
   scrollAppendContent?: ReactNode;
+  /** スクロールコンテナへの ref（外部から制御する場合） */
+  scrollContainerRef?: React.Ref<HTMLDivElement>;
 };
 
 /**
@@ -74,7 +76,7 @@ type PowerSecretWorkbenchProps = {
  * @param props - 属性
  */
 export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
-  const { powerId, showMainPageLink = true, scrollAppendContent } = props;
+  const { powerId, showMainPageLink = true, scrollAppendContent, scrollContainerRef } = props;
   const router = useRouter();
   const g = useDiplomacyGame();
   const {
@@ -476,7 +478,7 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
         !isOrderLocked &&
         units.length > 0 && (
         <>
-          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1 [scrollbar-width:thin]">
+          <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1 [scrollbar-width:thin]">
             <div className="space-y-2">
             {units.map((unit) => {
               const order = unitOrders[unit.id] ?? emptyOrder();
@@ -511,6 +513,7 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
               return (
                 <div
                   key={unit.id}
+                  id={`unit-panel-${unit.id}`}
                   className="rounded-xl border border-zinc-200/70 bg-zinc-50/90 p-2.5 shadow-sm"
                 >
                   <div className="flex flex-wrap items-center gap-2">
