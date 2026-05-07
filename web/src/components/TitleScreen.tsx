@@ -34,6 +34,7 @@ export function TitleScreen() {
     clearOnlineDebugLog,
   } = useDiplomacyGame();
   const onlineWorldlineInputRef = useRef<HTMLInputElement>(null);
+  const isInitialLoadDone = useRef(false);
 
   const [onlineBusy, setOnlineBusy] = useState(false);
   const [joinRoomFormOpen, setJoinRoomFormOpen] = useState(false);
@@ -44,6 +45,7 @@ export function TitleScreen() {
   const [createdOnlineLinks, setCreatedOnlineLinks] = useState<string | null>(
     null,
   );
+  const [rememberLogin, setRememberLogin] = useState(true);
 
   useEffect(() => {
     if (!onlineNewGameOpen) {
@@ -54,6 +56,46 @@ export function TitleScreen() {
     });
     return () => window.cancelAnimationFrame(id);
   }, [onlineNewGameOpen]);
+
+  // クッキー管理関数
+  const saveLoginCookie = (roomId: string, secret: string) => {
+    const expiresDate = new Date();
+    expiresDate.setDate(expiresDate.getDate() + 30); // 30日間有効
+    document.cookie = `diplomacy_room_id=${encodeURIComponent(roomId)}; expires=${expiresDate.toUTCString()}; path=/; SameSite=Lax`;
+    document.cookie = `diplomacy_secret=${encodeURIComponent(secret)}; expires=${expiresDate.toUTCString()}; path=/; SameSite=Lax`;
+  };
+
+  const clearLoginCookie = () => {
+    document.cookie = 'diplomacy_room_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = 'diplomacy_secret=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  };
+
+  const getLoginCookie = () => {
+    const cookies = document.cookie.split('; ').reduce((acc, cookie) => {
+      const [key, value] = cookie.split('=');
+      acc[key] = decodeURIComponent(value || '');
+      return acc;
+    }, {} as Record<string, string>);
+    return {
+      roomId: cookies.diplomacy_room_id || '',
+      secret: cookies.diplomacy_secret || '',
+    };
+  };
+
+  useEffect(() => {
+    // 初回ロード時のみ、クッキーからログイン情報を読み込む
+    if (isInitialLoadDone.current) {
+      return;
+    }
+    isInitialLoadDone.current = true;
+
+    const saved = getLoginCookie();
+    if (saved.roomId && saved.secret) {
+      setJoinRoomId(saved.roomId);
+      setJoinSecret(saved.secret);
+      setJoinRoomFormOpen(true);
+    }
+  }, []);
 
   return (
     <div className="flex min-h-dvh flex-col items-center bg-gradient-to-b from-zinc-100 to-zinc-200 px-4 py-8 font-sans text-zinc-900">
@@ -109,6 +151,15 @@ export function TitleScreen() {
                   placeholder="シークレット"
                   className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 font-mono text-[11px] text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-400/20"
                 />
+                <label className="flex items-center gap-2 text-[11px] text-zinc-700">
+                  <input
+                    type="checkbox"
+                    checked={rememberLogin}
+                    onChange={(e) => setRememberLogin(e.target.checked)}
+                    className="h-4 w-4 rounded border border-zinc-300 cursor-pointer"
+                  />
+                  <span>ログイン情報を保存する</span>
+                </label>
                 <button
                   type="button"
                   disabled={onlineBusy}
@@ -122,6 +173,11 @@ export function TitleScreen() {
                       if (!r.ok) {
                         window.alert(r.error);
                       } else {
+                        if (rememberLogin) {
+                          saveLoginCookie(joinRoomId, joinSecret);
+                        } else {
+                          clearLoginCookie();
+                        }
                         setJoinRoomFormOpen(false);
                       }
                     } finally {
