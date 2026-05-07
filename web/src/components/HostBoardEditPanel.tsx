@@ -109,7 +109,7 @@ export function HostBoardEditPanel({
   );
 
   return (
-    <div className="flex flex-col gap-4 overflow-y-auto">
+    <div className="flex flex-col gap-4 overflow-y-auto min-h-0 h-full">
       {/* ヘッダー */}
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-zinc-900">盤面修正</h2>

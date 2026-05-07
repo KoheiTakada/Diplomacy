@@ -198,9 +198,18 @@ export function MainDiplomacyHome() {
     return '未入力';
   }
 
+  function orderStatusLine(pid: string): string {
+    if (!powerHasUnits(board, pid)) {
+      return '不要';
+    }
+    const complete = isPowerOrdersComplete(board, unitOrders, pid);
+    const saved = powerOrderSaved[pid] === true;
+    return (saved && complete) ? '完了' : '未入力';
+  }
+
   function adjustmentStatusLine(pid: string): string {
     if (!powerNeedsAdjustment(board, pid)) {
-      return '調整不要';
+      return '不要';
     }
     const slots = isPowerAdjustmentSlotsFilled(
       board,
@@ -209,20 +218,31 @@ export function MainDiplomacyHome() {
       buildPlan,
     );
     const saved = powerAdjustmentSaved[pid] === true;
-    if (saved && slots) {
-      return '完了';
-    }
-    if (saved && !slots) {
-      return '記録済み・内容に不備';
-    }
-    return '未入力';
+    return (saved && slots) ? '完了' : '未入力';
   }
 
   function retreatStatusLine(pid: string): string {
     if (!retreatPowers.has(pid)) {
-      return '対象なし';
+      return '不要';
     }
-    return powerRetreatSaved[pid] === true ? '記録済み' : '未入力';
+    return powerRetreatSaved[pid] === true ? '完了' : '未入力';
+  }
+
+  // 現在のフェーズに応じたステータス表示
+  function currentPhaseStatusLine(pid: string): string | null {
+    if (isOrderLocked && !isRetreatPhase && !isAdjustmentPhasePanel) {
+      return null;
+    }
+    if (isRetreatPhase) {
+      return `退却: ${retreatStatusLine(pid)}`;
+    }
+    if (isAdjustmentPhasePanel) {
+      return `調整: ${adjustmentStatusLine(pid)}`;
+    }
+    if (diplomacyPhase === 'orders') {
+      return `命令: ${orderStatusLine(pid)}`;
+    }
+    return null;
   }
 
   const handlePhaseAction = useCallback(() => {
@@ -325,11 +345,10 @@ export function MainDiplomacyHome() {
           {/* Map: flex-1 on mobile (full width, no border), max-h-full on desktop (styled) */}
           <div
             className="flex-1 min-w-0 overflow-hidden lg:rounded-2xl lg:border lg:border-zinc-200/70 lg:bg-white lg:shadow-md lg:shadow-zinc-900/[0.06] lg:ring-1 lg:ring-black/[0.03] lg:max-h-full"
-            style={{
-              aspectRatio: mapAspectRatio,
-              minHeight: 0,
-              minWidth: '300px',
-            }}
+            style={boardEditPanelOpen
+              ? { minHeight: 0, minWidth: '300px' }
+              : { aspectRatio: mapAspectRatio, minHeight: 0, minWidth: '300px' }
+            }
           >
             {boardEditPanelOpen ? (
               <HostBoardEditPanel
@@ -409,6 +428,11 @@ export function MainDiplomacyHome() {
                           <span>拠点:{sc}</span>
                           <span>ユニット:{uc}</span>
                         </div>
+                        {isHostOrLocal && currentPhaseStatusLine(pid) && (
+                          <div className="text-[10px] text-zinc-500 px-1">
+                            {currentPhaseStatusLine(pid)}
+                          </div>
+                        )}
                         {isHostOrLocal && (
                           <PowerNationLink
                             powerId={pid}
@@ -505,6 +529,11 @@ export function MainDiplomacyHome() {
                           <span>拠点:{sc}</span>
                           <span>ユニット:{uc}</span>
                         </div>
+                        {isHostOrLocal && currentPhaseStatusLine(pid) && (
+                          <div className="text-[10px] text-zinc-500 px-1">
+                            {currentPhaseStatusLine(pid)}
+                          </div>
+                        )}
                         {isHostOrLocal && (
                           <PowerNationLink
                             powerId={pid}

@@ -35,7 +35,7 @@ import {
   mapAnchorForUnit,
 } from '@/components/mapView/mapViewBoardOverlay';
 import type { AnchorLayers, Vec2 } from '@/components/mapView/mapViewTypes';
-import { POWER_COLORS, SVG_NS } from '@/mapViewConstants';
+import { SVG_NS } from '@/mapViewConstants';
 
 /** プレビュー折れ線1本 */
 export type OrderPreviewPolyline = {
@@ -46,6 +46,16 @@ export type OrderPreviewPolyline = {
   dashed?: boolean;
   pathD?: string;
 };
+
+/**
+ * CUDO（色覚多様性対応）ユニバーサルカラー。
+ * 弱視対応のため、命令種別で色を分け、勢力色は使わない。
+ */
+const CUDO_ORDER_COLORS = {
+  move: '#005AFF',    // 青
+  support: '#03AF7A', // 緑
+  convoy: '#4DC4FF',  // 水色
+} as const;
 
 const ORDER_PREVIEW_MARKERS_GROUP_ID = 'order-preview-markers';
 const LEGACY_PREVIEW_MARKER_ID = 'order-preview-arrowhead';
@@ -169,7 +179,7 @@ export function buildOrderPreviewPolylines(
           armyUnitId,
           targetProvinceId,
         )
-          ? POWER_COLORS[responsibleFleet.powerId] ?? '#6366f1'
+          ? CUDO_ORDER_COLORS.convoy
           : '#9ca3af';
       }
       result.push({
@@ -193,13 +203,13 @@ export function buildOrderPreviewPolylines(
 
   for (const unit of board.units) {
     const input = mergedUnitOrders[unit.id] ?? emptyOrder();
-    const stroke = POWER_COLORS[unit.powerId] ?? '#6366f1';
     const from = mapAnchorForUnit(layers, unit);
     if (!from) {
       continue;
     }
 
     if (input.type === OrderType.Move && input.targetProvinceId) {
+      const stroke = CUDO_ORDER_COLORS.move;
       const domMove = domainOrders.find(
         (o): o is MoveOrder =>
           o.type === OrderType.Move && o.unitId === unit.id,
@@ -265,6 +275,7 @@ export function buildOrderPreviewPolylines(
       input.supportedUnitId &&
       input.supportToProvinceId
     ) {
+      const stroke = CUDO_ORDER_COLORS.support;
       const supported = board.units.find((u) => u.id === input.supportedUnitId);
       if (!supported) {
         continue;
@@ -283,6 +294,7 @@ export function buildOrderPreviewPolylines(
       input.convoyToProvinceId &&
       unit.type === UnitType.Fleet
     ) {
+      const stroke = CUDO_ORDER_COLORS.convoy;
       const army = board.units.find((u) => u.id === input.convoyArmyId);
       if (!army) {
         continue;
