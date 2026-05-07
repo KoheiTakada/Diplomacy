@@ -368,12 +368,12 @@ export default function PowerPageClient() {
         }}
       />
       <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col gap-2 overflow-hidden px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
-        {/* 3-column layout: map | center content | treaties */}
-        <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden lg:gap-4">
-          {/* Left: Map (40% of viewport width, fixed) */}
+        {/* Desktop: 3-column | Mobile: Stacked */}
+        <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden flex-col lg:flex-row lg:gap-4">
+          {/* Left: Map - 40vw on desktop, full width on mobile */}
           <div
-            className="shrink-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]"
-            style={{ aspectRatio: mapAspectRatio, width: '40vw' }}
+            className="shrink-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] w-full lg:w-[40vw]"
+            style={{ aspectRatio: mapAspectRatio }}
           >
             <div className="flex h-full flex-col overflow-hidden p-3 sm:p-4">
               <MapView
@@ -390,55 +390,58 @@ export default function PowerPageClient() {
             </div>
           </div>
 
-          {/* Center: All-nations unit list or hypothetical */}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
-            {showNegotiationHypothetical ? (
-              // 交渉フェーズ: 全勢力の想定行動パネルのみ（単独スクロール）
-              <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
-                <HypotheticalForeignOrdersPanel
+          {/* Center & Right: Desktop side-by-side | Mobile stacked */}
+          <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden flex-col lg:flex-row lg:gap-4">
+            {/* Center: All-nations unit list or hypothetical */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+              {showNegotiationHypothetical ? (
+                // 交渉フェーズ: 全勢力の想定行動パネルのみ（単独スクロール）
+                <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
+                  <HypotheticalForeignOrdersPanel
+                    powerId={powerId}
+                    includeSelf={true}
+                    board={board}
+                    orderAdjKeys={orderAdjKeys}
+                    scenarios={hypotheticalUi.scenarios}
+                    activeScenarioIndex={hypotheticalUi.activeIndex}
+                    onSelectScenario={handleSelectHypotheticalScenario}
+                    onAddScenario={handleAddHypotheticalScenario}
+                    hypotheticalOrders={activeHypotheticalOrders}
+                    setHypotheticalOrders={setActiveHypotheticalOrders}
+                  />
+                </div>
+              ) : (
+                // 命令フェーズ / 退却 / 調整 / ロック中: 命令入力ワークベンチ
+                // 命令フェーズのみ他国想定行動をスクロール領域末尾に追記
+                <PowerSecretWorkbench
                   powerId={powerId}
-                  includeSelf={true}
-                  board={board}
-                  orderAdjKeys={orderAdjKeys}
-                  scenarios={hypotheticalUi.scenarios}
-                  activeScenarioIndex={hypotheticalUi.activeIndex}
-                  onSelectScenario={handleSelectHypotheticalScenario}
-                  onAddScenario={handleAddHypotheticalScenario}
-                  hypotheticalOrders={activeHypotheticalOrders}
-                  setHypotheticalOrders={setActiveHypotheticalOrders}
+                  showMainPageLink={onlineSession == null}
+                  scrollAppendContent={
+                    showOrdersInput ? (
+                      <HypotheticalForeignOrdersPanel
+                        powerId={powerId}
+                        includeSelf={false}
+                        board={board}
+                        orderAdjKeys={orderAdjKeys}
+                        scenarios={hypotheticalUi.scenarios}
+                        activeScenarioIndex={hypotheticalUi.activeIndex}
+                        onSelectScenario={handleSelectHypotheticalScenario}
+                        onAddScenario={handleAddHypotheticalScenario}
+                        hypotheticalOrders={activeHypotheticalOrders}
+                        setHypotheticalOrders={setActiveHypotheticalOrders}
+                      />
+                    ) : undefined
+                  }
+                  scrollContainerRef={workbenchScrollRef}
                 />
-              </div>
-            ) : (
-              // 命令フェーズ / 退却 / 調整 / ロック中: 命令入力ワークベンチ
-              // 命令フェーズのみ他国想定行動をスクロール領域末尾に追記
-              <PowerSecretWorkbench
-                powerId={powerId}
-                showMainPageLink={onlineSession == null}
-                scrollAppendContent={
-                  showOrdersInput ? (
-                    <HypotheticalForeignOrdersPanel
-                      powerId={powerId}
-                      includeSelf={false}
-                      board={board}
-                      orderAdjKeys={orderAdjKeys}
-                      scenarios={hypotheticalUi.scenarios}
-                      activeScenarioIndex={hypotheticalUi.activeIndex}
-                      onSelectScenario={handleSelectHypotheticalScenario}
-                      onAddScenario={handleAddHypotheticalScenario}
-                      hypotheticalOrders={activeHypotheticalOrders}
-                      setHypotheticalOrders={setActiveHypotheticalOrders}
-                    />
-                  ) : undefined
-                }
-                scrollContainerRef={workbenchScrollRef}
-              />
-            )}
-          </div>
+              )}
+            </div>
 
-          {/* Right: Treaty panel */}
-          <div className="flex w-[268px] shrink-0 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
-            <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
-              <PowerTreatyPanel powerId={powerId} />
+            {/* Right: Treaty panel - 268px on desktop, full width on mobile */}
+            <div className="flex w-full lg:w-[268px] shrink-0 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
+                <PowerTreatyPanel powerId={powerId} />
+              </div>
             </div>
           </div>
         </div>

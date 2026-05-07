@@ -95,6 +95,9 @@ export function MainDiplomacyHome() {
   const [boardEditPanelOpen, setBoardEditPanelOpen] = useState(false);
   const [editedBoard, setEditedBoard] = useState<typeof board | null>(null);
 
+  // スマートフォン版のタブ状態（"log" or "nations"）
+  const [mobileTabActive, setMobileTabActive] = useState<'log' | 'nations'>('log');
+
   const closeBoardEditPanel = useCallback(() => {
     setBoardEditPanelOpen(false);
     setEditedBoard(null);
@@ -317,12 +320,12 @@ export function MainDiplomacyHome() {
           />
         ) : null}
 
-        {/* 3-column layout: map | log | nations */}
-        <div className="flex min-h-0 flex-1 gap-2 overflow-hidden">
-          {/* Left: Map (40% of viewport width, fixed) */}
+        {/* Desktop: 3-column | Mobile: Stacked with tabs */}
+        <div className="flex min-h-0 flex-1 gap-2 overflow-hidden flex-col lg:flex-row">
+          {/* Map: 40vw on desktop, full width on mobile */}
           <div
-            className="shrink-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]"
-            style={{ aspectRatio: mapAspectRatio, width: '40vw' }}
+            className="shrink-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] w-full lg:w-[40vw]"
+            style={{ aspectRatio: mapAspectRatio }}
           >
             {boardEditPanelOpen ? (
               <HostBoardEditPanel
@@ -345,75 +348,199 @@ export function MainDiplomacyHome() {
             )}
           </div>
 
-          {/* Center: Log */}
-          <div className="flex w-52 shrink-0 flex-col gap-1 overflow-hidden">
-            <h3 className="text-xs font-semibold text-zinc-500">ログ</h3>
-            <section className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white p-2 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
-              {log.length === 0 ? (
-                <p className="text-center text-[10px] text-zinc-400">
-                  ログなし
-                </p>
-              ) : (
-                <ul className="space-y-0 text-[10px] leading-snug [scrollbar-width:thin]">
-                  {log.map((entry) => (
-                    <li
-                      key={entry.id}
-                      className={
-                        entry.line.startsWith('──')
-                          ? 'mt-1 first:mt-0 rounded bg-zinc-100/80 px-1.5 py-0.5 font-semibold text-zinc-800'
-                          : 'border-b border-zinc-100 py-0.5 last:border-0'
-                      }
-                    >
-                      {entry.line}
-                    </li>
-                  ))}
+          {/* Desktop: Log and Nations side by side | Mobile: Tabbed */}
+          <div className="hidden lg:flex lg:gap-2 lg:min-h-0 lg:flex-1">
+            {/* Log - Desktop only */}
+            <div className="flex w-52 shrink-0 flex-col gap-1 overflow-hidden">
+              <h3 className="text-xs font-semibold text-zinc-500">ログ</h3>
+              <section className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white p-2 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+                {log.length === 0 ? (
+                  <p className="text-center text-[10px] text-zinc-400">
+                    ログなし
+                  </p>
+                ) : (
+                  <ul className="space-y-0 text-[10px] leading-snug [scrollbar-width:thin]">
+                    {log.map((entry) => (
+                      <li
+                        key={entry.id}
+                        className={
+                          entry.line.startsWith('──')
+                            ? 'mt-1 first:mt-0 rounded bg-zinc-100/80 px-1.5 py-0.5 font-semibold text-zinc-800'
+                            : 'border-b border-zinc-100 py-0.5 last:border-0'
+                        }
+                      >
+                        {entry.line}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+
+            {/* Nations list - Desktop only */}
+            <div className="flex w-52 shrink-0 flex-col gap-2 overflow-hidden">
+              <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+                <ul className="divide-y divide-zinc-100">
+                  {POWER_ORDER.map((pid, idx) => {
+                    const meta = POWER_META[pid] ?? { color: '#334155', label: pid };
+                    const sc = countSupplyCenters(board, pid);
+                    const uc = countUnits(board, pid);
+                    const scRank = supplyCenterRankByPower.get(pid) ?? 1;
+
+                    return (
+                      <li
+                        key={pid}
+                        className="flex flex-col gap-1.5 border-l-4 px-2.5 py-2 text-[11px]"
+                        style={{ borderLeftColor: meta.color }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-zinc-900">
+                            #{idx + 1}{' '}
+                            <PowerLabelText powerId={pid} />
+                          </span>
+                          <span className="font-bold text-zinc-400">
+                            {scRank}位
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-zinc-600">
+                          <span>拠点:{sc}</span>
+                          <span>ユニット:{uc}</span>
+                        </div>
+                        {isHostOrLocal && (
+                          <PowerNationLink
+                            powerId={pid}
+                            className="rounded-lg bg-zinc-100 px-2 py-1 text-center text-[10px] font-semibold text-zinc-900 hover:bg-zinc-200 transition-colors"
+                          >
+                            命令入力
+                          </PowerNationLink>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
-              )}
-            </section>
+              </div>
+            </div>
           </div>
 
-          {/* Right: Nations list */}
-          <div className="flex w-52 shrink-0 flex-col gap-2 overflow-hidden">
-            {/* Nations list */}
-            <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
-              <ul className="divide-y divide-zinc-100">
-                {POWER_ORDER.map((pid, idx) => {
-                  const meta = POWER_META[pid] ?? { color: '#334155', label: pid };
-                  const sc = countSupplyCenters(board, pid);
-                  const uc = countUnits(board, pid);
-                  const scRank = supplyCenterRankByPower.get(pid) ?? 1;
+          {/* Mobile: Tabbed content */}
+          <div className="flex flex-col min-h-0 flex-1 gap-2 lg:hidden">
+            {/* Tab buttons */}
+            <div className="flex gap-2 shrink-0 border-b border-zinc-200 bg-white p-2 rounded-t-2xl">
+              <button
+                onClick={() => setMobileTabActive('log')}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                  mobileTabActive === 'log'
+                    ? 'bg-zinc-900 text-white'
+                    : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                }`}
+              >
+                ログ
+              </button>
+              <button
+                onClick={() => setMobileTabActive('nations')}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                  mobileTabActive === 'nations'
+                    ? 'bg-zinc-900 text-white'
+                    : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                }`}
+              >
+                国一覧
+              </button>
+            </div>
 
-                  return (
-                    <li
-                      key={pid}
-                      className="flex flex-col gap-1.5 border-l-4 px-2.5 py-2 text-[11px]"
-                      style={{ borderLeftColor: meta.color }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-zinc-900">
-                          #{idx + 1}{' '}
-                          <PowerLabelText powerId={pid} />
-                        </span>
-                        <span className="font-bold text-zinc-400">
-                          {scRank}位
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-zinc-600">
-                        <span>拠点:{sc}</span>
-                        <span>ユニット:{uc}</span>
-                      </div>
-                      {isHostOrLocal && (
-                        <PowerNationLink
-                          powerId={pid}
-                          className="rounded-lg bg-zinc-100 px-2 py-1 text-center text-[10px] font-semibold text-zinc-900 hover:bg-zinc-200 transition-colors"
-                        >
-                          命令入力
-                        </PowerNationLink>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+            {/* Tab content */}
+            {mobileTabActive === 'log' && (
+              <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white p-2 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+                {log.length === 0 ? (
+                  <p className="text-center text-[10px] text-zinc-400">
+                    ログなし
+                  </p>
+                ) : (
+                  <ul className="space-y-0 text-[10px] leading-snug [scrollbar-width:thin]">
+                    {log.map((entry) => (
+                      <li
+                        key={entry.id}
+                        className={
+                          entry.line.startsWith('──')
+                            ? 'mt-1 first:mt-0 rounded bg-zinc-100/80 px-1.5 py-0.5 font-semibold text-zinc-800'
+                            : 'border-b border-zinc-100 py-0.5 last:border-0'
+                        }
+                      >
+                        {entry.line}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {mobileTabActive === 'nations' && (
+              <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+                <ul className="divide-y divide-zinc-100">
+                  {POWER_ORDER.map((pid, idx) => {
+                    const meta = POWER_META[pid] ?? { color: '#334155', label: pid };
+                    const sc = countSupplyCenters(board, pid);
+                    const uc = countUnits(board, pid);
+                    const scRank = supplyCenterRankByPower.get(pid) ?? 1;
+
+                    return (
+                      <li
+                        key={pid}
+                        className="flex flex-col gap-1.5 border-l-4 px-2.5 py-2 text-[11px]"
+                        style={{ borderLeftColor: meta.color }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-zinc-900">
+                            #{idx + 1}{' '}
+                            <PowerLabelText powerId={pid} />
+                          </span>
+                          <span className="font-bold text-zinc-400">
+                            {scRank}位
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-zinc-600">
+                          <span>拠点:{sc}</span>
+                          <span>ユニット:{uc}</span>
+                        </div>
+                        {isHostOrLocal && (
+                          <PowerNationLink
+                            powerId={pid}
+                            className="rounded-lg bg-zinc-100 px-2 py-1 text-center text-[10px] font-semibold text-zinc-900 hover:bg-zinc-200 transition-colors"
+                          >
+                            命令入力
+                          </PowerNationLink>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+
+            {/* Mobile action button at bottom */}
+            <div className="shrink-0 lg:hidden">
+              {isHostOrLocal ? (
+                <button
+                  type="button"
+                  disabled={
+                    (isRetreatPhase && !allPowersRetreatReady) ||
+                    (isAdjustmentPhasePanel && !allPowersAdjustmentReady) ||
+                    (diplomacyPhase === 'orders' &&
+                      (isOrderLocked || !allPowersMovementReady))
+                  }
+                  onClick={handlePhaseAction}
+                  className="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
+                >
+                  フェーズ進行
+                </button>
+              ) : (
+                <Link
+                  href={`/power/${onlineSession?.powerId}`}
+                  className="block w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800"
+                >
+                  命令入力
+                </Link>
+              )}
             </div>
           </div>
         </div>
