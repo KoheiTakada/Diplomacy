@@ -455,9 +455,9 @@ export default function PowerPageClient() {
             </div>
 
             {/* Mobile: Tabbed content */}
-            <div className="flex lg:hidden flex-col min-h-0 flex-1 gap-2">
+            <div className="flex lg:hidden flex-col min-h-0 flex-1 rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
               {/* Tab buttons */}
-              <div className="flex gap-2 shrink-0 border-b border-zinc-200 bg-white p-2 rounded-t-2xl">
+              <div className="flex gap-2 shrink-0 border-b border-zinc-200 p-2">
                 <button
                   onClick={() => setMobileCenterTabActive('orders')}
                   className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
@@ -482,7 +482,7 @@ export default function PowerPageClient() {
 
               {/* Tab content */}
               {mobileCenterTabActive === 'orders' && (
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                   {showNegotiationHypothetical ? (
                     // 交渉フェーズ: 全勢力の想定行動パネルのみ（単独スクロール）
                     <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
@@ -527,7 +527,7 @@ export default function PowerPageClient() {
               )}
 
               {mobileCenterTabActive === 'treaties' && (
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                   <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
                     <PowerTreatyPanel powerId={powerId} />
                   </div>
