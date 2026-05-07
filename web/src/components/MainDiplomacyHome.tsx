@@ -322,12 +322,13 @@ export function MainDiplomacyHome() {
 
         {/* Desktop: 3-column (map maximized + log/nations minimum) | Mobile: Stacked with tabs */}
         <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden flex-col lg:flex-row" style={{ minHeight: 0, gap: '0.375rem' }}>
-          {/* Map: flex-1 on mobile (full width), max-h-full on desktop (aspect-based max) */}
+          {/* Map: flex-1 on mobile (full width), max-h-full on desktop (aspect-based, right panel expands) */}
           <div
             className="flex-1 min-w-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] lg:max-h-full"
             style={{
               aspectRatio: mapAspectRatio,
               minHeight: 0,
+              minWidth: '300px',
             }}
           >
             {boardEditPanelOpen ? (
@@ -352,7 +353,7 @@ export function MainDiplomacyHome() {
           </div>
 
           {/* Desktop: Log and Nations side by side | Mobile: Tabbed */}
-          <div className="hidden lg:flex lg:min-h-0 overflow-hidden shrink-0" style={{ minHeight: 0, gap: '0.375rem', minWidth: '360px' }}>
+          <div className="hidden lg:flex lg:min-h-0 overflow-hidden flex-1" style={{ minHeight: 0, gap: '0.375rem' }}>
             {/* Log - Desktop only (minimum 160px) */}
             <div className="flex shrink-0 flex-col overflow-hidden" style={{ minWidth: '160px' }}>
               <h3 className="text-xs font-semibold text-zinc-500 shrink-0">ログ</h3>
@@ -380,8 +381,8 @@ export function MainDiplomacyHome() {
               </section>
             </div>
 
-            {/* Nations list - Desktop only (minimum 200px, can grow) */}
-            <div className="flex flex-1 flex-col min-h-0 overflow-hidden" style={{ minWidth: '200px' }}>
+            {/* Nations list - Desktop only (flex-1, grows with available space) */}
+            <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
               <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
                 <ul className="divide-y divide-zinc-100 text-[11px]">
                   {POWER_ORDER.map((pid, idx) => {
