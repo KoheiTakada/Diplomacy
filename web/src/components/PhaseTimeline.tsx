@@ -76,9 +76,9 @@ export function PhaseTimeline({
   const seasonLabel = season === Season.Spring ? '春' : '秋';
 
   return (
-    <div className="flex shrink-0 items-start justify-between gap-6 border-b border-zinc-200 bg-white px-4 py-4 flex-col lg:flex-row lg:items-start">
+    <div className="flex shrink-0 items-start justify-between gap-6 border-b border-zinc-200 bg-white px-4 py-2 lg:py-4 flex-col lg:flex-row lg:items-start">
       {/* Left: Year/Season */}
-      <div className="whitespace-nowrap font-semibold text-zinc-700 text-sm pt-6">
+      <div className="whitespace-nowrap font-semibold text-zinc-700 text-sm pt-0 lg:pt-6">
         {year}年 {seasonLabel}
       </div>
 

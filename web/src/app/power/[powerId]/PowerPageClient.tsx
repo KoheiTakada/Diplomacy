@@ -373,16 +373,16 @@ export default function PowerPageClient() {
       <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col overflow-hidden px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
         {/* Desktop: 3-column (map maximized + center/treaties minimum) | Mobile: Stacked with tabs */}
         <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden flex-col lg:flex-row" style={{ minHeight: 0, gap: '0.375rem' }}>
-          {/* Left: Map - flex-1 on mobile (full width), max-h-full on desktop (aspect-based, right panel expands) */}
+          {/* Left: Map - flex-1 on mobile (full width, no border), max-h-full on desktop (styled) */}
           <div
-            className="flex-1 min-w-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] lg:max-h-full"
+            className="flex-1 min-w-0 overflow-hidden lg:rounded-2xl lg:border lg:border-zinc-200/70 lg:bg-white lg:shadow-md lg:shadow-zinc-900/[0.06] lg:ring-1 lg:ring-black/[0.03] lg:max-h-full"
             style={{
               aspectRatio: mapAspectRatio,
               minHeight: 0,
               minWidth: '300px',
             }}
           >
-            <div className="flex h-full flex-col overflow-hidden p-3 sm:p-4">
+            <div className="flex h-full flex-col overflow-hidden p-0 lg:p-3 sm:lg:p-4">
               <MapView
                 board={board}
                 isResolutionRevealing={isResolutionRevealing}
