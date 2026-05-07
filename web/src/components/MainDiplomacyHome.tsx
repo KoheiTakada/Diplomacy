@@ -295,8 +295,11 @@ export function MainDiplomacyHome() {
 
         {/* 3-column layout: map | log | nations */}
         <div className="flex min-h-0 flex-1 gap-2 overflow-hidden">
-          {/* Left: Map */}
-          <div className="flex min-h-0 min-w-0 flex-1 justify-center overflow-hidden">
+          {/* Left: Map (40% of viewport width, fixed) */}
+          <div
+            className="shrink-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]"
+            style={{ aspectRatio: mapAspectRatio, width: '40vw' }}
+          >
             {boardEditPanelOpen ? (
               <HostBoardEditPanel
                 board={board}
@@ -306,10 +309,7 @@ export function MainDiplomacyHome() {
                 onApply={handleApplyBoardEdit}
               />
             ) : (
-              <div
-                className="box-border flex h-auto w-full max-w-full flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white p-3 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] sm:p-4"
-                style={{ aspectRatio: mapAspectRatio }}
-              >
+              <div className="flex h-full flex-col overflow-hidden p-3 sm:p-4">
                 <MapView
                   board={board}
                   highlightedProvinceIds={boardEditHighlightSet ?? undefined}
