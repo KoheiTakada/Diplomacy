@@ -74,78 +74,75 @@ export function PhaseTimeline({
   );
 
   const seasonLabel = season === Season.Spring ? '春' : '秋';
+  const completedPct = (currentIndex / (PHASE_LABELS.length - 1)) * 100;
 
   return (
     <div className="flex shrink-0 items-start justify-between gap-6 border-b border-zinc-200 bg-white px-4 py-2 lg:py-4 flex-col lg:flex-row lg:items-start">
       {/* Left: Year/Season */}
-      <div className="whitespace-nowrap font-semibold text-zinc-700 text-sm pt-0 lg:pt-6">
+      <div className="whitespace-nowrap font-semibold text-zinc-700 text-sm pt-0 lg:pt-4">
         {year}年 {seasonLabel}
       </div>
 
-      {/* Center: Timeline with dots and line */}
+      {/* Center: Timeline */}
       <div className="flex min-w-0 flex-1 items-start w-full lg:w-auto">
         <div className="relative w-full">
-          {/* SVG for background line and segments */}
-          <svg
-            className="absolute left-0 top-0 h-8 w-full"
-            preserveAspectRatio="none"
-            style={{ pointerEvents: 'none' }}
-          >
-            {/* Completed segment line (blue-teal) */}
-            <line
-              x1={`${(currentIndex / (PHASE_LABELS.length - 1)) * 100}%`}
-              y1="16"
-              x2="0%"
-              y2="16"
-              stroke="#0891b2"
-              strokeWidth="6"
-            />
-            {/* Future segment line (gray) */}
-            <line
-              x1={`${(currentIndex / (PHASE_LABELS.length - 1)) * 100}%`}
-              y1="16"
-              x2="100%"
-              y2="16"
-              stroke="#d4d4d8"
-              strokeWidth="6"
-            />
-          </svg>
+          {/* Track: background bar */}
+          <div className="absolute left-0 right-0 top-[7px] h-0.5 bg-zinc-200" />
+
+          {/* Track: completed bar with transition */}
+          <div
+            className="absolute left-0 top-[7px] h-0.5 bg-cyan-500 transition-all duration-500 ease-in-out"
+            style={{ width: `${completedPct}%` }}
+          />
 
           {/* Dots and labels */}
           <div className="relative flex w-full items-start justify-between">
             {PHASE_LABELS.map((label, idx) => {
               const isCompleted = idx < currentIndex;
               const isCurrent = idx === currentIndex;
-              const isFuture = idx > currentIndex;
 
               return (
-                <div key={idx} className="flex flex-col items-center relative">
+                <div key={idx} className="flex flex-col items-center">
                   {/* Dot */}
-                  <div
-                    className={`h-6 w-6 rounded-full flex items-center justify-center relative z-20 transition-colors ${
-                      isCompleted
-                        ? 'bg-cyan-500 shadow-md'
-                        : isCurrent
-                          ? 'bg-orange-500 ring-2 ring-orange-300 shadow-md'
-                          : 'bg-zinc-300 shadow-sm'
-                    }`}
-                  >
-                    {isCompleted && (
-                      <svg
-                        className="h-4 w-4 text-white"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
+                  <div className="relative flex items-center justify-center">
+                    {/* Pulse ring for current (animates behind the dot) */}
+                    {isCurrent && (
+                      <span className="absolute inline-flex h-4 w-4 rounded-full bg-orange-400 opacity-75 animate-ping" />
                     )}
+                    <div
+                      className={`relative h-4 w-4 rounded-full flex items-center justify-center transition-colors duration-300 z-10 ${
+                        isCompleted
+                          ? 'bg-cyan-500'
+                          : isCurrent
+                            ? 'bg-orange-500 ring-2 ring-orange-300'
+                            : 'bg-white border-2 border-zinc-300'
+                      }`}
+                    >
+                      {isCompleted && (
+                        <svg
+                          className="h-2.5 w-2.5 text-white"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                    </div>
                   </div>
                   {/* Label below dot */}
-                  <span className="mt-3 text-[11px] font-medium text-zinc-700 text-center whitespace-nowrap w-16">
+                  <span
+                    className={`mt-2 text-[10px] font-medium text-center whitespace-nowrap w-14 transition-colors duration-300 ${
+                      isCurrent
+                        ? 'text-orange-500 font-semibold'
+                        : isCompleted
+                          ? 'text-cyan-600'
+                          : 'text-zinc-400'
+                    }`}
+                  >
                     {label}
                   </span>
                 </div>
