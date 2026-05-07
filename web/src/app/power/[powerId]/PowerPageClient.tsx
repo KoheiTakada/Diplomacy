@@ -371,12 +371,16 @@ export default function PowerPageClient() {
         }}
       />
       <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col overflow-hidden px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
-        {/* Desktop: 3-column | Mobile: Stacked with fixed headers/buttons */}
-        <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden flex-col lg:flex-row lg:gap-4">
-          {/* Left: Map - 40vw on desktop, flex-1 on mobile */}
+        {/* Desktop: 3-column (40vw + flex + 268px) | Mobile: Stacked with tabs */}
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden flex-col lg:flex-row" style={{ minHeight: 0, gap: '0.375rem' }}>
+          {/* Left: Map - flex-1 on mobile, 40vw on desktop (fixed) */}
           <div
-            className="flex-1 lg:flex-none overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] lg:w-[40vw]"
-            style={{ aspectRatio: mapAspectRatio, minHeight: 0 }}
+            className="flex-1 lg:flex-none lg:shrink-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]"
+            style={{
+              aspectRatio: mapAspectRatio,
+              minHeight: 0,
+              width: '40vw',
+            }}
           >
             <div className="flex h-full flex-col overflow-hidden p-3 sm:p-4">
               <MapView
@@ -394,9 +398,9 @@ export default function PowerPageClient() {
           </div>
 
           {/* Center & Right: Desktop side-by-side | Mobile tabbed */}
-          <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden flex-col lg:flex-row lg:gap-4" style={{ minHeight: 0 }}>
+          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden flex-col lg:flex-row" style={{ minHeight: 0, gap: '0.375rem' }}>
             {/* Desktop: Center & Right side by side */}
-            <div className="hidden lg:flex lg:gap-4 lg:min-h-0 lg:min-w-0 lg:flex-1">
+            <div className="hidden lg:flex lg:min-h-0 lg:min-w-0 lg:flex-1 overflow-hidden" style={{ minHeight: 0, gap: '0.375rem' }}>
               {/* Center: All-nations unit list or hypothetical */}
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
                 {showNegotiationHypothetical ? (
@@ -442,8 +446,8 @@ export default function PowerPageClient() {
                 )}
               </div>
 
-              {/* Right: Treaty panel */}
-              <div className="flex w-[268px] shrink-0 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+              {/* Right: Treaty panel (268px fixed) */}
+              <div className="flex w-[268px] shrink-0 flex-col min-h-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
                 <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
                   <PowerTreatyPanel powerId={powerId} />
                 </div>

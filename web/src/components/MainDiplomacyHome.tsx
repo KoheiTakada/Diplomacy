@@ -320,12 +320,16 @@ export function MainDiplomacyHome() {
           />
         ) : null}
 
-        {/* Desktop: 3-column | Mobile: Stacked with tabs and fixed buttons */}
-        <div className="flex min-h-0 min-w-0 flex-1 gap-2 overflow-hidden flex-col lg:flex-row lg:gap-2" style={{ minHeight: 0 }}>
-          {/* Map: flex-1 on mobile (big), 40vw on desktop */}
+        {/* Desktop: 3-column (40vw + 20vw + 40vw) | Mobile: Stacked with tabs */}
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden flex-col lg:flex-row" style={{ minHeight: 0, gap: '0.375rem' }}>
+          {/* Map: flex-1 on mobile, 40vw on desktop (fixed) */}
           <div
-            className="flex-1 lg:flex-none overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] lg:w-[40vw]"
-            style={{ aspectRatio: mapAspectRatio, minHeight: 0 }}
+            className="flex-1 lg:flex-none lg:shrink-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]"
+            style={{
+              aspectRatio: mapAspectRatio,
+              minHeight: 0,
+              width: '40vw',
+            }}
           >
             {boardEditPanelOpen ? (
               <HostBoardEditPanel
@@ -349,10 +353,10 @@ export function MainDiplomacyHome() {
           </div>
 
           {/* Desktop: Log and Nations side by side | Mobile: Tabbed */}
-          <div className="hidden lg:flex lg:gap-2 lg:min-h-0 lg:flex-1">
-            {/* Log - Desktop only */}
-            <div className="flex w-52 shrink-0 flex-col gap-1 overflow-hidden">
-              <h3 className="text-xs font-semibold text-zinc-500">ログ</h3>
+          <div className="hidden lg:flex lg:min-h-0 lg:flex-1 overflow-hidden" style={{ minHeight: 0, gap: '0.375rem' }}>
+            {/* Log - Desktop only (20vw / ~320px) */}
+            <div className="flex w-80 shrink-0 flex-col overflow-hidden">
+              <h3 className="text-xs font-semibold text-zinc-500 shrink-0">ログ</h3>
               <section className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white p-2 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
                 {log.length === 0 ? (
                   <p className="text-center text-[10px] text-zinc-400">
@@ -377,10 +381,10 @@ export function MainDiplomacyHome() {
               </section>
             </div>
 
-            {/* Nations list - Desktop only */}
-            <div className="flex w-52 shrink-0 flex-col gap-2 overflow-hidden">
+            {/* Nations list - Desktop only (remaining space / ~40vw) */}
+            <div className="flex flex-1 min-w-0 flex-col min-h-0 overflow-hidden">
               <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
-                <ul className="divide-y divide-zinc-100">
+                <ul className="divide-y divide-zinc-100 text-[11px]">
                   {POWER_ORDER.map((pid, idx) => {
                     const meta = POWER_META[pid] ?? { color: '#334155', label: pid };
                     const sc = countSupplyCenters(board, pid);
