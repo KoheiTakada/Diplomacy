@@ -871,6 +871,19 @@ export default function PowerPageClient() {
                   const newSlots = prevSlots.filter((slot) => slot.provinceId !== provId);
                   return { ...prev, [powerId]: newSlots };
                 });
+              } else {
+                // 既存ユニットの削減トグル
+                g.setDisbandPlan((prev) => {
+                  const prevSlots = prev[powerId] ? [...prev[powerId]] : [];
+                  const isAlreadyMarked = prevSlots.some((slot) => slot.unitId === uid);
+                  if (isAlreadyMarked) {
+                    // 削除マーク済み → 削除をキャンセル
+                    return { ...prev, [powerId]: prevSlots.filter((slot) => slot.unitId !== uid) };
+                  } else {
+                    // 未マーク → 削除をマーク
+                    return { ...prev, [powerId]: [...prevSlots, { unitId: uid }] };
+                  }
+                });
               }
             } else if (isRetreatPhase) {
               // 退却フェーズ: 解体
