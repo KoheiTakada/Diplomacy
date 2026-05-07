@@ -370,13 +370,13 @@ export default function PowerPageClient() {
           router.replace('/');
         }}
       />
-      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col gap-2 overflow-hidden px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
-        {/* Desktop: 3-column | Mobile: Stacked */}
+      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col overflow-hidden px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
+        {/* Desktop: 3-column | Mobile: Stacked with fixed headers/buttons */}
         <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden flex-col lg:flex-row lg:gap-4">
-          {/* Left: Map - 40vw on desktop, full width on mobile */}
+          {/* Left: Map - 40vw on desktop, flex-1 on mobile */}
           <div
-            className="shrink-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] w-full lg:w-[40vw]"
-            style={{ aspectRatio: mapAspectRatio }}
+            className="flex-1 lg:flex-none overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] lg:w-[40vw]"
+            style={{ aspectRatio: mapAspectRatio, minHeight: 0 }}
           >
             <div className="flex h-full flex-col overflow-hidden p-3 sm:p-4">
               <MapView
@@ -394,7 +394,7 @@ export default function PowerPageClient() {
           </div>
 
           {/* Center & Right: Desktop side-by-side | Mobile tabbed */}
-          <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden flex-col lg:flex-row lg:gap-4">
+          <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden flex-col lg:flex-row lg:gap-4" style={{ minHeight: 0 }}>
             {/* Desktop: Center & Right side by side */}
             <div className="hidden lg:flex lg:gap-4 lg:min-h-0 lg:min-w-0 lg:flex-1">
               {/* Center: All-nations unit list or hypothetical */}
@@ -529,6 +529,16 @@ export default function PowerPageClient() {
                   </div>
                 </div>
               )}
+
+              {/* Mobile action button at bottom */}
+              <div className="shrink-0 lg:hidden">
+                <Link
+                  href="/"
+                  className="block w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800"
+                >
+                  メインに戻る
+                </Link>
+              </div>
             </div>
           </div>
         </div>

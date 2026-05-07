@@ -309,7 +309,7 @@ export function MainDiplomacyHome() {
           router.replace('/', { scroll: false });
         }}
       />
-      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col gap-2 overflow-hidden px-3 py-2 sm:gap-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
+      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col overflow-hidden px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
         {onlineSession?.kind === 'host' ? (
           <HostSecretsOverviewModal
             open={hostSecretsModalOpen}
@@ -320,12 +320,12 @@ export function MainDiplomacyHome() {
           />
         ) : null}
 
-        {/* Desktop: 3-column | Mobile: Stacked with tabs */}
-        <div className="flex min-h-0 flex-1 gap-2 overflow-hidden flex-col lg:flex-row">
-          {/* Map: 40vw on desktop, full width on mobile */}
+        {/* Desktop: 3-column | Mobile: Stacked with tabs and fixed buttons */}
+        <div className="flex min-h-0 min-w-0 flex-1 gap-2 overflow-hidden flex-col lg:flex-row lg:gap-2" style={{ minHeight: 0 }}>
+          {/* Map: flex-1 on mobile (big), 40vw on desktop */}
           <div
-            className="shrink-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] w-full lg:w-[40vw]"
-            style={{ aspectRatio: mapAspectRatio }}
+            className="flex-1 lg:flex-none overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] lg:w-[40vw]"
+            style={{ aspectRatio: mapAspectRatio, minHeight: 0 }}
           >
             {boardEditPanelOpen ? (
               <HostBoardEditPanel
@@ -422,10 +422,10 @@ export function MainDiplomacyHome() {
             </div>
           </div>
 
-          {/* Mobile: Tabbed content */}
-          <div className="flex flex-col min-h-0 flex-1 gap-2 lg:hidden">
-            {/* Tab buttons */}
-            <div className="flex gap-2 shrink-0 border-b border-zinc-200 bg-white p-2 rounded-t-2xl">
+          {/* Mobile: Tabbed content with fixed buttons and content */}
+          <div className="flex flex-col min-h-0 flex-1 overflow-hidden lg:hidden" style={{ minHeight: 0 }}>
+            {/* Tab buttons - fixed height */}
+            <div className="flex gap-2 shrink-0 border-b border-zinc-200 bg-white p-2">
               <button
                 onClick={() => setMobileTabActive('log')}
                 className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
