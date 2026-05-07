@@ -371,15 +371,14 @@ export default function PowerPageClient() {
         }}
       />
       <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col overflow-hidden px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
-        {/* Desktop: 3-column (40vw + flex + 268px) | Mobile: Stacked with tabs */}
+        {/* Desktop: 3-column (map maximized + center/treaties minimum) | Mobile: Stacked with tabs */}
         <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden flex-col lg:flex-row" style={{ minHeight: 0, gap: '0.375rem' }}>
-          {/* Left: Map - flex-1 on mobile, 40vw on desktop (fixed) */}
+          {/* Left: Map - flex-1 on mobile, flex-1 on desktop (maximized) */}
           <div
-            className="flex-1 lg:flex-none lg:shrink-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]"
+            className="flex-1 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]"
             style={{
               aspectRatio: mapAspectRatio,
               minHeight: 0,
-              width: '40vw',
             }}
           >
             <div className="flex h-full flex-col overflow-hidden p-3 sm:p-4">
@@ -399,10 +398,10 @@ export default function PowerPageClient() {
 
           {/* Center & Right: Desktop side-by-side | Mobile tabbed */}
           <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden flex-col lg:flex-row" style={{ minHeight: 0, gap: '0.375rem' }}>
-            {/* Desktop: Center & Right side by side */}
-            <div className="hidden lg:flex lg:min-h-0 lg:min-w-0 lg:flex-1 overflow-hidden" style={{ minHeight: 0, gap: '0.375rem' }}>
-              {/* Center: All-nations unit list or hypothetical */}
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+            {/* Desktop: Center & Right side by side (minimum 488px) */}
+            <div className="hidden lg:flex lg:min-h-0 overflow-hidden shrink-0" style={{ minHeight: 0, gap: '0.375rem', minWidth: '488px' }}>
+              {/* Center: All-nations unit list or hypothetical (minimum 220px, can grow) */}
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]" style={{ minWidth: '220px' }}>
                 {showNegotiationHypothetical ? (
                   // 交渉フェーズ: 全勢力の想定行動パネルのみ（単独スクロール）
                   <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">

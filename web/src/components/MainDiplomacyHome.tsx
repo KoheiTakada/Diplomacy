@@ -320,15 +320,14 @@ export function MainDiplomacyHome() {
           />
         ) : null}
 
-        {/* Desktop: 3-column (40vw + 20vw + 40vw) | Mobile: Stacked with tabs */}
+        {/* Desktop: 3-column (map maximized + log/nations minimum) | Mobile: Stacked with tabs */}
         <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden flex-col lg:flex-row" style={{ minHeight: 0, gap: '0.375rem' }}>
-          {/* Map: flex-1 on mobile, 40vw on desktop (fixed) */}
+          {/* Map: flex-1 on mobile, flex-1 on desktop (maximized) */}
           <div
-            className="flex-1 lg:flex-none lg:shrink-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]"
+            className="flex-1 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]"
             style={{
               aspectRatio: mapAspectRatio,
               minHeight: 0,
-              width: '40vw',
             }}
           >
             {boardEditPanelOpen ? (
@@ -353,9 +352,9 @@ export function MainDiplomacyHome() {
           </div>
 
           {/* Desktop: Log and Nations side by side | Mobile: Tabbed */}
-          <div className="hidden lg:flex lg:min-h-0 lg:flex-1 overflow-hidden" style={{ minHeight: 0, gap: '0.375rem' }}>
-            {/* Log - Desktop only (20vw / ~320px) */}
-            <div className="flex w-80 shrink-0 flex-col overflow-hidden">
+          <div className="hidden lg:flex lg:min-h-0 overflow-hidden shrink-0" style={{ minHeight: 0, gap: '0.375rem', minWidth: '360px' }}>
+            {/* Log - Desktop only (minimum 160px) */}
+            <div className="flex shrink-0 flex-col overflow-hidden" style={{ minWidth: '160px' }}>
               <h3 className="text-xs font-semibold text-zinc-500 shrink-0">ログ</h3>
               <section className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white p-2 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
                 {log.length === 0 ? (
@@ -381,8 +380,8 @@ export function MainDiplomacyHome() {
               </section>
             </div>
 
-            {/* Nations list - Desktop only (remaining space / ~40vw) */}
-            <div className="flex flex-1 min-w-0 flex-col min-h-0 overflow-hidden">
+            {/* Nations list - Desktop only (minimum 200px, can grow) */}
+            <div className="flex flex-1 flex-col min-h-0 overflow-hidden" style={{ minWidth: '200px' }}>
               <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
                 <ul className="divide-y divide-zinc-100 text-[11px]">
                   {POWER_ORDER.map((pid, idx) => {
