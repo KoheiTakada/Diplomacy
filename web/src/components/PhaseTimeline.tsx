@@ -91,7 +91,7 @@ export function PhaseTimeline({
 
           {/* Track: completed bar with transition (show first segment on spring negotiation) */}
           <div
-            className="absolute left-0 top-[7px] h-0.5 bg-cyan-500 transition-all duration-500 ease-in-out"
+            className="absolute left-0 top-[7px] h-0.5 bg-orange-500 transition-all duration-500 ease-in-out"
             style={{
               width:
                 currentIndex === 0
