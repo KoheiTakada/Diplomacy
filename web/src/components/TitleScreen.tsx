@@ -233,6 +233,15 @@ export function TitleScreen() {
                   }
                 }}
               />
+              <label className="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
+                <input
+                  type="checkbox"
+                  checked={rememberLogin}
+                  onChange={(e) => setRememberLogin(e.target.checked)}
+                  className="h-4 w-4 rounded border border-zinc-300 cursor-pointer"
+                />
+                <span>ログイン情報を保存する</span>
+              </label>
               {createdOnlineLinks == null ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
@@ -246,6 +255,9 @@ export function TitleScreen() {
                         if (!r.ok) {
                           window.alert(r.error);
                           return;
+                        }
+                        if (rememberLogin) {
+                          saveLoginCookie(r.roomId, r.hostSecret);
                         }
                         setCreatedOnlineLinks(
                           buildOnlineRoomInviteCopyText(
