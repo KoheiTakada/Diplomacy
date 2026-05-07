@@ -32,6 +32,7 @@ import { buildTreatyMapVisuals, canPowerViewTreaty } from '@/diplomacy/treaties'
 import { readOnlineSessionForPowerPageRestore } from '@/lib/onlineSessionBrowser';
 import { buildAdjacencyKeySet } from '@/mapMovement';
 import { POWERS } from '@/miniMap';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
   useCallback,
@@ -335,6 +336,15 @@ export default function PowerPageClient() {
   const mapAspectRatio = '641.66 / 595.28';
   const powerName = POWER_META[powerId]?.label ?? powerId;
 
+  const backButton = (
+    <Link
+      href="/"
+      className="rounded-lg bg-zinc-900 px-4 py-2 text-center text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800"
+    >
+      メインに戻る
+    </Link>
+  );
+
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden font-sans text-zinc-900">
       <AppHeader displayName={powerName} onMenuClick={() => setMenuOpen(true)} />
@@ -345,6 +355,7 @@ export default function PowerPageClient() {
         isRetreatPhase={isRetreatPhase}
         isAdjustmentPhasePanel={isAdjustmentPhasePanel}
         isResolutionRevealing={isResolutionRevealing}
+        rightAction={backButton}
       />
       <HamburgerMenu
         open={menuOpen}

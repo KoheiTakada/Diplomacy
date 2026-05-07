@@ -250,6 +250,29 @@ export function MainDiplomacyHome() {
         ? 'ホスト'
         : 'ローカル';
 
+  const actionButton = isHostOrLocal ? (
+    <button
+      type="button"
+      disabled={
+        (isRetreatPhase && !allPowersRetreatReady) ||
+        (isAdjustmentPhasePanel && !allPowersAdjustmentReady) ||
+        (diplomacyPhase === 'orders' &&
+          (isOrderLocked || !allPowersMovementReady))
+      }
+      onClick={handlePhaseAction}
+      className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
+    >
+      フェーズ進行
+    </button>
+  ) : (
+    <Link
+      href={`/power/${onlineSession?.powerId}`}
+      className="rounded-lg bg-zinc-900 px-4 py-2 text-center text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800"
+    >
+      命令入力
+    </Link>
+  );
+
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden font-sans text-zinc-900">
       <AppHeader displayName={displayName} onMenuClick={() => setMenuOpen(true)} />
@@ -260,6 +283,7 @@ export function MainDiplomacyHome() {
         isRetreatPhase={isRetreatPhase}
         isAdjustmentPhasePanel={isAdjustmentPhasePanel}
         isResolutionRevealing={isResolutionRevealing}
+        rightAction={actionButton}
       />
       <HamburgerMenu
         open={menuOpen}
@@ -348,32 +372,8 @@ export function MainDiplomacyHome() {
             </section>
           </div>
 
-          {/* Right: Nations list + action button */}
+          {/* Right: Nations list */}
           <div className="flex w-52 shrink-0 flex-col gap-2 overflow-hidden">
-            {/* Action button */}
-            {isHostOrLocal ? (
-              <button
-                type="button"
-                disabled={
-                  (isRetreatPhase && !allPowersRetreatReady) ||
-                  (isAdjustmentPhasePanel && !allPowersAdjustmentReady) ||
-                  (diplomacyPhase === 'orders' &&
-                    (isOrderLocked || !allPowersMovementReady))
-                }
-                onClick={handlePhaseAction}
-                className="shrink-0 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
-              >
-                フェーズ進行
-              </button>
-            ) : (
-              <Link
-                href={`/power/${onlineSession?.powerId}`}
-                className="rounded-xl bg-zinc-900 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800"
-              >
-                命令入力
-              </Link>
-            )}
-
             {/* Nations list */}
             <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
               <ul className="divide-y divide-zinc-100">

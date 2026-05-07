@@ -9,6 +9,7 @@ type PhaseTimelineProps = {
   isRetreatPhase: boolean;
   isAdjustmentPhasePanel: boolean;
   isResolutionRevealing: boolean;
+  rightAction?: React.ReactNode;
 };
 
 /**
@@ -25,40 +26,34 @@ function getCurrentPhaseIndex(
   const baseIndex = isFall ? 4 : 0;
 
   if (isAdjustmentPhasePanel) {
-    // Fall のみ有効。Fall + isAdjustmentPhasePanel = index 8
     return 8;
   }
 
   if (isRetreatPhase) {
-    // Spring retreat = 3, Fall retreat = 7
     return baseIndex + 3;
   }
 
   if (isResolutionRevealing) {
-    // Spring resolution = 2, Fall resolution = 6
     return baseIndex + 2;
   }
 
   if (diplomacyPhase === 'orders') {
-    // Spring orders = 1, Fall orders = 5
     return baseIndex + 1;
   }
 
-  // diplomacyPhase === 'negotiation'
-  // Spring negotiation = 0, Fall negotiation = 4
   return baseIndex;
 }
 
 const PHASE_LABELS = [
-  { label: '春交渉', season: Season.Spring },
-  { label: '春命令', season: Season.Spring },
-  { label: '春実行', season: Season.Spring },
-  { label: '春解体', season: Season.Spring },
-  { label: '秋交渉', season: Season.Fall },
-  { label: '秋命令', season: Season.Fall },
-  { label: '秋実行', season: Season.Fall },
-  { label: '秋解体', season: Season.Fall },
-  { label: '秋増産', season: Season.Fall },
+  '春交渉',
+  '春命令',
+  '春実行',
+  '春解体',
+  '秋交渉',
+  '秋命令',
+  '秋実行',
+  '秋解体',
+  '秋増産',
 ];
 
 export function PhaseTimeline({
@@ -68,6 +63,7 @@ export function PhaseTimeline({
   isRetreatPhase,
   isAdjustmentPhasePanel,
   isResolutionRevealing,
+  rightAction,
 }: PhaseTimelineProps) {
   const currentIndex = getCurrentPhaseIndex(
     season,
@@ -80,28 +76,87 @@ export function PhaseTimeline({
   const seasonLabel = season === Season.Spring ? '春' : '秋';
 
   return (
-    <div className="flex shrink-0 items-center gap-4 border-b border-zinc-200 bg-white px-4 py-2 text-xs">
-      <div className="whitespace-nowrap font-semibold text-zinc-700">
+    <div className="flex shrink-0 items-start justify-between gap-6 border-b border-zinc-200 bg-white px-4 py-4">
+      {/* Left: Year/Season */}
+      <div className="whitespace-nowrap font-semibold text-zinc-700 text-sm pt-6">
         {year}年 {seasonLabel}
       </div>
-      <div className="flex items-center gap-1.5">
-        {PHASE_LABELS.map((phase, idx) => (
-          <div key={idx} className="flex flex-col items-center gap-0.5">
-            <div
-              className={`h-2 w-2 rounded-full transition-colors ${
-                idx < currentIndex
-                  ? 'bg-orange-500' // 完了
-                  : idx === currentIndex
-                    ? 'bg-white ring-2 ring-zinc-400' // 現在
-                    : 'bg-zinc-300' // 未来
-              }`}
+
+      {/* Center: Timeline with dots and line */}
+      <div className="flex min-w-0 flex-1 items-start">
+        <div className="relative w-full">
+          {/* SVG for background line and segments */}
+          <svg
+            className="absolute left-0 top-0 h-8 w-full"
+            preserveAspectRatio="none"
+            style={{ pointerEvents: 'none' }}
+          >
+            {/* Completed segment line (blue-teal) */}
+            <line
+              x1={`${(currentIndex / (PHASE_LABELS.length - 1)) * 100}%`}
+              y1="16"
+              x2="0%"
+              y2="16"
+              stroke="#0891b2"
+              strokeWidth="6"
             />
-            {idx % 2 === 0 && (
-              <span className="text-[10px] text-zinc-500">{phase.label}</span>
-            )}
+            {/* Future segment line (gray) */}
+            <line
+              x1={`${(currentIndex / (PHASE_LABELS.length - 1)) * 100}%`}
+              y1="16"
+              x2="100%"
+              y2="16"
+              stroke="#d4d4d8"
+              strokeWidth="6"
+            />
+          </svg>
+
+          {/* Dots and labels */}
+          <div className="relative flex w-full items-start justify-between">
+            {PHASE_LABELS.map((label, idx) => {
+              const isCompleted = idx < currentIndex;
+              const isCurrent = idx === currentIndex;
+              const isFuture = idx > currentIndex;
+
+              return (
+                <div key={idx} className="flex flex-col items-center relative">
+                  {/* Dot */}
+                  <div
+                    className={`h-6 w-6 rounded-full flex items-center justify-center relative z-20 transition-colors ${
+                      isCompleted
+                        ? 'bg-cyan-500 shadow-md'
+                        : isCurrent
+                          ? 'bg-orange-500 ring-2 ring-orange-300 shadow-md'
+                          : 'bg-zinc-300 shadow-sm'
+                    }`}
+                  >
+                    {isCompleted && (
+                      <svg
+                        className="h-4 w-4 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                  {/* Label below dot */}
+                  <span className="mt-3 text-[11px] font-medium text-zinc-700 text-center whitespace-nowrap w-16">
+                    {label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        ))}
+        </div>
       </div>
+
+      {/* Right: Action button */}
+      {rightAction && <div className="shrink-0 pt-1">{rightAction}</div>}
     </div>
   );
 }
