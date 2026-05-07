@@ -606,6 +606,7 @@ function appendUnitShapesToGroup(
     nest.setAttribute('width', String(UNIT_ICON_PX));
     nest.setAttribute('height', String(UNIT_ICON_PX));
     nest.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    nest.setAttribute('data-unit-id', u.id);
     target.appendChild(nest);
   }
 
@@ -677,6 +678,7 @@ export function clampViewBoxToMapExtent(v: ViewBox, extent: ViewBox): ViewBox {
  * @param previousBoard - 直前の盤面。指定時、同一ユニットの座標変化に移動アニメーションを付ける
  * @param mapEffects - スタンドオフ・コンボイなど盤面だけでは足りない演出
  * @param highlightedProvinceIds - 強調表示するプロヴィンスのセット（盤面修正パネル用）
+ * @param disbandedUnitIds - 削減予定のユニットID（グレー表示）
  */
 export function applyBoardOverlay(
   svg: SVGSVGElement,
@@ -687,6 +689,8 @@ export function applyBoardOverlay(
   mapEffects: readonly MapVisualEffect[] | null,
   staticSupportCountByUnitId?: Record<string, number>,
   highlightedProvinceIds?: ReadonlySet<string>,
+  extraUnits?: readonly Pick<Unit, 'id' | 'type' | 'powerId' | 'provinceId'>[],
+  disbandedUnitIds?: ReadonlySet<string>,
 ): void {
   applyProvinceOccupationFills(svg, board);
 
@@ -816,7 +820,10 @@ export function applyBoardOverlay(
     }
   }
 
-  for (const u of board.units) {
+  // board.units と extraUnits を結合（extraUnits は仮ユニット）
+  const allUnits = [...board.units, ...(extraUnits ?? [])];
+
+  for (const u of allUnits) {
     const pos = mapAnchorForUnit(layers, u);
     if (!pos) {
       continue;
@@ -829,6 +836,21 @@ export function applyBoardOverlay(
 
     const g = document.createElementNS(SVG_NS, 'g');
     g.setAttribute('data-unit-id', u.id);
+    g.setAttribute('pointer-events', 'auto');
+
+    // 仮ユニット（extraUnits）の場合は不透明度を下げる
+    const isExtraUnit = extraUnits?.some((eu) => eu.id === u.id) ?? false;
+    if (isExtraUnit) {
+      g.setAttribute('opacity', '0.6');
+    }
+
+    // 削減予定のユニットの場合はグレーアウト
+    const isDisbanded = disbandedUnitIds?.has(u.id) ?? false;
+    if (isDisbanded) {
+      g.setAttribute('opacity', '0.5');
+      g.setAttribute('filter', 'grayscale(100%)');
+    }
+
     const unitColor = POWER_COLORS[u.powerId] ?? '#334155';
     const badgeStage = getSupportBadgeStageForUnit(u.id);
     const staticBoost = staticSupportCountByUnitId?.[u.id] ?? 0;

@@ -26,12 +26,15 @@ import { PowerTreatyPanel } from '@/components/PowerTreatyPanel';
 import { AppHeader } from '@/components/AppHeader';
 import { PhaseTimeline } from '@/components/PhaseTimeline';
 import { HamburgerMenu } from '@/components/HamburgerMenu';
+import { FlyoutMenu } from '@/components/FlyoutMenu';
 import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
-import { mergePowerPageOrderPreview, POWER_META, type UnitOrderInput } from '@/diplomacy/gameHelpers';
+import { mergePowerPageOrderPreview, POWER_META, type UnitOrderInput, type BuildSlot, type DisbandSlot, getReachableProvinces, emptyOrder, disbandNeed, buildCapacity, countUnits } from '@/diplomacy/gameHelpers';
+import { OrderType, UnitType } from '@/domain';
 import { buildTreatyMapVisuals, canPowerViewTreaty } from '@/diplomacy/treaties';
 import { readOnlineSessionForPowerPageRestore } from '@/lib/onlineSessionBrowser';
 import { buildAdjacencyKeySet } from '@/mapMovement';
 import { POWERS } from '@/miniMap';
+import { useLocalHypotheticalOrders } from '@/hooks/useLocalHypotheticalOrders';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -43,27 +46,6 @@ import {
   type SetStateAction,
 } from 'react';
 
-/** 想定パターンタブ用の一意 ID */
-function newHypotheticalScenarioId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return `hyp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-/** 初期タブ3つ分の空シナリオ */
-function createDefaultHypotheticalScenarios(): HypotheticalScenarioState[] {
-  return [1, 2, 3].map((n) => ({
-    id: newHypotheticalScenarioId(),
-    label: `パターン ${n}`,
-    orders: {},
-  }));
-}
-
-type HypotheticalUiState = {
-  scenarios: HypotheticalScenarioState[];
-  activeIndex: number;
-};
 
 /**
  * 勢力別ページの対話 UI。
@@ -93,8 +75,8 @@ export default function PowerPageClient() {
     joinOnlineGame,
     reportUnexpectedTitleNavigation,
     treaties,
-    hypotheticalScenarios: savedScenarios,
-    setHypotheticalScenarios,
+    buildPlan,
+    disbandPlan,
   } = g;
   const [isRestoringSession, setIsRestoringSession] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -103,15 +85,83 @@ export default function PowerPageClient() {
   // スマートフォン版のタブ状態（"orders" or "treaties"）
   const [mobileCenterTabActive, setMobileCenterTabActive] = useState<'orders' | 'treaties'>('orders');
 
-  const [hypotheticalUi, setHypotheticalUi] = useState<HypotheticalUiState>(
-    () => ({
-      scenarios: savedScenarios.length > 0 ? savedScenarios : createDefaultHypotheticalScenarios(),
-      activeIndex: 0,
-    }),
-  );
+  // フライアウトメニュー状態管理
+  const [flyout, setFlyout] = useState<{ open: boolean; unitId: string; anchorX: number; anchorY: number } | null>(null);
+  // フライアウトのステップ: null = フライアウトなし, 'menu' = メニュー表示中, 'moveSelect' = 移動先選択中, etc
+  const [flyoutStep, setFlyoutStep] = useState<'menu' | 'moveSelect' | 'convoyedSelect' | 'supportTarget' | 'convoyTarget' | null>(null);
+  // 移動可能なプロビンスID（フライアウトで移動を選択したときのみ設定）
+  const [reachableProvinceIds, setReachableProvinceIds] = useState<Set<string> | null>(null);
 
-  const activeHypotheticalOrders =
-    hypotheticalUi.scenarios[hypotheticalUi.activeIndex]?.orders ?? {};
+  // クリック状態: 何を待っているか
+  // 'default' = ユニット選択待ち (フライアウト閉じている)
+  // 'province' = プロビンス選択待ち (移動先など)
+  // 'unit' = ユニット選択待ち (支援対象など)
+  const [awaitingInputFor, setAwaitingInputFor] = useState<'default' | 'province' | 'unit'>('default');
+
+  // 支援/輸送対象ユニット選択時の中間状態
+  const [pendingOrderState, setPendingOrderState] = useState<{
+    kind: 'support' | 'convoy';
+    targetUnitId: string;
+  } | null>(null);
+
+  // 他国ユニット用フライアウト（各勢力ページのローカル state）
+  const [hypotheticalFlyout, setHypotheticalFlyout] = useState<{ open: boolean; unitId: string; anchorX: number; anchorY: number } | null>(null);
+  const [hypotheticalFlyoutStep, setHypotheticalFlyoutStep] = useState<'menu' | 'moveSelect' | 'supportTarget' | 'convoyTarget' | null>(null);
+  const [hypotheticalAwaitingInputFor, setHypotheticalAwaitingInputFor] = useState<'default' | 'province' | 'unit'>('default');
+  const [hypotheticalPendingOrderState, setHypotheticalPendingOrderState] = useState<{
+    kind: 'support' | 'convoy';
+    targetUnitId: string;
+  } | null>(null);
+  const [hypotheticalReachableProvinceIds, setHypotheticalReachableProvinceIds] = useState<Set<string> | null>(null);
+
+  // ローカル（localStorage で永続化）の想定行動：この国のページでのみ有効
+  const {
+    scenarios: hypotheticalScenarios,
+    activeIndex: hypotheticalActiveIndex,
+    isLoaded: hypotheticalIsLoaded,
+    selectScenario: selectHypotheticalScenario,
+    addScenario: addHypotheticalScenario,
+    updateOrders: updateHypotheticalOrders,
+  } = useLocalHypotheticalOrders(powerId);
+
+  const activeHypotheticalOrders = useMemo(() => {
+    return hypotheticalScenarios[hypotheticalActiveIndex]?.orders ?? {};
+  }, [hypotheticalScenarios, hypotheticalActiveIndex]);
+
+  // 仮ユニット（増産フェーズで新規追加）
+  const pendingBuildUnits = useMemo(() => {
+    if (!isAdjustmentPhasePanel) return [];
+    const slots = buildPlan[powerId] ?? [];
+    return slots.map((slot) => ({
+      id: `_new_${slot.provinceId}`,
+      type: slot.unitType,
+      powerId,
+      provinceId: slot.provinceId,
+    } as const));
+  }, [buildPlan, powerId, isAdjustmentPhasePanel]);
+
+  // 削減が必要か判定
+  const needsDisband = useMemo(() => {
+    return disbandNeed(board, powerId) > 0;
+  }, [board, powerId]);
+
+  // 増産可能数を計算
+  const buildCap = useMemo(() => {
+    return buildCapacity(board, powerId);
+  }, [board, powerId]);
+
+  // 実際の増産可能数（既存計画を差し引く）
+  const remainingBuildCapacity = useMemo(() => {
+    const planned = buildPlan[powerId]?.length ?? 0;
+    return Math.max(0, buildCap - planned);
+  }, [buildCap, buildPlan, powerId]);
+
+  // 削減予定のユニットID
+  const disbandedUnitIds = useMemo(() => {
+    if (!isAdjustmentPhasePanel) return new Set<string>();
+    const slots = disbandPlan[powerId] ?? [];
+    return new Set(slots.map((slot) => slot.unitId));
+  }, [disbandPlan, powerId, isAdjustmentPhasePanel]);
 
   // ref で常に最新の activeHypotheticalOrders を追跡（フェーズ遷移時に使用）
   const activeHypotheticalOrdersRef = useRef(activeHypotheticalOrders);
@@ -119,32 +169,49 @@ export default function PowerPageClient() {
   const prevDiplomacyPhaseRef = useRef(diplomacyPhase);
   const workbenchScrollRef = useRef<HTMLDivElement>(null);
 
-  const setActiveHypotheticalOrders = useCallback(
-    (action: SetStateAction<Record<string, UnitOrderInput>>) => {
-      setHypotheticalUi((s) => {
-        const i = s.activeIndex;
-        const sc = s.scenarios[i];
-        if (!sc) {
-          return s;
-        }
-        const nextOrders =
-          typeof action === 'function' ? action(sc.orders) : action;
-        const scenarios = s.scenarios.slice();
-        scenarios[i] = { ...sc, orders: nextOrders };
-        return { ...s, scenarios };
-      });
-    },
-    [],
-  );
+  // フライアウト用の補助計算
+  const currentUnit = useMemo(() => {
+    if (!flyout) return null;
+    // board.units から探す
+    const unit = board.units.find((u) => u.id === flyout.unitId);
+    if (unit) return unit;
+    // pendingBuildUnits から探す（仮ユニット）
+    const pendingUnit = pendingBuildUnits.find((u) => u.id === flyout.unitId);
+    return pendingUnit ?? null;
+  }, [flyout, board.units, pendingBuildUnits]);
+  const supportableUnits = useMemo(() => {
+    if (!currentUnit) return [];
+    // 現在のユニットが支援可能な他のユニット
+    return board.units.filter((u) => u.powerId === powerId && u.id !== currentUnit.id);
+  }, [currentUnit, board.units, powerId]);
+
+  const convoyableArmies = useMemo(() => {
+    if (!currentUnit || currentUnit.type !== UnitType.Fleet) return [];
+    // 現在のユニット（海軍）が輸送可能な陸軍
+    return board.units.filter((u) => u.powerId === powerId && u.type === UnitType.Army);
+  }, [currentUnit, board.units, powerId]);
+
+  const retreatOptions = useMemo(() => {
+    if (!currentUnit || !isRetreatPhase) return [];
+    // 後で retreat logic を実装
+    return [];
+  }, [currentUnit, isRetreatPhase]);
+
+  // フライアウト確定時に markPowerOrderSaved を遅延実行するフラグ
+  const pendingMarkSavedRef = useRef<string | null>(null);
+
+  // unitOrders が変わったら、pending markSaved をチェック
+  useEffect(() => {
+    if (pendingMarkSavedRef.current) {
+      g.markPowerOrderSaved(pendingMarkSavedRef.current);
+      pendingMarkSavedRef.current = null;
+    }
+  }, [unitOrders, g]);
 
   const handleSelectHypotheticalScenario = useCallback((index: number) => {
-    setHypotheticalUi((s) => ({
-      ...s,
-      activeIndex: Math.max(0, Math.min(index, s.scenarios.length - 1)),
-    }));
+    selectHypotheticalScenario(index);
     // 命令フェーズ中にパターンを切り替えたら、自国命令も切り替わる
-    const nextIndex = Math.max(0, Math.min(index, hypotheticalUi.scenarios.length - 1));
-    const nextScenario = hypotheticalUi.scenarios[nextIndex];
+    const nextScenario = hypotheticalScenarios[index];
     if (nextScenario != null && diplomacyPhase === 'orders') {
       setUnitOrders((cur) => {
         const next = { ...cur };
@@ -161,41 +228,20 @@ export default function PowerPageClient() {
         return next;
       });
     }
-  }, [hypotheticalUi.scenarios, diplomacyPhase, board, powerId, setUnitOrders]);
+  }, [hypotheticalScenarios, diplomacyPhase, board, powerId, setUnitOrders, selectHypotheticalScenario]);
 
   const handleAddHypotheticalScenario = useCallback(() => {
-    setHypotheticalUi((s) => {
-      const nextNum = s.scenarios.length + 1;
-      return {
-        scenarios: [
-          ...s.scenarios,
-          {
-            id: newHypotheticalScenarioId(),
-            label: `パターン ${nextNum}`,
-            orders: {},
-          },
-        ],
-        activeIndex: s.scenarios.length,
-      };
-    });
-  }, []);
-
-  // 想定行動パターンを Context に保存
-  useEffect(() => {
-    setHypotheticalScenarios(hypotheticalUi.scenarios);
-  }, [hypotheticalUi.scenarios, setHypotheticalScenarios]);
+    addHypotheticalScenario();
+  }, [addHypotheticalScenario]);
 
   // 命令フェーズ中に unitOrders が変更されたら、現在のパターンに自国分を反映
   useEffect(() => {
     // 命令フェーズのみ（isMovementPhase && diplomacyPhase === 'orders'）
     const isMovement = !isOrderLocked && !isAdjustmentPhasePanel && !isRetreatPhase;
-    if (!(isMovement && diplomacyPhase === 'orders')) return;
-    setHypotheticalUi((s) => {
-      const i = s.activeIndex;
-      const sc = s.scenarios[i];
-      if (!sc) return s;
-      // 現在のパターンの orders を更新（自国分のみ）
-      const nextOrders = { ...sc.orders };
+    if (!(isMovement && diplomacyPhase === 'orders' && hypotheticalIsLoaded)) return;
+
+    updateHypotheticalOrders((current) => {
+      const nextOrders = { ...current };
       let changed = false;
       for (const u of board.units) {
         if (u.powerId === powerId) {
@@ -211,12 +257,9 @@ export default function PowerPageClient() {
           }
         }
       }
-      if (!changed) return s;
-      const scenarios = s.scenarios.slice();
-      scenarios[i] = { ...sc, orders: nextOrders };
-      return { ...s, scenarios };
+      return changed ? nextOrders : current;
     });
-  }, [unitOrders, diplomacyPhase, isOrderLocked, isAdjustmentPhasePanel, isRetreatPhase, board, powerId]);
+  }, [unitOrders, diplomacyPhase, isOrderLocked, isAdjustmentPhasePanel, isRetreatPhase, board, powerId, hypotheticalIsLoaded, updateHypotheticalOrders]);
 
   const orderAdjKeys = useMemo(() => buildAdjacencyKeySet(board), [board]);
 
@@ -241,7 +284,7 @@ export default function PowerPageClient() {
   useEffect(() => {
     const prev = prevDiplomacyPhaseRef.current;
     prevDiplomacyPhaseRef.current = diplomacyPhase;
-    if (prev !== 'negotiation' || diplomacyPhase !== 'orders') return;
+    if (prev !== 'negotiation' || diplomacyPhase !== 'orders' || !hypotheticalIsLoaded) return;
     const hypotheticals = activeHypotheticalOrdersRef.current;
     setUnitOrders((cur) => {
       const next = { ...cur };
@@ -257,7 +300,7 @@ export default function PowerPageClient() {
       }
       return next;
     });
-  }, [diplomacyPhase, board, powerId, setUnitOrders]);
+  }, [diplomacyPhase, board, powerId, setUnitOrders, hypotheticalIsLoaded]);
 
   const orderPreviewMerged = useMemo(() => {
     if (!isMovementPhase) {
@@ -281,6 +324,7 @@ export default function PowerPageClient() {
     isMovementPhase,
     showNegotiationHypothetical,
   ]);
+
 
   useEffect(() => {
     if (!powerId || !POWERS.includes(powerId)) {
@@ -389,9 +433,178 @@ export default function PowerPageClient() {
                 pendingMapEffectsRef={pendingMapEffectsRef}
                 orderPreviewMerged={orderPreviewMerged}
                 treatyVisuals={powerTreatyMapVisuals}
-                onUnitClick={(uid) => {
-                  const el = workbenchScrollRef.current?.querySelector(`#unit-panel-${uid}`);
-                  el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                extraUnits={isAdjustmentPhasePanel ? pendingBuildUnits : undefined}
+                disbandedUnitIds={isAdjustmentPhasePanel ? disbandedUnitIds : undefined}
+                onUnitClick={(uid, clientX, clientY) => {
+                  // board.units から探す
+                  const clickedUnit = board.units.find((u) => u.id === uid);
+
+                  // 仮ユニット（増産フェーズの新規）の処理
+                  if (!clickedUnit && uid.startsWith('_new_') && isAdjustmentPhasePanel) {
+                    const pendingUnit = pendingBuildUnits.find((u) => u.id === uid);
+                    if (pendingUnit) {
+                      // 訂正フライアウトを開く
+                      setFlyout({ open: true, unitId: uid, anchorX: clientX, anchorY: clientY });
+                    }
+                    return;
+                  }
+
+                  // board に存在しないユニットは無視
+                  if (!clickedUnit) return;
+
+                  // 自国ユニットの処理（移動フェーズなら常に開く）
+                  if (clickedUnit.powerId === powerId) {
+                    if (awaitingInputFor === 'unit' && flyout) {
+                      // 支援対象や輸送対象ユニット選択中
+                      // 選択したユニットを記憶して、次はプロビンス選択待ち
+                      if (flyoutStep === 'supportTarget') {
+                        setPendingOrderState({ kind: 'support', targetUnitId: uid });
+                      } else if (flyoutStep === 'convoyTarget') {
+                        setPendingOrderState({ kind: 'convoy', targetUnitId: uid });
+                      }
+                      setAwaitingInputFor('province');
+                    } else if (awaitingInputFor === 'default' || isMovementPhase) {
+                      // 通常: ユニットをクリックしてフライアウトを開く
+                      // 移動フェーズなら常に開く（交渉フェーズでも自国入力可能）
+                      // 増産フェーズなら削減が必要な場合のみ既存ユニット操作可能
+                      if (!isAdjustmentPhasePanel || needsDisband) {
+                        setFlyout({ open: true, unitId: uid, anchorX: clientX, anchorY: clientY });
+                        const el = workbenchScrollRef.current?.querySelector(`#unit-panel-${uid}`);
+                        el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                      }
+                    }
+                    // awaitingInputFor === 'province' の場合はクリック無視
+                  } else if (isMovementPhase) {
+                    // 他国ユニット（交渉フェーズまたは命令フェーズ、ローカル state のみ）
+                    if (hypotheticalAwaitingInputFor === 'unit' && hypotheticalFlyout) {
+                      // 支援対象や輸送対象ユニット選択中
+                      if (hypotheticalFlyoutStep === 'supportTarget') {
+                        setHypotheticalPendingOrderState({ kind: 'support', targetUnitId: uid });
+                      } else if (hypotheticalFlyoutStep === 'convoyTarget') {
+                        setHypotheticalPendingOrderState({ kind: 'convoy', targetUnitId: uid });
+                      }
+                      setHypotheticalAwaitingInputFor('province');
+                    } else if (hypotheticalAwaitingInputFor === 'default') {
+                      // 他国フライアウトを開く
+                      setHypotheticalFlyout({ open: true, unitId: uid, anchorX: clientX, anchorY: clientY });
+                    }
+                  }
+                }}
+                onProvinceClick={(provinceId, clientX, clientY) => {
+                  // 状態による処理の分岐
+                  if (awaitingInputFor === 'province' && flyout) {
+                    // 移動先や輸送先プロビンス選択中
+                    // 移動/被輸送の場合、移動可能性を検証
+                    if ((flyoutStep === 'moveSelect' || flyoutStep === 'convoyedSelect') && reachableProvinceIds) {
+                      if (!reachableProvinceIds.has(provinceId)) {
+                        // 移動不可なプロビンス → クリック無視
+                        return;
+                      }
+                    }
+                    // 状態リセットを最後に行う
+                    if (pendingOrderState?.kind === 'support' && pendingOrderState.targetUnitId) {
+                      // 支援命令を確定
+                      g.updateOrder(flyout.unitId, {
+                        type: OrderType.Support,
+                        supportedUnitId: pendingOrderState.targetUnitId,
+                        supportToProvinceId: provinceId,
+                      });
+                    } else if (pendingOrderState?.kind === 'convoy' && pendingOrderState.targetUnitId) {
+                      // 輸送命令を確定
+                      g.updateOrder(flyout.unitId, {
+                        type: OrderType.Convoy,
+                        convoyArmyId: pendingOrderState.targetUnitId,
+                        convoyToProvinceId: provinceId,
+                      });
+                    } else {
+                      // 移動命令を確定
+                      g.updateOrder(flyout.unitId, { targetProvinceId: provinceId });
+                    }
+                    // 交渉フェーズでは自国想定行動も想定行動ローカルストレージに反映
+                    if (showNegotiationHypothetical) {
+                      updateHypotheticalOrders((prev) => ({
+                        ...prev,
+                        [flyout.unitId]: { ...prev[flyout.unitId] ?? emptyOrder(), ...((pendingOrderState?.kind === 'support' && pendingOrderState.targetUnitId) ? {
+                          type: OrderType.Support,
+                          supportedUnitId: pendingOrderState.targetUnitId,
+                          supportToProvinceId: provinceId,
+                        } : (pendingOrderState?.kind === 'convoy' && pendingOrderState.targetUnitId) ? {
+                          type: OrderType.Convoy,
+                          convoyArmyId: pendingOrderState.targetUnitId,
+                          convoyToProvinceId: provinceId,
+                        } : {
+                          type: OrderType.Move,
+                          targetProvinceId: provinceId,
+                        }) },
+                      }));
+                    } else {
+                      // オンライン同期: unitOrders 更新完了後に markPowerOrderSaved を呼ぶ
+                      // updateOrder は非同期で setUnitOrders をスケジュールするため、
+                      // useEffect で unitOrders 変化を監視して markPowerOrderSaved を呼ぶ
+                      pendingMarkSavedRef.current = powerId;
+                    }
+                    // 状態リセット
+                    setFlyout(null);
+                    setAwaitingInputFor('default');
+                    setFlyoutStep(null);
+                    setPendingOrderState(null);
+                    setReachableProvinceIds(null);
+                  } else if (awaitingInputFor === 'default' && !flyout) {
+                    // フライアウトが閉じていてプロビンスをクリック → 増産フェーズなら開く
+                    if (isAdjustmentPhasePanel && remainingBuildCapacity > 0) {
+                      // 空のプロビンス → フライアウト開く（陸軍/海軍を選択）
+                      setFlyout({ open: true, unitId: provinceId, anchorX: clientX, anchorY: clientY });
+                    }
+                  }
+                  // awaitingInputFor === 'default' かつ flyout が開いている場合はクリック無視
+                  // (フライアウト内のボタンで処理される)
+
+                  // 他国プロビンス選択（ローカル想定行動のみ）
+                  if (hypotheticalAwaitingInputFor === 'province' && hypotheticalFlyout && isMovementPhase) {
+                    // 他国の移動/支援/輸送先プロビンス選択中
+                    if ((hypotheticalFlyoutStep === 'moveSelect') && hypotheticalReachableProvinceIds) {
+                      if (!hypotheticalReachableProvinceIds.has(provinceId)) {
+                        // 移動不可なプロビンス → クリック無視
+                        return;
+                      }
+                    }
+                    // ローカル state に想定行動を更新（サーバー同期しない）
+                    if (hypotheticalPendingOrderState?.kind === 'support' && hypotheticalPendingOrderState.targetUnitId) {
+                      // 支援命令
+                      updateHypotheticalOrders((prev) => ({
+                        ...prev,
+                        [hypotheticalFlyout.unitId]: {
+                          ...emptyOrder(),
+                          type: OrderType.Support,
+                          supportedUnitId: hypotheticalPendingOrderState.targetUnitId,
+                          supportToProvinceId: provinceId,
+                        },
+                      }));
+                    } else if (hypotheticalPendingOrderState?.kind === 'convoy' && hypotheticalPendingOrderState.targetUnitId) {
+                      // 輸送命令
+                      updateHypotheticalOrders((prev) => ({
+                        ...prev,
+                        [hypotheticalFlyout.unitId]: {
+                          ...emptyOrder(),
+                          type: OrderType.Convoy,
+                          convoyArmyId: hypotheticalPendingOrderState.targetUnitId,
+                          convoyToProvinceId: provinceId,
+                        },
+                      }));
+                    } else {
+                      // 移動命令
+                      updateHypotheticalOrders((prev) => ({
+                        ...prev,
+                        [hypotheticalFlyout.unitId]: { ...emptyOrder(), type: OrderType.Move, targetProvinceId: provinceId },
+                      }));
+                    }
+                    // 状態リセット
+                    setHypotheticalFlyout(null);
+                    setHypotheticalAwaitingInputFor('default');
+                    setHypotheticalFlyoutStep(null);
+                    setHypotheticalPendingOrderState(null);
+                    setHypotheticalReachableProvinceIds(null);
+                  }
                 }}
               />
             </div>
@@ -403,7 +616,7 @@ export default function PowerPageClient() {
             <div className="hidden lg:flex lg:min-h-0 overflow-hidden flex-1" style={{ minHeight: 0, gap: '0.375rem' }}>
               {/* Center: All-nations unit list or hypothetical (flex-1, grows with available space) */}
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
-                {showNegotiationHypothetical ? (
+                {showNegotiationHypothetical && hypotheticalIsLoaded ? (
                   // 交渉フェーズ: 全勢力の想定行動パネルのみ（単独スクロール）
                   <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
                     <HypotheticalForeignOrdersPanel
@@ -411,12 +624,12 @@ export default function PowerPageClient() {
                       includeSelf={true}
                       board={board}
                       orderAdjKeys={orderAdjKeys}
-                      scenarios={hypotheticalUi.scenarios}
-                      activeScenarioIndex={hypotheticalUi.activeIndex}
+                      scenarios={hypotheticalScenarios as HypotheticalScenarioState[]}
+                      activeScenarioIndex={hypotheticalActiveIndex}
                       onSelectScenario={handleSelectHypotheticalScenario}
                       onAddScenario={handleAddHypotheticalScenario}
                       hypotheticalOrders={activeHypotheticalOrders}
-                      setHypotheticalOrders={setActiveHypotheticalOrders}
+                      setHypotheticalOrders={updateHypotheticalOrders}
                     />
                   </div>
                 ) : (
@@ -426,18 +639,18 @@ export default function PowerPageClient() {
                     powerId={powerId}
                     showMainPageLink={onlineSession == null}
                     scrollAppendContent={
-                      showOrdersInput ? (
+                      showOrdersInput && hypotheticalIsLoaded ? (
                         <HypotheticalForeignOrdersPanel
                           powerId={powerId}
                           includeSelf={false}
                           board={board}
                           orderAdjKeys={orderAdjKeys}
-                          scenarios={hypotheticalUi.scenarios}
-                          activeScenarioIndex={hypotheticalUi.activeIndex}
+                          scenarios={hypotheticalScenarios as HypotheticalScenarioState[]}
+                          activeScenarioIndex={hypotheticalActiveIndex}
                           onSelectScenario={handleSelectHypotheticalScenario}
                           onAddScenario={handleAddHypotheticalScenario}
                           hypotheticalOrders={activeHypotheticalOrders}
-                          setHypotheticalOrders={setActiveHypotheticalOrders}
+                          setHypotheticalOrders={updateHypotheticalOrders}
                         />
                       ) : undefined
                     }
@@ -483,7 +696,7 @@ export default function PowerPageClient() {
               {/* Tab content */}
               {mobileCenterTabActive === 'orders' && (
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                  {showNegotiationHypothetical ? (
+                  {showNegotiationHypothetical && hypotheticalIsLoaded ? (
                     // 交渉フェーズ: 全勢力の想定行動パネルのみ（単独スクロール）
                     <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
                       <HypotheticalForeignOrdersPanel
@@ -491,12 +704,12 @@ export default function PowerPageClient() {
                         includeSelf={true}
                         board={board}
                         orderAdjKeys={orderAdjKeys}
-                        scenarios={hypotheticalUi.scenarios}
-                        activeScenarioIndex={hypotheticalUi.activeIndex}
+                        scenarios={hypotheticalScenarios as HypotheticalScenarioState[]}
+                        activeScenarioIndex={hypotheticalActiveIndex}
                         onSelectScenario={handleSelectHypotheticalScenario}
                         onAddScenario={handleAddHypotheticalScenario}
                         hypotheticalOrders={activeHypotheticalOrders}
-                        setHypotheticalOrders={setActiveHypotheticalOrders}
+                        setHypotheticalOrders={updateHypotheticalOrders}
                       />
                     </div>
                   ) : (
@@ -505,18 +718,18 @@ export default function PowerPageClient() {
                       powerId={powerId}
                       showMainPageLink={onlineSession == null}
                       scrollAppendContent={
-                        showOrdersInput ? (
+                        showOrdersInput && hypotheticalIsLoaded ? (
                           <HypotheticalForeignOrdersPanel
                             powerId={powerId}
                             includeSelf={false}
                             board={board}
                             orderAdjKeys={orderAdjKeys}
-                            scenarios={hypotheticalUi.scenarios}
-                            activeScenarioIndex={hypotheticalUi.activeIndex}
+                            scenarios={hypotheticalScenarios as HypotheticalScenarioState[]}
+                            activeScenarioIndex={hypotheticalActiveIndex}
                             onSelectScenario={handleSelectHypotheticalScenario}
                             onAddScenario={handleAddHypotheticalScenario}
                             hypotheticalOrders={activeHypotheticalOrders}
-                            setHypotheticalOrders={setActiveHypotheticalOrders}
+                            setHypotheticalOrders={updateHypotheticalOrders}
                           />
                         ) : undefined
                       }
@@ -547,6 +760,267 @@ export default function PowerPageClient() {
           </div>
         </div>
       </main>
+
+      {/* フライアウトメニュー */}
+      {flyout && board && (
+        <FlyoutMenu
+          open={flyout.open}
+          anchorX={flyout.anchorX}
+          anchorY={flyout.anchorY}
+          onClose={() => {
+            setFlyout(null);
+            setAwaitingInputFor('default');
+            setFlyoutStep(null);
+            setPendingOrderState(null);
+            setReachableProvinceIds(null);
+          }}
+          phase={isRetreatPhase ? 'retreat' : isAdjustmentPhasePanel ? 'adjustment' : 'movement'}
+          unitId={flyout.unitId}
+          unit={currentUnit ?? null}
+          step={flyoutStep as any}
+          supportableUnits={supportableUnits}
+          convoyableArmies={convoyableArmies}
+          retreatOptions={retreatOptions}
+          isDisbandPending={
+            isAdjustmentPhasePanel &&
+            !flyout.unitId.startsWith('_new_') &&
+            (disbandPlan[powerId] ?? []).some((slot) => slot.unitId === flyout.unitId)
+          }
+          onHold={(uid) => {
+            g.changeOrderType(uid, OrderType.Hold);
+            pendingMarkSavedRef.current = powerId;
+            setFlyout(null);
+            setAwaitingInputFor('default');
+            setFlyoutStep(null);
+            setReachableProvinceIds(null);
+          }}
+          onMoveStart={(uid) => {
+            g.changeOrderType(uid, OrderType.Move);
+            setFlyoutStep('moveSelect');
+            setAwaitingInputFor('province');
+            // 移動可能なプロビンスを計算
+            const unit = board.units.find((u) => u.id === uid);
+            if (unit) {
+              const reachableProvinces = getReachableProvinces(board, unit, orderAdjKeys);
+              const reachableIds = new Set(reachableProvinces.map((p) => p.id));
+              setReachableProvinceIds(reachableIds);
+            }
+          }}
+          onConvoyedMoveStart={(uid) => {
+            // 被輸送の場合も移動先プロビンス選択
+            g.changeOrderType(uid, OrderType.Move);
+            setFlyoutStep('convoyedSelect');
+            setAwaitingInputFor('province');
+            // 被輸送の場合も移動可能なプロビンスを計算
+            const unit = board.units.find((u) => u.id === uid);
+            if (unit) {
+              const reachableProvinces = getReachableProvinces(board, unit, orderAdjKeys);
+              const reachableIds = new Set(reachableProvinces.map((p) => p.id));
+              setReachableProvinceIds(reachableIds);
+            }
+          }}
+          onSupportStart={(uid) => {
+            // 支援対象ユニット選択へ
+            g.changeOrderType(uid, OrderType.Support);
+            setFlyoutStep('supportTarget');
+            setAwaitingInputFor('unit');
+            setReachableProvinceIds(null);
+          }}
+          onSupportUnitSelected={(targetUnitId) => {
+            setPendingOrderState({ kind: 'support', targetUnitId });
+            setAwaitingInputFor('province');
+            // プロビンス選択待ち UI に切り替え
+            setFlyoutStep('moveSelect');
+          }}
+          onConvoyStart={(uid) => {
+            // 輸送対象陸軍選択へ
+            g.changeOrderType(uid, OrderType.Convoy);
+            setFlyoutStep('convoyTarget');
+            setAwaitingInputFor('unit');
+            setReachableProvinceIds(null);
+          }}
+          onConvoyUnitSelected={(targetUnitId) => {
+            setPendingOrderState({ kind: 'convoy', targetUnitId });
+            setAwaitingInputFor('province');
+            // プロビンス選択待ち UI に切り替え
+            setFlyoutStep('moveSelect');
+          }}
+          onBackToMenu={() => {
+            setFlyoutStep('menu');
+            setAwaitingInputFor('default');
+            setPendingOrderState(null);
+            setReachableProvinceIds(null);
+          }}
+          onRetreatChoice={(uid, destProvId) => {
+            g.setRetreatTargets((prev) => ({
+              ...prev,
+              [uid]: destProvId,
+            }));
+            setFlyout(null);
+            setAwaitingInputFor('default');
+            setFlyoutStep(null);
+            setReachableProvinceIds(null);
+          }}
+          onDisband={(uid) => {
+            if (isAdjustmentPhasePanel) {
+              // 増産取り消し: buildPlan から削除
+              if (uid.startsWith('_new_')) {
+                const provId = uid.substring('_new_'.length);
+                g.setBuildPlan((prev) => {
+                  const prevSlots = prev[powerId] ? [...prev[powerId]] : [];
+                  const newSlots = prevSlots.filter((slot) => slot.provinceId !== provId);
+                  return { ...prev, [powerId]: newSlots };
+                });
+              }
+            } else if (isRetreatPhase) {
+              // 退却フェーズ: 解体
+              g.setDisbandPlan((prev) => {
+                const prevSlots = prev[powerId] ? [...prev[powerId]] : [];
+                prevSlots.push({ unitId: uid });
+                return { ...prev, [powerId]: prevSlots };
+              });
+            }
+            setFlyout(null);
+            setAwaitingInputFor('default');
+            setFlyoutStep(null);
+            setReachableProvinceIds(null);
+          }}
+          onBuild={(provId, unitType) => {
+            // 増産可能数をチェック
+            if (remainingBuildCapacity <= 0) {
+              // 増産可能数が0以下なら処理しない
+              setFlyout(null);
+              return;
+            }
+            g.setBuildPlan((prev) => {
+              const prevSlots = prev[powerId] ? [...prev[powerId]] : [];
+              // 増産可能数チェック（念のため）
+              if (prevSlots.length >= buildCap) {
+                return prev;
+              }
+              prevSlots.push({
+                provinceId: provId,
+                unitType,
+                buildFleetCoast: '',
+              });
+              return { ...prev, [powerId]: prevSlots };
+            });
+            setFlyout(null);
+            setAwaitingInputFor('default');
+            setFlyoutStep(null);
+            setReachableProvinceIds(null);
+          }}
+          onBuildTypeChange={(uid, newType) => {
+            // uid が _new_ prefix なら仮ユニット、そうでなければ既存ユニット
+            let provinceId: string | null = null;
+
+            if (uid.startsWith('_new_')) {
+              // 仮ユニット: _new_PROVID から provinceId を抽出
+              provinceId = uid.substring('_new_'.length);
+            } else {
+              // 既存ユニット: board から provinceId を取得
+              const unit = board.units.find((u) => u.id === uid);
+              if (!unit) return;
+              provinceId = unit.provinceId;
+            }
+
+            g.setBuildPlan((prev) => {
+              const prevSlots = prev[powerId] ? [...prev[powerId]] : [];
+              const idx = prevSlots.findIndex((slot) => slot.provinceId === provinceId);
+              if (idx >= 0) {
+                const newSlots = [...prevSlots];
+                newSlots[idx] = { ...newSlots[idx], unitType: newType };
+                return { ...prev, [powerId]: newSlots };
+              }
+              return prev;
+            });
+            setFlyout(null);
+            setAwaitingInputFor('default');
+            setFlyoutStep(null);
+          }}
+        />
+      )}
+
+      {/* 他国ユニット用フライアウトメニュー（ローカル想定行動のみ） */}
+      {hypotheticalFlyout && board && isMovementPhase && (
+        <FlyoutMenu
+          open={hypotheticalFlyout.open}
+          anchorX={hypotheticalFlyout.anchorX}
+          anchorY={hypotheticalFlyout.anchorY}
+          onClose={() => {
+            setHypotheticalFlyout(null);
+            setHypotheticalAwaitingInputFor('default');
+            setHypotheticalFlyoutStep(null);
+            setHypotheticalPendingOrderState(null);
+            setHypotheticalReachableProvinceIds(null);
+          }}
+          phase="movement"
+          unitId={hypotheticalFlyout.unitId}
+          unit={board.units.find((u) => u.id === hypotheticalFlyout.unitId) ?? null}
+          step={hypotheticalFlyoutStep as any}
+          supportableUnits={board.units.filter((u) => u.id !== hypotheticalFlyout.unitId)}
+          convoyableArmies={board.units.filter((u) => u.type === UnitType.Army)}
+          retreatOptions={[]}
+          onHold={(uid) => {
+            updateHypotheticalOrders((prev) => ({
+              ...prev,
+              [uid]: { ...emptyOrder(), type: OrderType.Hold },
+            }));
+            setHypotheticalFlyout(null);
+            setHypotheticalAwaitingInputFor('default');
+            setHypotheticalFlyoutStep(null);
+          }}
+          onMoveStart={(uid) => {
+            setHypotheticalFlyoutStep('moveSelect');
+            setHypotheticalAwaitingInputFor('province');
+            // 移動可能なプロビンスを計算
+            const unit = board.units.find((u) => u.id === uid);
+            if (unit) {
+              const reachableProvinces = getReachableProvinces(board, unit, orderAdjKeys);
+              const reachableIds = new Set(reachableProvinces.map((p) => p.id));
+              setHypotheticalReachableProvinceIds(reachableIds);
+            }
+          }}
+          onConvoyedMoveStart={(uid) => {
+            // 他国で被輸送はあまり使われないが、念のため実装
+            setHypotheticalFlyoutStep('moveSelect');
+            setHypotheticalAwaitingInputFor('province');
+            const unit = board.units.find((u) => u.id === uid);
+            if (unit) {
+              const reachableProvinces = getReachableProvinces(board, unit, orderAdjKeys);
+              const reachableIds = new Set(reachableProvinces.map((p) => p.id));
+              setHypotheticalReachableProvinceIds(reachableIds);
+            }
+          }}
+          onSupportStart={(uid) => {
+            setHypotheticalFlyoutStep('supportTarget');
+            setHypotheticalAwaitingInputFor('unit');
+          }}
+          onSupportUnitSelected={(targetUnitId) => {
+            setHypotheticalPendingOrderState({ kind: 'support', targetUnitId });
+            setHypotheticalAwaitingInputFor('province');
+            setHypotheticalFlyoutStep('moveSelect');
+          }}
+          onConvoyStart={(uid) => {
+            setHypotheticalFlyoutStep('convoyTarget');
+            setHypotheticalAwaitingInputFor('unit');
+          }}
+          onConvoyUnitSelected={(targetUnitId) => {
+            setHypotheticalPendingOrderState({ kind: 'convoy', targetUnitId });
+            setHypotheticalAwaitingInputFor('province');
+            setHypotheticalFlyoutStep('moveSelect');
+          }}
+          onBackToMenu={() => {
+            setHypotheticalFlyoutStep('menu');
+            setHypotheticalAwaitingInputFor('default');
+            setHypotheticalPendingOrderState(null);
+            setHypotheticalReachableProvinceIds(null);
+          }}
+          onRetreatChoice={() => {}}
+          onDisband={() => {}}
+          onBuild={() => {}}
+        />
+      )}
     </div>
   );
 }

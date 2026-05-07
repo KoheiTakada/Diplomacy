@@ -26,7 +26,7 @@
 
 'use client';
 
-import type { BoardState } from '@/domain';
+import type { BoardState, Unit } from '@/domain';
 import type { UnitOrderInput } from '@/diplomacy/gameHelpers';
 import type { MapVisualEffect } from '@/mapVisualEffects';
 import { turnLabel } from '@/turnLabel';
@@ -83,7 +83,14 @@ interface MapViewProps {
   treatyVisuals?: TreatyMapVisuals | null;
   /** 盤面修正パネルで変更されたプロヴィンスを強調表示 */
   highlightedProvinceIds?: ReadonlySet<string>;
-  onUnitClick?: (unitId: string) => void;
+  /** 追加で描画するユニット（例: 仮ユニット） */
+  extraUnits?: readonly (Pick<Unit, 'id' | 'type' | 'powerId' | 'provinceId'>)[];
+  /** 削減予定のユニットID（グレー表示） */
+  disbandedUnitIds?: ReadonlySet<string>;
+  /** ユニットをクリック時、unitId と click 時のクライアント座標を渡す */
+  onUnitClick?: (unitId: string, clientX: number, clientY: number) => void;
+  /** プロビンスをクリック時、provinceId と click 時のクライアント座標を渡す */
+  onProvinceClick?: (provinceId: string, clientX: number, clientY: number) => void;
 }
 
 function syncOrderPreviewLayer(
@@ -110,14 +117,17 @@ export default function MapView({
   historyEntries,
   treatyVisuals,
   highlightedProvinceIds,
+  extraUnits,
+  disbandedUnitIds,
   onUnitClick,
+  onProvinceClick,
 }: MapViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const unitIconTemplatesRef = useRef<UnitIconTemplates | null>(null);
   const layersRef = useRef<AnchorLayers>({ army: {}, fleet: {} });
   const vbRef = useRef<ViewBox>({ x: 0, y: 0, w: 641.66, h: 595.28 });
-  const panRef = useRef({ active: false, sx: 0, sy: 0 });
+  const panRef = useRef({ active: false, sx: 0, sy: 0, clickX: 0, clickY: 0 });
   const boardRef = useRef(board);
   const orderPreviewMergedRef = useRef(orderPreviewMerged);
 
@@ -237,6 +247,9 @@ export default function MapView({
           null,
           null,
           selectedHistory?.supportCountByUnitId,
+          undefined,
+          undefined,
+          undefined,
         );
         syncTreatyOverlay(svgEl, displayBoard, layersRef.current, treatyVisuals);
         prevBoardRef.current = displayBoard;
@@ -256,21 +269,12 @@ export default function MapView({
           setHoverId(pid);
         };
         const onLeave = () => setHoverId(null);
-        const onClick = (e: PointerEvent) => {
-          const unitEl = (e.target as Element | null)?.closest('[data-unit-id]');
-          const uid = unitEl?.getAttribute('data-unit-id');
-          if (uid) {
-            onUnitClick?.(uid);
-          }
-        };
         svgEl.addEventListener('pointermove', onMove);
         svgEl.addEventListener('pointerleave', onLeave);
-        svgEl.addEventListener('click', onClick);
         (svgEl as unknown as { _cleanupMap?: () => void })._cleanupMap = () => {
           svgEl?.removeEventListener('wheel', handleWheel);
           svgEl?.removeEventListener('pointermove', onMove);
           svgEl?.removeEventListener('pointerleave', onLeave);
-          svgEl?.removeEventListener('click', onClick);
         };
       })
       .catch((err: unknown) => {
@@ -322,6 +326,8 @@ export default function MapView({
       selectedHistory != null ? null : (pending.length > 0 ? pending : null),
       displaySupportCount,
       highlightedProvinceIds,
+      extraUnits,
+      disbandedUnitIds,
     );
     syncTreatyOverlay(svg, displayBoard, layersRef.current, treatyVisuals);
     prevBoardRef.current = displayBoard;
@@ -354,8 +360,12 @@ export default function MapView({
     if (e.button !== 0) {
       return;
     }
-    panRef.current = { active: true, sx: e.clientX, sy: e.clientY };
-    (e.target as Element).setPointerCapture(e.pointerId);
+    panRef.current = { active: true, sx: e.clientX, sy: e.clientY, clickX: e.clientX, clickY: e.clientY };
+    try {
+      (e.target as Element).setPointerCapture(e.pointerId);
+    } catch (err) {
+      // キャプチャ失敗時は無視
+    }
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -381,9 +391,64 @@ export default function MapView({
     panRef.current.sy = e.clientY;
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    // キャプチャを解放
+    if (e.isPrimary) {
+      try {
+        (e.target as Element).releasePointerCapture(e.pointerId);
+      } catch (err) {
+        // 解放失敗時は無視
+      }
+    }
+
+    // パン距離が 5px 以上なら click 扱いしない
+    const dx = e.clientX - panRef.current.clickX;
+    const dy = e.clientY - panRef.current.clickY;
+    const dist = Math.hypot(dx, dy);
+
     panRef.current.active = false;
-  };
+
+    if (dist > 5) {
+      return;
+    }
+
+    const target = e.target as Element | null;
+    if (!target) {
+      return;
+    }
+
+    // ボタン番号が無効な場合もスキップしない（-1 の場合は何らかのポインターイベント）
+    if (e.button > 0) {
+      return;
+    }
+
+    // ユニットクリック判定：親を手動でたどる（SVG の closest は確実でない）
+    // 10レベルまで遡って探す（複数の親要素の可能性あり）
+    let el: Element | null = target;
+    let uid: string | null = null;
+    for (let i = 0; i < 10 && el; i++) {
+      uid = el.getAttribute('data-unit-id');
+      if (uid) break;
+      el = el.parentElement;
+    }
+
+    if (uid) {
+      onUnitClick?.(uid, e.clientX, e.clientY);
+      return;
+    }
+
+    // プロビンスクリック判定：同様に親をたどる
+    el = target;
+    let pid: string | null = null;
+    for (let i = 0; i < 10 && el; i++) {
+      pid = el.getAttribute('data-province');
+      if (pid) break;
+      el = el.parentElement;
+    }
+    if (pid) {
+      onProvinceClick?.(pid, e.clientX, e.clientY);
+    }
+  }, [onUnitClick, onProvinceClick]);
 
   const zoom = (factor: number) => {
     setVb((prev) => {
