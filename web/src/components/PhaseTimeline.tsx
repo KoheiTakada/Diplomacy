@@ -113,9 +113,9 @@ export function PhaseTimeline({
                     <div
                       className={`relative h-4 w-4 rounded-full flex items-center justify-center transition-colors duration-300 z-10 ${
                         isCompleted || isCurrent
-                          ? 'bg-cyan-500'
+                          ? 'bg-orange-500'
                           : 'bg-white border-2 border-zinc-300'
-                      } ${isCurrent ? 'ring-2 ring-cyan-300' : ''}`}
+                      } ${isCurrent ? 'ring-2 ring-orange-300' : ''}`}
                     >
                       {(isCompleted || isCurrent) && (
                         <svg
@@ -136,7 +136,7 @@ export function PhaseTimeline({
                   <span
                     className={`mt-2 text-[10px] font-medium text-center whitespace-nowrap w-14 transition-colors duration-300 ${
                       isCompleted || isCurrent
-                        ? 'text-cyan-600'
+                        ? 'text-orange-600'
                         : 'text-zinc-400'
                     }`}
                   >
