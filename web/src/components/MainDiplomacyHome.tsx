@@ -96,7 +96,7 @@ export function MainDiplomacyHome() {
   const [editedBoard, setEditedBoard] = useState<typeof board | null>(null);
 
   // スマートフォン版のタブ状態（"log" or "nations"）
-  const [mobileTabActive, setMobileTabActive] = useState<'log' | 'nations'>('log');
+  const [mobileTabActive, setMobileTabActive] = useState<'log' | 'nations'>('nations');
 
   const closeBoardEditPanel = useCallback(() => {
     setBoardEditPanelOpen(false);

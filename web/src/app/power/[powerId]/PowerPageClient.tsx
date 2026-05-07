@@ -100,6 +100,9 @@ export default function PowerPageClient() {
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
+  // スマートフォン版のタブ状態（"orders" or "treaties"）
+  const [mobileCenterTabActive, setMobileCenterTabActive] = useState<'orders' | 'treaties'>('orders');
+
   const [hypotheticalUi, setHypotheticalUi] = useState<HypotheticalUiState>(
     () => ({
       scenarios: savedScenarios.length > 0 ? savedScenarios : createDefaultHypotheticalScenarios(),
@@ -390,37 +393,98 @@ export default function PowerPageClient() {
             </div>
           </div>
 
-          {/* Center & Right: Desktop side-by-side | Mobile stacked */}
+          {/* Center & Right: Desktop side-by-side | Mobile tabbed */}
           <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden flex-col lg:flex-row lg:gap-4">
-            {/* Center: All-nations unit list or hypothetical */}
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
-              {showNegotiationHypothetical ? (
-                // 交渉フェーズ: 全勢力の想定行動パネルのみ（単独スクロール）
-                <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
-                  <HypotheticalForeignOrdersPanel
+            {/* Desktop: Center & Right side by side */}
+            <div className="hidden lg:flex lg:gap-4 lg:min-h-0 lg:min-w-0 lg:flex-1">
+              {/* Center: All-nations unit list or hypothetical */}
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+                {showNegotiationHypothetical ? (
+                  // 交渉フェーズ: 全勢力の想定行動パネルのみ（単独スクロール）
+                  <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
+                    <HypotheticalForeignOrdersPanel
+                      powerId={powerId}
+                      includeSelf={true}
+                      board={board}
+                      orderAdjKeys={orderAdjKeys}
+                      scenarios={hypotheticalUi.scenarios}
+                      activeScenarioIndex={hypotheticalUi.activeIndex}
+                      onSelectScenario={handleSelectHypotheticalScenario}
+                      onAddScenario={handleAddHypotheticalScenario}
+                      hypotheticalOrders={activeHypotheticalOrders}
+                      setHypotheticalOrders={setActiveHypotheticalOrders}
+                    />
+                  </div>
+                ) : (
+                  // 命令フェーズ / 退却 / 調整 / ロック中: 命令入力ワークベンチ
+                  // 命令フェーズのみ他国想定行動をスクロール領域末尾に追記
+                  <PowerSecretWorkbench
                     powerId={powerId}
-                    includeSelf={true}
-                    board={board}
-                    orderAdjKeys={orderAdjKeys}
-                    scenarios={hypotheticalUi.scenarios}
-                    activeScenarioIndex={hypotheticalUi.activeIndex}
-                    onSelectScenario={handleSelectHypotheticalScenario}
-                    onAddScenario={handleAddHypotheticalScenario}
-                    hypotheticalOrders={activeHypotheticalOrders}
-                    setHypotheticalOrders={setActiveHypotheticalOrders}
+                    showMainPageLink={onlineSession == null}
+                    scrollAppendContent={
+                      showOrdersInput ? (
+                        <HypotheticalForeignOrdersPanel
+                          powerId={powerId}
+                          includeSelf={false}
+                          board={board}
+                          orderAdjKeys={orderAdjKeys}
+                          scenarios={hypotheticalUi.scenarios}
+                          activeScenarioIndex={hypotheticalUi.activeIndex}
+                          onSelectScenario={handleSelectHypotheticalScenario}
+                          onAddScenario={handleAddHypotheticalScenario}
+                          hypotheticalOrders={activeHypotheticalOrders}
+                          setHypotheticalOrders={setActiveHypotheticalOrders}
+                        />
+                      ) : undefined
+                    }
+                    scrollContainerRef={workbenchScrollRef}
                   />
+                )}
+              </div>
+
+              {/* Right: Treaty panel */}
+              <div className="flex w-[268px] shrink-0 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+                <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
+                  <PowerTreatyPanel powerId={powerId} />
                 </div>
-              ) : (
-                // 命令フェーズ / 退却 / 調整 / ロック中: 命令入力ワークベンチ
-                // 命令フェーズのみ他国想定行動をスクロール領域末尾に追記
-                <PowerSecretWorkbench
-                  powerId={powerId}
-                  showMainPageLink={onlineSession == null}
-                  scrollAppendContent={
-                    showOrdersInput ? (
+              </div>
+            </div>
+
+            {/* Mobile: Tabbed content */}
+            <div className="flex lg:hidden flex-col min-h-0 flex-1 gap-2">
+              {/* Tab buttons */}
+              <div className="flex gap-2 shrink-0 border-b border-zinc-200 bg-white p-2 rounded-t-2xl">
+                <button
+                  onClick={() => setMobileCenterTabActive('orders')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                    mobileCenterTabActive === 'orders'
+                      ? 'bg-zinc-900 text-white'
+                      : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                  }`}
+                >
+                  行動入力
+                </button>
+                <button
+                  onClick={() => setMobileCenterTabActive('treaties')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                    mobileCenterTabActive === 'treaties'
+                      ? 'bg-zinc-900 text-white'
+                      : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                  }`}
+                >
+                  条約
+                </button>
+              </div>
+
+              {/* Tab content */}
+              {mobileCenterTabActive === 'orders' && (
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+                  {showNegotiationHypothetical ? (
+                    // 交渉フェーズ: 全勢力の想定行動パネルのみ（単独スクロール）
+                    <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
                       <HypotheticalForeignOrdersPanel
                         powerId={powerId}
-                        includeSelf={false}
+                        includeSelf={true}
                         board={board}
                         orderAdjKeys={orderAdjKeys}
                         scenarios={hypotheticalUi.scenarios}
@@ -430,18 +494,41 @@ export default function PowerPageClient() {
                         hypotheticalOrders={activeHypotheticalOrders}
                         setHypotheticalOrders={setActiveHypotheticalOrders}
                       />
-                    ) : undefined
-                  }
-                  scrollContainerRef={workbenchScrollRef}
-                />
+                    </div>
+                  ) : (
+                    // 命令フェーズ / 退却 / 調整 / ロック中: 命令入力ワークベンチ
+                    <PowerSecretWorkbench
+                      powerId={powerId}
+                      showMainPageLink={onlineSession == null}
+                      scrollAppendContent={
+                        showOrdersInput ? (
+                          <HypotheticalForeignOrdersPanel
+                            powerId={powerId}
+                            includeSelf={false}
+                            board={board}
+                            orderAdjKeys={orderAdjKeys}
+                            scenarios={hypotheticalUi.scenarios}
+                            activeScenarioIndex={hypotheticalUi.activeIndex}
+                            onSelectScenario={handleSelectHypotheticalScenario}
+                            onAddScenario={handleAddHypotheticalScenario}
+                            hypotheticalOrders={activeHypotheticalOrders}
+                            setHypotheticalOrders={setActiveHypotheticalOrders}
+                          />
+                        ) : undefined
+                      }
+                      scrollContainerRef={workbenchScrollRef}
+                    />
+                  )}
+                </div>
               )}
-            </div>
 
-            {/* Right: Treaty panel - 268px on desktop, full width on mobile */}
-            <div className="flex w-full lg:w-[268px] shrink-0 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
-              <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
-                <PowerTreatyPanel powerId={powerId} />
-              </div>
+              {mobileCenterTabActive === 'treaties' && (
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+                  <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
+                    <PowerTreatyPanel powerId={powerId} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
