@@ -107,14 +107,14 @@ export function PhaseTimeline({
                   <div className="relative flex items-center justify-center">
                     {/* Pulse ring for current (animates behind the dot) */}
                     {isCurrent && (
-                      <span className="absolute inline-flex h-4 w-4 rounded-full bg-orange-400 opacity-75 animate-ping" />
+                      <span className="absolute inline-flex h-4 w-4 rounded-full bg-cyan-400 opacity-75 animate-ping" />
                     )}
                     <div
                       className={`relative h-4 w-4 rounded-full flex items-center justify-center transition-colors duration-300 z-10 ${
                         isCompleted
                           ? 'bg-cyan-500'
                           : isCurrent
-                            ? 'bg-orange-500 ring-2 ring-orange-300'
+                            ? 'bg-cyan-500 ring-2 ring-cyan-300'
                             : 'bg-white border-2 border-zinc-300'
                       }`}
                     >
@@ -136,11 +136,9 @@ export function PhaseTimeline({
                   {/* Label below dot */}
                   <span
                     className={`mt-2 text-[10px] font-medium text-center whitespace-nowrap w-14 transition-colors duration-300 ${
-                      isCurrent
-                        ? 'text-orange-500 font-semibold'
-                        : isCompleted
-                          ? 'text-cyan-600'
-                          : 'text-zinc-400'
+                      isCompleted || isCurrent
+                        ? 'text-cyan-600'
+                        : 'text-zinc-400'
                     }`}
                   >
                     {label}
