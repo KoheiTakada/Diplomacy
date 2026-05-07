@@ -418,36 +418,6 @@ export default function MapView({
 
   return (
     <div className="relative h-full min-h-0 w-full">
-      <div className="absolute left-3 top-3 z-10 sm:left-4 sm:top-4">
-        <button
-          type="button"
-          onClick={() => setHistoryOpen((v) => !v)}
-          className="rounded-2xl bg-white/95 px-5 py-3 text-2xl font-bold tabular-nums tracking-tight text-zinc-900 shadow-lg shadow-zinc-900/15 ring-1 ring-zinc-200/80 backdrop-blur-sm sm:px-6 sm:py-3.5 sm:text-3xl"
-          aria-live="polite"
-          aria-label={`現在のターン ${turnText}`}
-        >
-          {turnText}
-        </button>
-        {historyOpen && (historyEntries?.length ?? 0) > 0 ? (
-          <div className="mt-2 rounded-xl border border-zinc-200 bg-white/95 p-2 shadow-lg">
-            <select
-              className="w-full rounded border border-zinc-300 px-2 py-1 text-xs"
-              value={selectedHistoryId}
-              onChange={(e) => {
-                setSelectedHistoryId(e.target.value);
-                setHistoryOpen(false);
-              }}
-            >
-              <option value="">現在盤面</option>
-              {(historyEntries ?? []).map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.turnLabel}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-      </div>
       <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
         <button type="button" className={btnClass} onClick={() => zoom(0.75)} aria-label="拡大">
           ＋
