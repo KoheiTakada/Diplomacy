@@ -89,10 +89,15 @@ export function PhaseTimeline({
           {/* Track: background bar */}
           <div className="absolute left-0 right-0 top-[7px] h-0.5 bg-zinc-200" />
 
-          {/* Track: completed bar with transition */}
+          {/* Track: completed bar with transition (show first segment on spring negotiation) */}
           <div
             className="absolute left-0 top-[7px] h-0.5 bg-cyan-500 transition-all duration-500 ease-in-out"
-            style={{ width: `${completedPct}%` }}
+            style={{
+              width:
+                currentIndex === 0
+                  ? `${(1 / (PHASE_LABELS.length - 1)) * 100}%`
+                  : `${completedPct}%`,
+            }}
           />
 
           {/* Dots and labels */}
@@ -105,20 +110,14 @@ export function PhaseTimeline({
                 <div key={idx} className="flex flex-col items-center">
                   {/* Dot */}
                   <div className="relative flex items-center justify-center">
-                    {/* Pulse ring for current (animates behind the dot) */}
-                    {isCurrent && (
-                      <span className="absolute inline-flex h-4 w-4 rounded-full bg-cyan-400 opacity-75 animate-ping" />
-                    )}
                     <div
                       className={`relative h-4 w-4 rounded-full flex items-center justify-center transition-colors duration-300 z-10 ${
-                        isCompleted
+                        isCompleted || isCurrent
                           ? 'bg-cyan-500'
-                          : isCurrent
-                            ? 'bg-cyan-500 ring-2 ring-cyan-300'
-                            : 'bg-white border-2 border-zinc-300'
-                      }`}
+                          : 'bg-white border-2 border-zinc-300'
+                      } ${isCurrent ? 'ring-2 ring-cyan-300' : ''}`}
                     >
-                      {isCompleted && (
+                      {(isCompleted || isCurrent) && (
                         <svg
                           className="h-2.5 w-2.5 text-white"
                           fill="currentColor"
