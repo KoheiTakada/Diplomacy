@@ -76,14 +76,14 @@ export function PhaseTimeline({
   const seasonLabel = season === Season.Spring ? '春' : '秋';
 
   return (
-    <div className="flex shrink-0 items-start justify-between gap-6 border-b border-zinc-200 bg-white px-4 py-4">
+    <div className="flex shrink-0 items-start justify-between gap-6 border-b border-zinc-200 bg-white px-4 py-4 flex-col lg:flex-row lg:items-start">
       {/* Left: Year/Season */}
       <div className="whitespace-nowrap font-semibold text-zinc-700 text-sm pt-6">
         {year}年 {seasonLabel}
       </div>
 
       {/* Center: Timeline with dots and line */}
-      <div className="flex min-w-0 flex-1 items-start">
+      <div className="flex min-w-0 flex-1 items-start w-full lg:w-auto">
         <div className="relative w-full">
           {/* SVG for background line and segments */}
           <svg
@@ -155,8 +155,8 @@ export function PhaseTimeline({
         </div>
       </div>
 
-      {/* Right: Action button */}
-      {rightAction && <div className="shrink-0 pt-1">{rightAction}</div>}
+      {/* Right: Action button (desktop only) */}
+      {rightAction && <div className="shrink-0 pt-1 hidden lg:block">{rightAction}</div>}
     </div>
   );
 }
