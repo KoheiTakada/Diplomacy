@@ -375,7 +375,7 @@ export default function PowerPageClient() {
         <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden flex-col lg:flex-row" style={{ minHeight: 0, gap: '0.375rem' }}>
           {/* Left: Map - flex-1 on mobile (full width), max-h-full on desktop (aspect-based max) */}
           <div
-            className="flex-1 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] lg:max-h-full"
+            className="flex-1 min-w-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] lg:max-h-full"
             style={{
               aspectRatio: mapAspectRatio,
               minHeight: 0,
