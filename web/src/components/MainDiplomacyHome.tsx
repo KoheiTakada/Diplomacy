@@ -33,8 +33,12 @@ import { HostSecretsOverviewModal } from '@/components/HostSecretsOverviewModal'
 import { HostBoardEditPanel } from '@/components/HostBoardEditPanel';
 import { PowerLabelText } from '@/components/PowerLabelText';
 import { PowerNationLink } from '@/components/PowerNationLink';
+import { AppHeader } from '@/components/AppHeader';
+import { PhaseTimeline } from '@/components/PhaseTimeline';
+import { HamburgerMenu } from '@/components/HamburgerMenu';
 import { readOnlinePowerSecrets } from '@/lib/onlineSessionBrowser';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 
 /**
@@ -49,7 +53,6 @@ export function MainDiplomacyHome() {
     unitOrders,
     log,
     turnHistory,
-    logListRef,
     leaveGameSession,
     pendingMapEffectsRef,
     isResolutionRevealing,
@@ -69,11 +72,7 @@ export function MainDiplomacyHome() {
     allPowersAdjustmentReady,
     allPowersRetreatReady,
     onlineSession,
-    onlineServerVersion,
-    onlineDebugLogCount,
     downloadOnlineDebugLog,
-    clearOnlineDebugLog,
-    treatyMapVisuals,
     diplomacyPhase,
     advanceToOrdersPhase,
   } = g;
@@ -85,7 +84,8 @@ export function MainDiplomacyHome() {
     return readOnlinePowerSecrets(onlineSession.roomId);
   }, [onlineSession]);
 
-  const isOnlinePowerPlayer = onlineSession?.kind === 'power';
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   const [hostSecretsModalOpen, setHostSecretsModalOpen] = useState(false);
   const closeHostSecretsModal = useCallback(() => {
@@ -222,58 +222,67 @@ export function MainDiplomacyHome() {
     return powerRetreatSaved[pid] === true ? '記録済み' : '未入力';
   }
 
+  const handlePhaseAction = useCallback(() => {
+    if (isRetreatPhase) {
+      confirmRetreatPhase();
+    } else if (isAdjustmentPhasePanel) {
+      finalizeAdjustmentPhase();
+    } else if (diplomacyPhase === 'negotiation') {
+      advanceToOrdersPhase();
+    } else if (diplomacyPhase === 'orders') {
+      handleAdjudicate();
+    }
+  }, [
+    isRetreatPhase,
+    isAdjustmentPhasePanel,
+    diplomacyPhase,
+    confirmRetreatPhase,
+    finalizeAdjustmentPhase,
+    advanceToOrdersPhase,
+    handleAdjudicate,
+  ]);
+
+  const isHostOrLocal = onlineSession?.kind !== 'power';
+  const displayName =
+    onlineSession?.kind === 'power'
+      ? POWER_META[onlineSession.powerId]?.label ?? onlineSession.powerId
+      : onlineSession?.kind === 'host'
+        ? 'ホスト'
+        : 'ローカル';
+
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden font-sans text-zinc-900">
-      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col gap-2 px-3 py-2 sm:gap-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
-          {onlineSession?.kind === 'host' ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setHostSecretsModalOpen(true)}
-                className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-[11px] font-bold text-zinc-800 shadow-sm hover:bg-zinc-200"
-              >
-                シークレット一覧を開く
-              </button>
-              <button
-                type="button"
-                onClick={handleBoardEditPanelOpen}
-                className="rounded-lg border border-orange-300 bg-orange-100 px-3 py-1.5 text-[11px] font-bold text-orange-800 shadow-sm hover:bg-orange-200"
-              >
-                盤面修正
-              </button>
-              <button
-                type="button"
-                onClick={downloadOnlineDebugLog}
-                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100"
-              >
-                デバッグログを保存（{onlineDebugLogCount}件）
-              </button>
-              <button
-                type="button"
-                onClick={clearOnlineDebugLog}
-                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100"
-              >
-                ログをクリア
-              </button>
-            </div>
-          ) : (
-            <div className="min-w-0 flex-1" aria-hidden />
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              leaveGameSession({
-                intentional: true,
-                reason: 'main_header_back_button',
-              });
-              router.replace('/', { scroll: false });
-            }}
-            className="shrink-0 text-[11px] font-medium text-zinc-500 underline-offset-2 hover:text-zinc-700 hover:underline"
-          >
-            タイトルに戻る
-          </button>
-        </div>
+      <AppHeader displayName={displayName} onMenuClick={() => setMenuOpen(true)} />
+      <PhaseTimeline
+        year={board.turn.year}
+        season={board.turn.season}
+        diplomacyPhase={diplomacyPhase}
+        isRetreatPhase={isRetreatPhase}
+        isAdjustmentPhasePanel={isAdjustmentPhasePanel}
+        isResolutionRevealing={isResolutionRevealing}
+      />
+      <HamburgerMenu
+        open={menuOpen}
+        isHostOrLocal={isHostOrLocal}
+        onClose={closeMenu}
+        onSecrets={isHostOrLocal ? () => setHostSecretsModalOpen(true) : undefined}
+        onDebugLog={
+          onlineSession
+            ? downloadOnlineDebugLog
+            : undefined
+        }
+        onBoardEdit={
+          isHostOrLocal ? handleBoardEditPanelOpen : undefined
+        }
+        onLeave={() => {
+          leaveGameSession({
+            intentional: true,
+            reason: 'hamburger_menu_leave_button',
+          });
+          router.replace('/', { scroll: false });
+        }}
+      />
+      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col gap-2 overflow-hidden px-3 py-2 sm:gap-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
         {onlineSession?.kind === 'host' ? (
           <HostSecretsOverviewModal
             open={hostSecretsModalOpen}
@@ -283,91 +292,11 @@ export function MainDiplomacyHome() {
             powerSecrets={hostPowerLinkSecrets}
           />
         ) : null}
-        <section
-          aria-label="勢力別の補給拠点数とユニット数"
-          className="w-full shrink-0 rounded-2xl border border-zinc-200/70 bg-white/90 p-2.5 shadow-sm shadow-zinc-900/5 backdrop-blur-sm sm:p-3"
-        >
-          <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:thin] sm:gap-3">
-            {POWER_ORDER.map((pid) => {
-              const meta = POWER_META[pid] ?? { color: '#334155', label: pid };
-              const sc = countSupplyCenters(board, pid);
-              const uc = countUnits(board, pid);
-              const diff = sc - uc;
-              const scRank = supplyCenterRankByPower.get(pid) ?? 1;
-              return (
-                <div
-                  key={pid}
-                  className="flex min-w-[6.75rem] flex-1 flex-col rounded-xl border border-zinc-200/60 bg-zinc-50/80 px-2.5 py-2 shadow-sm sm:min-w-0 sm:px-3 sm:py-2.5"
-                  style={{
-                    boxShadow: `inset 3px 0 0 0 ${meta.color}`,
-                  }}
-                >
-                  <div className="mb-1.5 flex items-center justify-between gap-2 pl-0.5">
-                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                      <span
-                        className="inline-block h-2 w-2 shrink-0 rounded-full ring-2 ring-white"
-                        style={{ backgroundColor: meta.color }}
-                      />
-                      <span className="min-w-0 truncate text-xs font-semibold text-zinc-800 sm:text-[13px]">
-                        <PowerLabelText powerId={pid} />
-                      </span>
-                    </div>
-                    <span className="shrink-0 text-[10px] font-bold tabular-nums text-zinc-400 sm:text-[11px]">
-                      {scRank}位
-                    </span>
-                  </div>
-                  <div className="flex items-baseline justify-between gap-2 text-[11px] sm:text-xs">
-                    <span className="text-zinc-500">拠点</span>
-                    <span className="font-bold tabular-nums text-zinc-900">{sc}</span>
-                  </div>
-                  <div className="flex items-baseline justify-between gap-2 text-[11px] sm:text-xs">
-                    <span className="text-zinc-500">ユニット</span>
-                    <span className="font-bold tabular-nums text-zinc-900">{uc}</span>
-                  </div>
-                  {diff !== 0 && (
-                    <p
-                      className={
-                        diff > 0
-                          ? 'mt-1.5 truncate text-[10px] font-medium text-emerald-700 sm:text-[11px]'
-                          : 'mt-1.5 truncate text-[10px] font-medium text-rose-700 sm:text-[11px]'
-                      }
-                    >
-                      {diff > 0 ? `+${diff} 増産可` : `${diff} 削減`}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-4">
-          <div className="flex min-h-0 min-w-0 flex-1 justify-center overflow-hidden lg:h-full lg:justify-start">
-            <div
-              className="box-border flex h-auto w-full max-w-full flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white p-3 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] sm:p-4 lg:h-full lg:shrink-0"
-              style={{ aspectRatio: mapAspectRatio }}
-            >
-              <MapView
-                board={boardEditPanelOpen && editedBoard ? editedBoard : board}
-                highlightedProvinceIds={boardEditHighlightSet ?? undefined}
-                isResolutionRevealing={isResolutionRevealing}
-                pendingMapEffectsRef={pendingMapEffectsRef}
-                historyEntries={turnHistory}
-              />
-            </div>
-          </div>
-
-          <div
-            className={`flex min-h-0 shrink-0 flex-col rounded-2xl border p-3 shadow-md ring-1 sm:p-4 lg:w-[380px] ${
-              boardEditPanelOpen
-                ? 'border-zinc-200/70 bg-white shadow-zinc-900/[0.06] ring-black/[0.03]'
-                : isRetreatPhase
-                  ? 'border-amber-300/80 bg-amber-50/50 shadow-amber-900/[0.06] ring-amber-900/[0.08]'
-                  : isAdjustmentPhasePanel
-                    ? 'border-emerald-300/80 bg-emerald-50/50 shadow-emerald-900/[0.06] ring-emerald-900/[0.08]'
-                    : 'border-zinc-200/70 bg-white shadow-zinc-900/[0.06] ring-black/[0.03]'
-            }`}
-          >
+        {/* 3-column layout: map | log | nations */}
+        <div className="flex min-h-0 flex-1 gap-2 overflow-hidden">
+          {/* Left: Map */}
+          <div className="flex min-h-0 min-w-0 flex-1 justify-center overflow-hidden">
             {boardEditPanelOpen ? (
               <HostBoardEditPanel
                 board={board}
@@ -377,182 +306,117 @@ export function MainDiplomacyHome() {
                 onApply={handleApplyBoardEdit}
               />
             ) : (
-              <>
-                <h2
-                  className={`mb-2 text-lg font-semibold tracking-tight ${
-                    isRetreatPhase
-                      ? 'text-amber-950'
-                      : isAdjustmentPhasePanel
-                        ? 'text-emerald-950'
-                        : 'text-zinc-900'
-                  }`}
-                >
-                  {isRetreatPhase
-                    ? '解体フェーズ'
-                    : isAdjustmentPhasePanel
-                      ? '増産フェーズ'
-                      : diplomacyPhase === 'negotiation'
-                        ? '交渉フェーズ'
-                        : '命令フェーズ'}
-                </h2>
-            <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
-              {POWER_ORDER.map((pid) => {
-                const meta = POWER_META[pid] ?? { color: '#334155', label: pid };
-                let status: string;
-                if (isRetreatPhase) {
-                  status = retreatStatusLine(pid);
-                } else if (isAdjustmentPhasePanel) {
-                  status = adjustmentStatusLine(pid);
-                } else if (diplomacyPhase === 'orders') {
-                  status = movementStatusLine(pid);
-                } else {
-                  status = '';
-                }
-                return (
-                  <li
-                    key={pid}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-3 py-2"
-                  >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span
-                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: meta.color }}
-                      />
-                      <span className="min-w-0 truncate text-sm font-medium text-zinc-800">
-                        <PowerLabelText powerId={pid} />
-                      </span>
-                      {status ? (
-                        <span className="text-[11px] text-zinc-500">({status})</span>
-                      ) : null}
-                    </div>
-                    <PowerNationLink
-                      powerId={pid}
-                      className="shrink-0 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800"
-                      disabled={
-                        onlineSession?.kind === 'power' &&
-                        pid !== onlineSession.powerId
-                      }
-                      disabledTitle="参加中の国以外は操作できません"
-                    >
-                      {diplomacyPhase === 'negotiation' && !isRetreatPhase && !isAdjustmentPhasePanel
-                        ? '作戦立案'
-                        : '命令入力'}
-                    </PowerNationLink>
-                  </li>
-                );
-              })}
-            </ul>
-
-            {isRetreatPhase ? (
-              <>
-                <button
-                  type="button"
-                  disabled={!allPowersRetreatReady || isOnlinePowerPlayer}
-                  onClick={confirmRetreatPhase}
-                  className="mt-3 w-full shrink-0 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-amber-900/20 transition-colors hover:bg-amber-500 disabled:cursor-not-allowed disabled:bg-amber-300"
-                >
-                  命令実行
-                </button>
-                {isOnlinePowerPlayer ? (
-                  <p className="mt-2 text-[11px] text-amber-900/80">
-                    命令の実行（裁定）はホストのみ操作できます。
-                  </p>
-                ) : null}
-              </>
-            ) : null}
-
-            {isAdjustmentPhasePanel && !isRetreatPhase && (
-              <>
-                <button
-                  type="button"
-                  disabled={!allPowersAdjustmentReady || isOnlinePowerPlayer}
-                  onClick={finalizeAdjustmentPhase}
-                  className="mt-3 w-full shrink-0 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-900/20 transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
-                >
-                  命令実行
-                </button>
-                {isOnlinePowerPlayer ? (
-                  <p className="mt-2 text-[11px] text-zinc-600">
-                    命令の実行（裁定）はホストのみ操作できます。
-                  </p>
-                ) : null}
-              </>
-            )}
-
-            {!isRetreatPhase && !isAdjustmentPhasePanel && diplomacyPhase === 'negotiation' && (
-              <>
-                <button
-                  type="button"
-                  disabled={isOnlinePowerPlayer}
-                  onClick={advanceToOrdersPhase}
-                  className="mt-3 w-full shrink-0 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
-                >
-                  交渉終了 → 命令フェーズへ
-                </button>
-                {isOnlinePowerPlayer ? (
-                  <p className="mt-2 text-[11px] text-zinc-600">
-                    命令フェーズへの移行はホストのみ操作できます。
-                  </p>
-                ) : null}
-              </>
-            )}
-
-            {!isRetreatPhase && !isAdjustmentPhasePanel && diplomacyPhase === 'orders' && (
-              <>
-                <button
-                  type="button"
-                  disabled={
-                    isOrderLocked ||
-                    !allPowersMovementReady ||
-                    isOnlinePowerPlayer
-                  }
-                  onClick={handleAdjudicate}
-                  className="mt-3 w-full shrink-0 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-900/20 transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300 disabled:shadow-none"
-                >
-                  命令実行
-                </button>
-                {isOnlinePowerPlayer ? (
-                  <p className="mt-2 text-[11px] text-zinc-600">
-                    命令の実行（裁定）はホストのみ操作できます。
-                  </p>
-                ) : null}
-                {isOrderLocked && (
-                  <p className="mt-2 text-xs text-zinc-500">
-                    解決演出中は命令実行できません。
-                  </p>
-                )}
-              </>
-            )}
-              </>
+              <div
+                className="box-border flex h-auto w-full max-w-full flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white p-3 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] sm:p-4"
+                style={{ aspectRatio: mapAspectRatio }}
+              >
+                <MapView
+                  board={board}
+                  highlightedProvinceIds={boardEditHighlightSet ?? undefined}
+                  isResolutionRevealing={isResolutionRevealing}
+                  pendingMapEffectsRef={pendingMapEffectsRef}
+                  historyEntries={turnHistory}
+                />
+              </div>
             )}
           </div>
-        </div>
 
-        <section className="shrink-0 rounded-2xl border border-zinc-200/70 bg-white p-3 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] sm:p-4">
-          {log.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80 px-2 py-2 text-center text-[11px] text-zinc-500 sm:text-xs">
-              まだログがありません。「命令実行」でここに結果が表示されます。
-            </p>
-          ) : (
-            <ul
-              ref={logListRef}
-              className="max-h-[4.5rem] space-y-0 overflow-y-auto text-[11px] leading-snug [scrollbar-width:thin] sm:max-h-[5.25rem] sm:text-xs"
-            >
-              {log.map((entry) => (
-                <li
-                  key={entry.id}
-                  className={
-                    entry.line.startsWith('──')
-                      ? 'mt-1 first:mt-0 rounded bg-zinc-100/80 px-1.5 py-0.5 font-semibold text-zinc-800'
-                      : 'border-b border-zinc-100 py-0.5 last:border-0'
-                  }
-                >
-                  {entry.line}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+          {/* Center: Log */}
+          <div className="flex w-52 shrink-0 flex-col gap-1 overflow-hidden">
+            <h3 className="text-xs font-semibold text-zinc-500">ログ</h3>
+            <section className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white p-2 shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+              {log.length === 0 ? (
+                <p className="text-center text-[10px] text-zinc-400">
+                  ログなし
+                </p>
+              ) : (
+                <ul className="space-y-0 text-[10px] leading-snug [scrollbar-width:thin]">
+                  {log.map((entry) => (
+                    <li
+                      key={entry.id}
+                      className={
+                        entry.line.startsWith('──')
+                          ? 'mt-1 first:mt-0 rounded bg-zinc-100/80 px-1.5 py-0.5 font-semibold text-zinc-800'
+                          : 'border-b border-zinc-100 py-0.5 last:border-0'
+                      }
+                    >
+                      {entry.line}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+
+          {/* Right: Nations list + action button */}
+          <div className="flex w-52 shrink-0 flex-col gap-2 overflow-hidden">
+            {/* Action button */}
+            {isHostOrLocal ? (
+              <button
+                type="button"
+                disabled={
+                  (isRetreatPhase && !allPowersRetreatReady) ||
+                  (isAdjustmentPhasePanel && !allPowersAdjustmentReady) ||
+                  (diplomacyPhase === 'orders' &&
+                    (isOrderLocked || !allPowersMovementReady))
+                }
+                onClick={handlePhaseAction}
+                className="shrink-0 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
+              >
+                フェーズ進行
+              </button>
+            ) : (
+              <Link
+                href={`/power/${onlineSession?.powerId}`}
+                className="rounded-xl bg-zinc-900 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-md shadow-zinc-900/20 transition-colors hover:bg-zinc-800"
+              >
+                命令入力
+              </Link>
+            )}
+
+            {/* Nations list */}
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+              <ul className="divide-y divide-zinc-100">
+                {POWER_ORDER.map((pid, idx) => {
+                  const meta = POWER_META[pid] ?? { color: '#334155', label: pid };
+                  const sc = countSupplyCenters(board, pid);
+                  const uc = countUnits(board, pid);
+                  const scRank = supplyCenterRankByPower.get(pid) ?? 1;
+
+                  return (
+                    <li
+                      key={pid}
+                      className="flex flex-col gap-1.5 border-l-4 px-2.5 py-2 text-[11px]"
+                      style={{ borderLeftColor: meta.color }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-zinc-900">
+                          #{idx + 1}{' '}
+                          <PowerLabelText powerId={pid} />
+                        </span>
+                        <span className="font-bold text-zinc-400">
+                          {scRank}位
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-zinc-600">
+                        <span>拠点:{sc}</span>
+                        <span>ユニット:{uc}</span>
+                      </div>
+                      {isHostOrLocal && (
+                        <PowerNationLink
+                          powerId={pid}
+                          className="rounded-lg bg-zinc-100 px-2 py-1 text-center text-[10px] font-semibold text-zinc-900 hover:bg-zinc-200 transition-colors"
+                        >
+                          命令入力
+                        </PowerNationLink>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );
