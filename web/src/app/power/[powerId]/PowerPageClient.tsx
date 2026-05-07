@@ -373,9 +373,9 @@ export default function PowerPageClient() {
       <main className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col overflow-hidden px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
         {/* Desktop: 3-column (map maximized + center/treaties minimum) | Mobile: Stacked with tabs */}
         <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden flex-col lg:flex-row" style={{ minHeight: 0, gap: '0.375rem' }}>
-          {/* Left: Map - flex-1 on mobile, flex-1 on desktop (maximized) */}
+          {/* Left: Map - flex-1 on mobile (full width), max-h-full on desktop (aspect-based max) */}
           <div
-            className="flex-1 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]"
+            className="flex-1 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03] lg:max-h-full"
             style={{
               aspectRatio: mapAspectRatio,
               minHeight: 0,
