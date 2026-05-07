@@ -52,7 +52,8 @@ type SlotType =
   | 'province'
   | 'provinceList'
   | 'unit'
-  | 'freeText';
+  | 'freeText'
+  | 'unitType';
 
 /** スロット定義 */
 type SlotDef = {
@@ -219,6 +220,21 @@ const CLAUSE_DEFS: Record<TreatyClauseKind, ClauseDef> = {
       { text: 'を明け渡す' },
     ],
   },
+  noDeploy: {
+    slots: [
+      { key: 'power', type: 'power', label: '約束国', defaultSelf: true },
+      { key: 'province', type: 'province', label: '都市' },
+      { key: 'unitType', type: 'unitType', label: '兵種' },
+    ],
+    parts: [
+      { slotKey: 'power' },
+      { text: 'は' },
+      { slotKey: 'province' },
+      { text: 'には' },
+      { slotKey: 'unitType' },
+      { text: 'を配置しない' },
+    ],
+  },
   intelShare: {
     slots: [
       { key: 'selfPower', type: 'power', label: '提供国', defaultSelf: true },
@@ -368,6 +384,8 @@ function buildSentence(
           return typeof v === 'string' ? unitLabel(board, v) : '';
         case 'freeText':
           return typeof v === 'string' ? v : '';
+        case 'unitType':
+          return v === 'army' ? '陸軍' : v === 'fleet' ? '海軍' : '';
         default:
           return '';
       }
@@ -685,6 +703,27 @@ function SlotInput(props: SlotInputProps) {
           placeholder={slot.label}
           onChange={(e) => onChange(e.target.value)}
         />
+      );
+    }
+
+    case 'unitType': {
+      const v = typeof value === 'string' ? value : '';
+      return (
+        <span className="inline-flex gap-1">
+          {(['army', 'fleet'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => onChange(t)}
+              className={`rounded px-2 py-0.5 text-[11px] font-semibold transition-colors ${
+                v === t ? 'text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+              }`}
+              style={v === t ? { backgroundColor: '#334155' } : undefined}
+            >
+              {t === 'army' ? '陸軍' : '海軍'}
+            </button>
+          ))}
+        </span>
       );
     }
   }

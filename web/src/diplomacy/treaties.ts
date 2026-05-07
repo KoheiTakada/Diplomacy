@@ -29,6 +29,7 @@ export type TreatyClauseKind =
   | 'convoySupport'
   | 'holdSupport'
   | 'exchangeRetreat'
+  | 'noDeploy'
   | 'intelShare'
   | 'disinformation';
 
@@ -44,6 +45,7 @@ export const TREATY_CLAUSE_LABEL: Record<TreatyClauseKind, string> = {
   convoySupport: '輸送支援',
   holdSupport: '維持支援',
   exchangeRetreat: '交換/撤退',
+  noDeploy: '配置禁止',
   intelShare: '情報提供',
   disinformation: '偽装工作',
 };
@@ -56,6 +58,7 @@ export const PRICED_TREATY_CLAUSES: TreatyClauseKind[] = [
   'convoySupport',
   'holdSupport',
   'exchangeRetreat',
+  'noDeploy',
 ];
 
 /** 条約作成カテゴリ */
