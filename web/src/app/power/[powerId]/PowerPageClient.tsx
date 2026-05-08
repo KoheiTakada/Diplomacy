@@ -685,7 +685,7 @@ export default function PowerPageClient() {
                     // 移動/被輸送/支援/輸送の場合、移動可能性を検証
                     if (reachableProvinceIds && !reachableProvinceIds.has(provinceId)) {
                       // 移動不可なプロビンス → 1ステップ戻す
-                      if (flyoutStep === 'moveSelect' || flyoutStep === 'convoyedSelect') {
+                      if (flyoutStep === 'moveSelect' || flyoutStep === 'convoyedSelect' || flyoutStep === 'coastSelect') {
                         backToFlyoutMenu();
                       } else if (pendingOrderState?.kind === 'support') {
                         backToSupportUnitSelect();
