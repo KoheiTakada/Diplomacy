@@ -411,10 +411,12 @@ export function getSupportMoveDestinationProvinceIds(
   supported: Unit,
   adjKeys: Set<string>,
 ): Set<string> {
-  const supporterReach = new Set(
-    board.adjacencies
-      .filter((a) => a.fromProvinceId === supporter.provinceId)
-      .map((a) => a.toProvinceId),
+  // 支援者が実際に移動可能なプロビンス（隣接ではなく、ユニット種ごとの移動ルール適用）
+  const supporterReach = getDirectMoveTargets(
+    supporter,
+    supporter.provinceId,
+    board,
+    adjKeys,
   );
   const supportedReach = getDirectMoveTargets(
     supported,
@@ -451,15 +453,20 @@ export function canSupportTargetInSupportOrder(
   if (supporter.id === supported.id) {
     return false;
   }
-  const supporterReach = new Set(
-    board.adjacencies
-      .filter((a) => a.fromProvinceId === supporter.provinceId)
-      .map((a) => a.toProvinceId),
+  // 支援者が実際に移動可能なプロビンス
+  const supporterReach = getDirectMoveTargets(
+    supporter,
+    supporter.provinceId,
+    board,
+    adjKeys,
   );
+  // 待機支援: 支援者が支援対象の現在地に移動可能
   if (supporterReach.has(supported.provinceId)) {
     return true;
   }
-  return getSupportMoveDestinationProvinceIds(board, supporter, supported, adjKeys).size > 0;
+  // 移動支援: 支援対象の移動可能先のうち、支援者も移動可能な先がある
+  const moveDests = getSupportMoveDestinationProvinceIds(board, supporter, supported, adjKeys);
+  return moveDests.size > 0;
 }
 
 /**

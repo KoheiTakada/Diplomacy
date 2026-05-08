@@ -87,6 +87,10 @@ interface MapViewProps {
   extraUnits?: readonly (Pick<Unit, 'id' | 'type' | 'powerId' | 'provinceId'>)[];
   /** 削減予定のユニットID（グレー表示） */
   disbandedUnitIds?: ReadonlySet<string>;
+  /** 選択可能なプロビンスID（枠線で強調表示） */
+  selectableProvinceIds?: ReadonlySet<string>;
+  /** 選択可能なユニットID（枠線で強調表示） */
+  selectableUnitIds?: ReadonlySet<string>;
   /** ユニットをクリック時、unitId と click 時のクライアント座標を渡す */
   onUnitClick?: (unitId: string, clientX: number, clientY: number) => void;
   /** プロビンスをクリック時、provinceId と click 時のクライアント座標を渡す */
@@ -119,6 +123,8 @@ export default function MapView({
   highlightedProvinceIds,
   extraUnits,
   disbandedUnitIds,
+  selectableProvinceIds,
+  selectableUnitIds,
   onUnitClick,
   onProvinceClick,
 }: MapViewProps) {
@@ -328,6 +334,8 @@ export default function MapView({
       highlightedProvinceIds,
       extraUnits,
       disbandedUnitIds,
+      selectableProvinceIds,
+      selectableUnitIds,
     );
     syncTreatyOverlay(svg, displayBoard, layersRef.current, treatyVisuals);
     prevBoardRef.current = displayBoard;
@@ -347,6 +355,8 @@ export default function MapView({
     orderPreviewMerged,
     selectedHistory,
     treatyVisuals,
+    selectableProvinceIds,
+    selectableUnitIds,
   ]);
 
   useEffect(() => {

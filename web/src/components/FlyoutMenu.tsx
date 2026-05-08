@@ -19,17 +19,14 @@ export interface FlyoutMenuProps {
   unit: Unit | null;
 
   // UI ステップ（PowerPageClient によって制御される）
-  step?: 'menu' | 'moveSelect' | 'convoyedSelect' | 'supportTarget' | 'convoyTarget';
+  step?: 'menu' | 'moveSelect' | 'convoyedSelect';
 
   // 命令確定コールバック
   onHold: (unitId: string) => void;
   onMoveStart: (unitId: string) => void;
   onConvoyedMoveStart?: (unitId: string) => void;
   onSupportStart?: (unitId: string) => void;
-  onSupportUnitSelected?: (unitId: string) => void;
   onConvoyStart?: (unitId: string) => void;
-  onConvoyUnitSelected?: (unitId: string) => void;
-  onBackToMenu?: () => void;
   onRetreatChoice: (unitId: string, destProvId: string) => void;
   onDisband: (unitId: string) => void;
   onBuild: (provinceId: string, unitType: UnitType) => void;
@@ -40,6 +37,7 @@ export interface FlyoutMenuProps {
   supportableUnits?: Unit[];
   convoyableArmies?: Unit[];
   isDisbandPending?: boolean; // 削減フェーズで削除予定かどうか
+  canConvoyedMove?: boolean; // 被輸送が可能かどうか
 }
 
 /**
@@ -59,10 +57,7 @@ export function FlyoutMenu({
   onMoveStart,
   onConvoyedMoveStart,
   onSupportStart,
-  onSupportUnitSelected,
   onConvoyStart,
-  onConvoyUnitSelected,
-  onBackToMenu,
   onRetreatChoice,
   onDisband,
   onBuild,
@@ -71,11 +66,12 @@ export function FlyoutMenu({
   supportableUnits = [],
   convoyableArmies = [],
   isDisbandPending = false,
+  canConvoyedMove = false,
 }: FlyoutMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuHeight, setMenuHeight] = useState(0);
   // controlledStep が提供されている場合はそれを使う、そうでなければ内部状態を使う
-  const [internalStep, setInternalStep] = useState<'menu' | 'moveSelect' | 'convoyedSelect' | 'supportTarget' | 'convoyTarget'>('menu');
+  const [internalStep, setInternalStep] = useState<'menu' | 'moveSelect' | 'convoyedSelect'>('menu');
   const step = controlledStep ?? internalStep;
   const setStep = controlledStep ? () => {} : setInternalStep;
 
@@ -166,7 +162,7 @@ export function FlyoutMenu({
                 移動
               </button>
 
-              {unit.type === UnitType.Army && (
+              {unit.type === UnitType.Army && canConvoyedMove && (
                 <button
                   type="button"
                   className={buttonClass}
@@ -179,27 +175,25 @@ export function FlyoutMenu({
                 </button>
               )}
 
-              <button
-                type="button"
-                className={buttonClass}
-                onClick={() => {
-                  if (!controlledStep) setStep('supportTarget');
-                  onSupportStart?.(unitId);
-                }}
-                disabled={supportableUnits.length === 0}
-              >
-                支援
-              </button>
-
-              {unit.type === UnitType.Fleet && (
+              {supportableUnits.length > 0 && (
                 <button
                   type="button"
                   className={buttonClass}
                   onClick={() => {
-                    if (!controlledStep) setStep('convoyTarget');
+                    onSupportStart?.(unitId);
+                  }}
+                >
+                  支援
+                </button>
+              )}
+
+              {unit.type === UnitType.Fleet && convoyableArmies.length > 0 && (
+                <button
+                  type="button"
+                  className={buttonClass}
+                  onClick={() => {
                     onConvoyStart?.(unitId);
                   }}
-                  disabled={convoyableArmies.length === 0}
                 >
                   輸送
                 </button>
@@ -215,82 +209,6 @@ export function FlyoutMenu({
             </div>
           )}
 
-          {/* 移動先を選択中... */}
-          {step === 'moveSelect' && (
-            <div className="text-xs text-zinc-600 p-2 text-center">
-              地図上のプロビンスをタップしてください
-            </div>
-          )}
-
-          {/* 被輸送先を選択中... */}
-          {step === 'convoyedSelect' && (
-            <div className="text-xs text-zinc-600 p-2 text-center">
-              移動先をタップしてください
-            </div>
-          )}
-
-          {/* 支援対象を選択 */}
-          {step === 'supportTarget' && (
-            <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
-              <button
-                type="button"
-                className="w-full px-3 py-1 text-xs text-zinc-500 rounded-lg hover:bg-zinc-100 transition-colors"
-                onClick={() => {
-                  if (controlledStep) {
-                    onBackToMenu?.();
-                  } else {
-                    setStep('menu');
-                  }
-                }}
-              >
-                ← 戻る
-              </button>
-              {supportableUnits.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  className={`${buttonClass} text-xs`}
-                  onClick={() => {
-                    onSupportUnitSelected?.(u.id);
-                  }}
-                >
-                  {POWER_META[u.powerId]?.label} {u.type === UnitType.Army ? '陸軍' : '海軍'}
-                </button>
-              ))}
-            </div>
-          )}
-
-
-          {/* 輸送対象陸軍を選択 */}
-          {step === 'convoyTarget' && (
-            <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
-              <button
-                type="button"
-                className="w-full px-3 py-1 text-xs text-zinc-500 rounded-lg hover:bg-zinc-100 transition-colors"
-                onClick={() => {
-                  if (controlledStep) {
-                    onBackToMenu?.();
-                  } else {
-                    setStep('menu');
-                  }
-                }}
-              >
-                ← 戻る
-              </button>
-              {convoyableArmies.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  className={`${buttonClass} text-xs`}
-                  onClick={() => {
-                    onConvoyUnitSelected?.(u.id);
-                  }}
-                >
-                  {POWER_META[u.powerId]?.label} 陸軍
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     );

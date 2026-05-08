@@ -32,7 +32,7 @@ import { mergePowerPageOrderPreview, POWER_META, type UnitOrderInput, type Build
 import { OrderType, UnitType } from '@/domain';
 import { buildTreatyMapVisuals, canPowerViewTreaty } from '@/diplomacy/treaties';
 import { readOnlineSessionForPowerPageRestore } from '@/lib/onlineSessionBrowser';
-import { buildAdjacencyKeySet } from '@/mapMovement';
+import { buildAdjacencyKeySet, canSupportTargetInSupportOrder } from '@/mapMovement';
 import { POWERS } from '@/miniMap';
 import { useLocalHypotheticalOrders } from '@/hooks/useLocalHypotheticalOrders';
 import Link from 'next/link';
@@ -77,6 +77,7 @@ export default function PowerPageClient() {
     treaties,
     buildPlan,
     disbandPlan,
+    markPowerAdjustmentSaved,
   } = g;
   const [isRestoringSession, setIsRestoringSession] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -88,7 +89,7 @@ export default function PowerPageClient() {
   // フライアウトメニュー状態管理
   const [flyout, setFlyout] = useState<{ open: boolean; unitId: string; anchorX: number; anchorY: number } | null>(null);
   // フライアウトのステップ: null = フライアウトなし, 'menu' = メニュー表示中, 'moveSelect' = 移動先選択中, etc
-  const [flyoutStep, setFlyoutStep] = useState<'menu' | 'moveSelect' | 'convoyedSelect' | 'supportTarget' | 'convoyTarget' | null>(null);
+  const [flyoutStep, setFlyoutStep] = useState<'menu' | 'moveSelect' | 'convoyedSelect' | null>(null);
   // 移動可能なプロビンスID（フライアウトで移動を選択したときのみ設定）
   const [reachableProvinceIds, setReachableProvinceIds] = useState<Set<string> | null>(null);
 
@@ -103,15 +104,18 @@ export default function PowerPageClient() {
     kind: 'support' | 'convoy';
     targetUnitId: string;
   } | null>(null);
+  // どちらの種類のユニット選択待ちか（support か convoy）
+  const [awaitingUnitKind, setAwaitingUnitKind] = useState<'support' | 'convoy' | null>(null);
 
   // 他国ユニット用フライアウト（各勢力ページのローカル state）
   const [hypotheticalFlyout, setHypotheticalFlyout] = useState<{ open: boolean; unitId: string; anchorX: number; anchorY: number } | null>(null);
-  const [hypotheticalFlyoutStep, setHypotheticalFlyoutStep] = useState<'menu' | 'moveSelect' | 'supportTarget' | 'convoyTarget' | null>(null);
+  const [hypotheticalFlyoutStep, setHypotheticalFlyoutStep] = useState<'menu' | 'moveSelect' | null>(null);
   const [hypotheticalAwaitingInputFor, setHypotheticalAwaitingInputFor] = useState<'default' | 'province' | 'unit'>('default');
   const [hypotheticalPendingOrderState, setHypotheticalPendingOrderState] = useState<{
     kind: 'support' | 'convoy';
     targetUnitId: string;
   } | null>(null);
+  const [hypotheticalAwaitingUnitKind, setHypotheticalAwaitingUnitKind] = useState<'support' | 'convoy' | null>(null);
   const [hypotheticalReachableProvinceIds, setHypotheticalReachableProvinceIds] = useState<Set<string> | null>(null);
 
   // ローカル（localStorage で永続化）の想定行動：この国のページでのみ有効
@@ -179,16 +183,19 @@ export default function PowerPageClient() {
     const pendingUnit = pendingBuildUnits.find((u) => u.id === flyout.unitId);
     return pendingUnit ?? null;
   }, [flyout, board.units, pendingBuildUnits]);
-  const supportableUnits = useMemo(() => {
-    if (!currentUnit) return [];
-    // 現在のユニットが支援可能な他のユニット
-    return board.units.filter((u) => u.powerId === powerId && u.id !== currentUnit.id);
-  }, [currentUnit, board.units, powerId]);
-
   const convoyableArmies = useMemo(() => {
     if (!currentUnit || currentUnit.type !== UnitType.Fleet) return [];
-    // 現在のユニット（海軍）が輸送可能な陸軍
-    return board.units.filter((u) => u.powerId === powerId && u.type === UnitType.Army);
+    // 現在のユニット（海軍）が輸送可能な陸軍（同じプロビンスのみ）
+    return board.units.filter((u) => u.powerId === powerId && u.type === UnitType.Army && u.provinceId === currentUnit.provinceId);
+  }, [currentUnit, board.units, powerId]);
+
+  // 被輸送可能かどうか（陸軍で、同じプロビンスに海軍がいるか）
+  const canConvoyedMove = useMemo(() => {
+    if (!currentUnit || currentUnit.type !== UnitType.Army) return false;
+    // 同じプロビンスに自国の海軍がいるか確認
+    return board.units.some(
+      (u) => u.powerId === powerId && u.type === UnitType.Fleet && u.provinceId === currentUnit.provinceId
+    );
   }, [currentUnit, board.units, powerId]);
 
   const retreatOptions = useMemo(() => {
@@ -196,6 +203,19 @@ export default function PowerPageClient() {
     // 後で retreat logic を実装
     return [];
   }, [currentUnit, isRetreatPhase]);
+
+  // 入力待ちフェーズに応じた選択可能なプロビンス・ユニット
+  const selectableProvinceIds = useMemo(() => {
+    // 他国の想定行動入力を優先
+    if (hypotheticalAwaitingInputFor === 'province' && hypotheticalReachableProvinceIds) {
+      return hypotheticalReachableProvinceIds;
+    }
+    // 自国の入力
+    if (awaitingInputFor === 'province' && reachableProvinceIds) {
+      return reachableProvinceIds;
+    }
+    return undefined;
+  }, [awaitingInputFor, reachableProvinceIds, hypotheticalAwaitingInputFor, hypotheticalReachableProvinceIds]);
 
   // フライアウト確定時に markPowerOrderSaved を遅延実行するフラグ
   const pendingMarkSavedRef = useRef<string | null>(null);
@@ -207,6 +227,23 @@ export default function PowerPageClient() {
       pendingMarkSavedRef.current = null;
     }
   }, [unitOrders, g]);
+
+  // 調整フェーズ中に buildPlan / disbandPlan が変更されたら markPowerAdjustmentSaved を呼ぶ
+  // ただし依存配列では参照値で判定されるので、オブジェクトの内容変化でも発火する
+  const buildPlanForThisPower = useMemo(
+    () => buildPlan[powerId],
+    [buildPlan, powerId],
+  );
+  const disbandPlanForThisPower = useMemo(
+    () => disbandPlan[powerId],
+    [disbandPlan, powerId],
+  );
+
+  useEffect(() => {
+    if (isAdjustmentPhasePanel) {
+      markPowerAdjustmentSaved(powerId);
+    }
+  }, [isAdjustmentPhasePanel, powerId, markPowerAdjustmentSaved, buildPlanForThisPower, disbandPlanForThisPower]);
 
   const handleSelectHypotheticalScenario = useCallback((index: number) => {
     selectHypotheticalScenario(index);
@@ -262,6 +299,60 @@ export default function PowerPageClient() {
   }, [unitOrders, diplomacyPhase, isOrderLocked, isAdjustmentPhasePanel, isRetreatPhase, board, powerId, hypotheticalIsLoaded, updateHypotheticalOrders]);
 
   const orderAdjKeys = useMemo(() => buildAdjacencyKeySet(board), [board]);
+
+  const supportableUnits = useMemo(() => {
+    if (!currentUnit) return [];
+    // ドロップダウンと同じロジック: canSupportTargetInSupportOrder で支援可能なユニットのみ
+    const units = board.units.filter((u) =>
+      u.id !== currentUnit.id &&
+      canSupportTargetInSupportOrder(board, currentUnit, u, orderAdjKeys)
+    );
+    return units;
+  }, [currentUnit, board.units, orderAdjKeys]);
+
+  // hypothetical 用の supportableUnits（他国ユニットの支援対象）
+  const hypotheticalSupportableUnits = useMemo(() => {
+    if (!hypotheticalFlyout) return [];
+    // ドロップダウンと同じロジック: canSupportTargetInSupportOrder で支援可能なユニットのみ
+    const hypoUnit = board.units.find((u) => u.id === hypotheticalFlyout.unitId);
+    if (!hypoUnit) return [];
+    const units = board.units.filter((u) =>
+      u.id !== hypotheticalFlyout.unitId &&
+      canSupportTargetInSupportOrder(board, hypoUnit, u, orderAdjKeys)
+    );
+    return units;
+  }, [hypotheticalFlyout, board.units, orderAdjKeys]);
+
+  // hypothetical 用の convoyableArmies（他国ユニットの輸送対象）
+  const hypotheticalConvoyableArmies = useMemo(() => {
+    if (!hypotheticalFlyout) return [];
+    const hypoUnit = board.units.find((u) => u.id === hypotheticalFlyout.unitId);
+    if (!hypoUnit || hypoUnit.type !== UnitType.Fleet) return [];
+    // hypothetical 海軍と同じプロビンスに存在する陸軍のみ
+    return board.units.filter((u) => u.type === UnitType.Army && u.provinceId === hypoUnit.provinceId);
+  }, [hypotheticalFlyout, board.units]);
+
+  const selectableUnitIds = useMemo(() => {
+    // 他国の想定行動入力を優先
+    if (hypotheticalAwaitingInputFor === 'unit' && hypotheticalAwaitingUnitKind) {
+      if (hypotheticalAwaitingUnitKind === 'support') {
+        return new Set(hypotheticalSupportableUnits.map((u) => u.id));
+      }
+      if (hypotheticalAwaitingUnitKind === 'convoy') {
+        return new Set(hypotheticalConvoyableArmies.map((u) => u.id));
+      }
+    }
+    // 自国の入力
+    if (awaitingInputFor === 'unit' && awaitingUnitKind) {
+      if (awaitingUnitKind === 'support') {
+        return new Set(supportableUnits.map((u) => u.id));
+      }
+      if (awaitingUnitKind === 'convoy') {
+        return new Set(convoyableArmies.map((u) => u.id));
+      }
+    }
+    return undefined;
+  }, [awaitingInputFor, awaitingUnitKind, hypotheticalAwaitingInputFor, hypotheticalAwaitingUnitKind, supportableUnits, convoyableArmies, hypotheticalSupportableUnits, hypotheticalConvoyableArmies]);
 
   const powerTreatyMapVisuals = useMemo(
     () => buildTreatyMapVisuals(
@@ -435,6 +526,8 @@ export default function PowerPageClient() {
                 treatyVisuals={powerTreatyMapVisuals}
                 extraUnits={isAdjustmentPhasePanel ? pendingBuildUnits : undefined}
                 disbandedUnitIds={isAdjustmentPhasePanel ? disbandedUnitIds : undefined}
+                selectableProvinceIds={selectableProvinceIds}
+                selectableUnitIds={selectableUnitIds}
                 onUnitClick={(uid, clientX, clientY) => {
                   // board.units から探す
                   const clickedUnit = board.units.find((u) => u.id === uid);
@@ -454,15 +547,32 @@ export default function PowerPageClient() {
 
                   // 自国ユニットの処理（移動フェーズなら常に開く）
                   if (clickedUnit.powerId === powerId) {
-                    if (awaitingInputFor === 'unit' && flyout) {
+                    if (awaitingInputFor === 'unit' && selectableUnitIds?.has(uid) && awaitingUnitKind) {
                       // 支援対象や輸送対象ユニット選択中
-                      // 選択したユニットを記憶して、次はプロビンス選択待ち
-                      if (flyoutStep === 'supportTarget') {
-                        setPendingOrderState({ kind: 'support', targetUnitId: uid });
-                      } else if (flyoutStep === 'convoyTarget') {
-                        setPendingOrderState({ kind: 'convoy', targetUnitId: uid });
+                      setPendingOrderState({ kind: awaitingUnitKind, targetUnitId: uid });
+                      // 対象ユニットの移動可能プロビンスを計算
+                      const targetReachableProvinces = getReachableProvinces(board, clickedUnit, orderAdjKeys);
+                      const targetReachableIds = new Set(targetReachableProvinces.map((p) => p.id));
+
+                      // 支援の場合、支援ユニット自体の移動可能プロビンスとの交集合
+                      if (awaitingUnitKind === 'support' && currentUnit) {
+                        const supporterReachableProvinces = getReachableProvinces(board, currentUnit, orderAdjKeys);
+                        const supporterReachableIds = new Set(supporterReachableProvinces.map((p) => p.id));
+                        // 交集合を取る
+                        const intersection = new Set<string>();
+                        for (const prov of supporterReachableIds) {
+                          if (targetReachableIds.has(prov)) {
+                            intersection.add(prov);
+                          }
+                        }
+                        setReachableProvinceIds(intersection);
+                      } else {
+                        // 輸送の場合は対象の移動可能プロビンスをそのまま使用
+                        setReachableProvinceIds(targetReachableIds);
                       }
+
                       setAwaitingInputFor('province');
+                      setAwaitingUnitKind(null);
                     } else if (awaitingInputFor === 'default' || isMovementPhase) {
                       // 通常: ユニットをクリックしてフライアウトを開く
                       // 移動フェーズなら常に開く（交渉フェーズでも自国入力可能）
@@ -476,14 +586,35 @@ export default function PowerPageClient() {
                     // awaitingInputFor === 'province' の場合はクリック無視
                   } else if (isMovementPhase) {
                     // 他国ユニット（交渉フェーズまたは命令フェーズ、ローカル state のみ）
-                    if (hypotheticalAwaitingInputFor === 'unit' && hypotheticalFlyout) {
+                    if (hypotheticalAwaitingInputFor === 'unit' && selectableUnitIds?.has(uid) && hypotheticalAwaitingUnitKind) {
                       // 支援対象や輸送対象ユニット選択中
-                      if (hypotheticalFlyoutStep === 'supportTarget') {
-                        setHypotheticalPendingOrderState({ kind: 'support', targetUnitId: uid });
-                      } else if (hypotheticalFlyoutStep === 'convoyTarget') {
-                        setHypotheticalPendingOrderState({ kind: 'convoy', targetUnitId: uid });
+                      setHypotheticalPendingOrderState({ kind: hypotheticalAwaitingUnitKind, targetUnitId: uid });
+                      // 対象ユニットの移動可能プロビンスを計算
+                      const targetReachableProvinces = getReachableProvinces(board, clickedUnit, orderAdjKeys);
+                      const targetReachableIds = new Set(targetReachableProvinces.map((p) => p.id));
+
+                      // 支援ユニット（hypothetical flyout のユニット）
+                      const hypotheticalSupporter = hypotheticalFlyout ? board.units.find((u) => u.id === hypotheticalFlyout.unitId) : null;
+
+                      // 支援の場合、支援ユニット自体の移動可能プロビンスとの交集合
+                      if (hypotheticalAwaitingUnitKind === 'support' && hypotheticalSupporter) {
+                        const supporterReachableProvinces = getReachableProvinces(board, hypotheticalSupporter, orderAdjKeys);
+                        const supporterReachableIds = new Set(supporterReachableProvinces.map((p) => p.id));
+                        // 交集合を取る
+                        const intersection = new Set<string>();
+                        for (const prov of supporterReachableIds) {
+                          if (targetReachableIds.has(prov)) {
+                            intersection.add(prov);
+                          }
+                        }
+                        setHypotheticalReachableProvinceIds(intersection);
+                      } else {
+                        // 輸送の場合は対象の移動可能プロビンスをそのまま使用
+                        setHypotheticalReachableProvinceIds(targetReachableIds);
                       }
+
                       setHypotheticalAwaitingInputFor('province');
+                      setHypotheticalAwaitingUnitKind(null);
                     } else if (hypotheticalAwaitingInputFor === 'default') {
                       // 他国フライアウトを開く
                       setHypotheticalFlyout({ open: true, unitId: uid, anchorX: clientX, anchorY: clientY });
@@ -494,12 +625,10 @@ export default function PowerPageClient() {
                   // 状態による処理の分岐
                   if (awaitingInputFor === 'province' && flyout) {
                     // 移動先や輸送先プロビンス選択中
-                    // 移動/被輸送の場合、移動可能性を検証
-                    if ((flyoutStep === 'moveSelect' || flyoutStep === 'convoyedSelect') && reachableProvinceIds) {
-                      if (!reachableProvinceIds.has(provinceId)) {
-                        // 移動不可なプロビンス → クリック無視
-                        return;
-                      }
+                    // 移動/被輸送/支援/輸送の場合、移動可能性を検証
+                    if (reachableProvinceIds && !reachableProvinceIds.has(provinceId)) {
+                      // 移動不可なプロビンス → クリック無視
+                      return;
                     }
                     // 状態リセットを最後に行う
                     if (pendingOrderState?.kind === 'support' && pendingOrderState.targetUnitId) {
@@ -548,6 +677,7 @@ export default function PowerPageClient() {
                     setAwaitingInputFor('default');
                     setFlyoutStep(null);
                     setPendingOrderState(null);
+                    setAwaitingUnitKind(null);
                     setReachableProvinceIds(null);
                   } else if (awaitingInputFor === 'default' && !flyout) {
                     // フライアウトが閉じていてプロビンスをクリック → 増産フェーズなら開く
@@ -562,11 +692,9 @@ export default function PowerPageClient() {
                   // 他国プロビンス選択（ローカル想定行動のみ）
                   if (hypotheticalAwaitingInputFor === 'province' && hypotheticalFlyout && isMovementPhase) {
                     // 他国の移動/支援/輸送先プロビンス選択中
-                    if ((hypotheticalFlyoutStep === 'moveSelect') && hypotheticalReachableProvinceIds) {
-                      if (!hypotheticalReachableProvinceIds.has(provinceId)) {
-                        // 移動不可なプロビンス → クリック無視
-                        return;
-                      }
+                    if (hypotheticalReachableProvinceIds && !hypotheticalReachableProvinceIds.has(provinceId)) {
+                      // 移動不可なプロビンス → クリック無視
+                      return;
                     }
                     // ローカル state に想定行動を更新（サーバー同期しない）
                     if (hypotheticalPendingOrderState?.kind === 'support' && hypotheticalPendingOrderState.targetUnitId) {
@@ -603,6 +731,7 @@ export default function PowerPageClient() {
                     setHypotheticalAwaitingInputFor('default');
                     setHypotheticalFlyoutStep(null);
                     setHypotheticalPendingOrderState(null);
+                    setHypotheticalAwaitingUnitKind(null);
                     setHypotheticalReachableProvinceIds(null);
                   }
                 }}
@@ -772,6 +901,7 @@ export default function PowerPageClient() {
             setAwaitingInputFor('default');
             setFlyoutStep(null);
             setPendingOrderState(null);
+            setAwaitingUnitKind(null);
             setReachableProvinceIds(null);
           }}
           phase={isRetreatPhase ? 'retreat' : isAdjustmentPhasePanel ? 'adjustment' : 'movement'}
@@ -786,17 +916,18 @@ export default function PowerPageClient() {
             !flyout.unitId.startsWith('_new_') &&
             (disbandPlan[powerId] ?? []).some((slot) => slot.unitId === flyout.unitId)
           }
+          canConvoyedMove={canConvoyedMove}
           onHold={(uid) => {
             g.changeOrderType(uid, OrderType.Hold);
             pendingMarkSavedRef.current = powerId;
             setFlyout(null);
             setAwaitingInputFor('default');
             setFlyoutStep(null);
+            setAwaitingUnitKind(null);
             setReachableProvinceIds(null);
           }}
           onMoveStart={(uid) => {
             g.changeOrderType(uid, OrderType.Move);
-            setFlyoutStep('moveSelect');
             setAwaitingInputFor('province');
             // 移動可能なプロビンスを計算
             const unit = board.units.find((u) => u.id === uid);
@@ -805,11 +936,13 @@ export default function PowerPageClient() {
               const reachableIds = new Set(reachableProvinces.map((p) => p.id));
               setReachableProvinceIds(reachableIds);
             }
+            // フライアウトを閉じて（でもunitIdは保持）、地図上の強調表示で促す
+            setFlyout((prev) => prev ? { ...prev, open: false } : null);
+            setFlyoutStep(null);
           }}
           onConvoyedMoveStart={(uid) => {
             // 被輸送の場合も移動先プロビンス選択
             g.changeOrderType(uid, OrderType.Move);
-            setFlyoutStep('convoyedSelect');
             setAwaitingInputFor('province');
             // 被輸送の場合も移動可能なプロビンスを計算
             const unit = board.units.find((u) => u.id === uid);
@@ -818,38 +951,27 @@ export default function PowerPageClient() {
               const reachableIds = new Set(reachableProvinces.map((p) => p.id));
               setReachableProvinceIds(reachableIds);
             }
+            // フライアウトを閉じて（でもunitIdは保持）、地図上の強調表示で促す
+            setFlyout((prev) => prev ? { ...prev, open: false } : null);
+            setFlyoutStep(null);
           }}
           onSupportStart={(uid) => {
             // 支援対象ユニット選択へ
             g.changeOrderType(uid, OrderType.Support);
-            setFlyoutStep('supportTarget');
             setAwaitingInputFor('unit');
+            setAwaitingUnitKind('support');
             setReachableProvinceIds(null);
-          }}
-          onSupportUnitSelected={(targetUnitId) => {
-            setPendingOrderState({ kind: 'support', targetUnitId });
-            setAwaitingInputFor('province');
-            // プロビンス選択待ち UI に切り替え
-            setFlyoutStep('moveSelect');
+            // フライアウトを閉じて、地図上で対象ユニットをハイライト
+            setFlyout((prev) => prev ? { ...prev, open: false } : null);
           }}
           onConvoyStart={(uid) => {
             // 輸送対象陸軍選択へ
             g.changeOrderType(uid, OrderType.Convoy);
-            setFlyoutStep('convoyTarget');
             setAwaitingInputFor('unit');
+            setAwaitingUnitKind('convoy');
             setReachableProvinceIds(null);
-          }}
-          onConvoyUnitSelected={(targetUnitId) => {
-            setPendingOrderState({ kind: 'convoy', targetUnitId });
-            setAwaitingInputFor('province');
-            // プロビンス選択待ち UI に切り替え
-            setFlyoutStep('moveSelect');
-          }}
-          onBackToMenu={() => {
-            setFlyoutStep('menu');
-            setAwaitingInputFor('default');
-            setPendingOrderState(null);
-            setReachableProvinceIds(null);
+            // フライアウトを閉じて、地図上で対象ユニットをハイライト
+            setFlyout((prev) => prev ? { ...prev, open: false } : null);
           }}
           onRetreatChoice={(uid, destProvId) => {
             g.setRetreatTargets((prev) => ({
@@ -859,6 +981,7 @@ export default function PowerPageClient() {
             setFlyout(null);
             setAwaitingInputFor('default');
             setFlyoutStep(null);
+            setAwaitingUnitKind(null);
             setReachableProvinceIds(null);
           }}
           onDisband={(uid) => {
@@ -896,6 +1019,7 @@ export default function PowerPageClient() {
             setFlyout(null);
             setAwaitingInputFor('default');
             setFlyoutStep(null);
+            setAwaitingUnitKind(null);
             setReachableProvinceIds(null);
           }}
           onBuild={(provId, unitType) => {
@@ -921,6 +1045,7 @@ export default function PowerPageClient() {
             setFlyout(null);
             setAwaitingInputFor('default');
             setFlyoutStep(null);
+            setAwaitingUnitKind(null);
             setReachableProvinceIds(null);
           }}
           onBuildTypeChange={(uid, newType) => {
@@ -950,6 +1075,7 @@ export default function PowerPageClient() {
             setFlyout(null);
             setAwaitingInputFor('default');
             setFlyoutStep(null);
+            setAwaitingUnitKind(null);
           }}
         />
       )}
@@ -965,15 +1091,36 @@ export default function PowerPageClient() {
             setHypotheticalAwaitingInputFor('default');
             setHypotheticalFlyoutStep(null);
             setHypotheticalPendingOrderState(null);
+            setHypotheticalAwaitingUnitKind(null);
             setHypotheticalReachableProvinceIds(null);
           }}
           phase="movement"
           unitId={hypotheticalFlyout.unitId}
           unit={board.units.find((u) => u.id === hypotheticalFlyout.unitId) ?? null}
           step={hypotheticalFlyoutStep as any}
-          supportableUnits={board.units.filter((u) => u.id !== hypotheticalFlyout.unitId)}
-          convoyableArmies={board.units.filter((u) => u.type === UnitType.Army)}
+          supportableUnits={(() => {
+            const hypoUnit = board.units.find((u) => u.id === hypotheticalFlyout.unitId);
+            if (!hypoUnit) return [];
+            // ドロップダウンと同じロジック: canSupportTargetInSupportOrder で支援可能なユニットのみ
+            return board.units.filter((u) =>
+              u.id !== hypotheticalFlyout.unitId &&
+              canSupportTargetInSupportOrder(board, hypoUnit, u, orderAdjKeys)
+            );
+          })()}
+          convoyableArmies={(() => {
+            const hypoUnit = board.units.find((u) => u.id === hypotheticalFlyout.unitId);
+            if (!hypoUnit || hypoUnit.type !== UnitType.Fleet) return [];
+            // hypothetical 海軍と同じプロビンスに存在する陸軍
+            return board.units.filter((u) => u.type === UnitType.Army && u.provinceId === hypoUnit.provinceId);
+          })()}
           retreatOptions={[]}
+          canConvoyedMove={(() => {
+            const hypoUnit = board.units.find((u) => u.id === hypotheticalFlyout.unitId);
+            if (!hypoUnit || hypoUnit.type !== UnitType.Army) return false;
+            return board.units.some(
+              (u) => u.type === UnitType.Fleet && u.provinceId === hypoUnit.provinceId
+            );
+          })()}
           onHold={(uid) => {
             updateHypotheticalOrders((prev) => ({
               ...prev,
@@ -982,6 +1129,7 @@ export default function PowerPageClient() {
             setHypotheticalFlyout(null);
             setHypotheticalAwaitingInputFor('default');
             setHypotheticalFlyoutStep(null);
+            setHypotheticalAwaitingUnitKind(null);
           }}
           onMoveStart={(uid) => {
             setHypotheticalFlyoutStep('moveSelect');
@@ -993,6 +1141,8 @@ export default function PowerPageClient() {
               const reachableIds = new Set(reachableProvinces.map((p) => p.id));
               setHypotheticalReachableProvinceIds(reachableIds);
             }
+            // フライアウトを閉じて（でも unitId は保持）
+            setHypotheticalFlyout((prev) => prev ? { ...prev, open: false } : null);
           }}
           onConvoyedMoveStart={(uid) => {
             // 他国で被輸送はあまり使われないが、念のため実装
@@ -1004,30 +1154,20 @@ export default function PowerPageClient() {
               const reachableIds = new Set(reachableProvinces.map((p) => p.id));
               setHypotheticalReachableProvinceIds(reachableIds);
             }
+            // フライアウトを閉じて
+            setHypotheticalFlyout((prev) => prev ? { ...prev, open: false } : null);
           }}
           onSupportStart={(uid) => {
-            setHypotheticalFlyoutStep('supportTarget');
             setHypotheticalAwaitingInputFor('unit');
-          }}
-          onSupportUnitSelected={(targetUnitId) => {
-            setHypotheticalPendingOrderState({ kind: 'support', targetUnitId });
-            setHypotheticalAwaitingInputFor('province');
-            setHypotheticalFlyoutStep('moveSelect');
+            setHypotheticalAwaitingUnitKind('support');
+            // フライアウトを閉じて、地図上で対象ユニットをハイライト
+            setHypotheticalFlyout((prev) => prev ? { ...prev, open: false } : null);
           }}
           onConvoyStart={(uid) => {
-            setHypotheticalFlyoutStep('convoyTarget');
             setHypotheticalAwaitingInputFor('unit');
-          }}
-          onConvoyUnitSelected={(targetUnitId) => {
-            setHypotheticalPendingOrderState({ kind: 'convoy', targetUnitId });
-            setHypotheticalAwaitingInputFor('province');
-            setHypotheticalFlyoutStep('moveSelect');
-          }}
-          onBackToMenu={() => {
-            setHypotheticalFlyoutStep('menu');
-            setHypotheticalAwaitingInputFor('default');
-            setHypotheticalPendingOrderState(null);
-            setHypotheticalReachableProvinceIds(null);
+            setHypotheticalAwaitingUnitKind('convoy');
+            // フライアウトを閉じて、地図上で対象ユニットをハイライト
+            setHypotheticalFlyout((prev) => prev ? { ...prev, open: false } : null);
           }}
           onRetreatChoice={() => {}}
           onDisband={() => {}}

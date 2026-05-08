@@ -48,13 +48,12 @@ export type OrderPreviewPolyline = {
 };
 
 /**
- * CUDO（色覚多様性対応）ユニバーサルカラー。
- * 弱視対応のため、命令種別で色を分け、勢力色は使わない。
+ * 命令種別の矢印色（すべて黒に統一）
  */
 const CUDO_ORDER_COLORS = {
-  move: '#005AFF',    // 青
-  support: '#03AF7A', // 緑
-  convoy: '#4DC4FF',  // 水色
+  move: '#000000',    // 黒
+  support: '#000000', // 黒
+  convoy: '#000000',  // 黒
 } as const;
 
 const ORDER_PREVIEW_MARKERS_GROUP_ID = 'order-preview-markers';
@@ -83,14 +82,16 @@ function segmentBezierPathDFromContext(
 }
 
 /**
- * stroke 文字列から一意なマーカー用 ID を作る（SVG id に安全な英数字）。
+ * stroke 文字列と kind から一意なマーカー用 ID を作る（SVG id に安全な英数字）。
  *
  * @param stroke - CSS 色
+ * @param kind - 命令種別
  */
-function markerElementIdForStroke(stroke: string): string {
+function markerElementIdForStrokeAndKind(stroke: string, kind: 'move' | 'support' | 'convoy'): string {
   let h = 0;
-  for (let i = 0; i < stroke.length; i += 1) {
-    h = (Math.imul(31, h) + stroke.charCodeAt(i)) >>> 0;
+  const str = stroke + kind;
+  for (let i = 0; i < str.length; i += 1) {
+    h = (Math.imul(31, h) + str.charCodeAt(i)) >>> 0;
   }
   return `order-preview-m-${h.toString(16)}`;
 }
@@ -172,7 +173,7 @@ export function buildOrderPreviewPolylines(
       const fromSeaFleet = fleetAtSeaByProvinceId.get(fromPid);
       const toSeaFleet = fleetAtSeaByProvinceId.get(toPid);
       const responsibleFleet = fromSeaFleet ?? toSeaFleet;
-      let segStroke = '#9ca3af';
+      let segStroke = '#000000';
       if (responsibleFleet) {
         segStroke = hasMatchingConvoyOrder(
           responsibleFleet.id,
@@ -180,7 +181,7 @@ export function buildOrderPreviewPolylines(
           targetProvinceId,
         )
           ? CUDO_ORDER_COLORS.convoy
-          : '#9ca3af';
+          : '#000000';
       }
       result.push({
         kind: 'convoy',
@@ -334,14 +335,14 @@ export function buildOrderPreviewPolylines(
 }
 
 /**
- * defs を確保し、プレビュー用マーカーを stroke 色ごとに再構築する。
+ * defs を確保し、プレビュー用マーカーを命令種別ごとに再構築する。
  *
  * @param svg - 地図ルート SVG
- * @param strokeColors - 使用する線色の一覧（重複可）
+ * @param polylines - 描画する折れ線
  */
-function syncOrderPreviewMarkersByStroke(
+function syncOrderPreviewMarkers(
   svg: SVGSVGElement,
-  strokeColors: readonly string[],
+  polylines: readonly OrderPreviewPolyline[],
 ): void {
   let defs = svg.querySelector('defs');
   if (!defs) {
@@ -365,24 +366,56 @@ function syncOrderPreviewMarkersByStroke(
   }
 
   const seen = new Set<string>();
-  for (const stroke of strokeColors) {
-    if (seen.has(stroke)) {
+  for (const pl of polylines) {
+    const key = pl.stroke + pl.kind;
+    if (seen.has(key)) {
       continue;
     }
-    seen.add(stroke);
-    const mid = markerElementIdForStroke(stroke);
+    seen.add(key);
+    const mid = markerElementIdForStrokeAndKind(pl.stroke, pl.kind);
     const marker = document.createElementNS(SVG_NS, 'marker');
     marker.setAttribute('id', mid);
-    marker.setAttribute('viewBox', '0 0 10 10');
-    marker.setAttribute('refX', '9');
-    marker.setAttribute('refY', '5');
-    marker.setAttribute('markerWidth', '5.5');
-    marker.setAttribute('markerHeight', '5.5');
+    // userSpaceOnUse で拡大縮小に比例するように設定
+    marker.setAttribute('markerUnits', 'userSpaceOnUse');
     marker.setAttribute('orient', 'auto-start-reverse');
-    const tri = document.createElementNS(SVG_NS, 'path');
-    tri.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
-    tri.setAttribute('fill', stroke);
-    marker.appendChild(tri);
+
+    let shape: SVGElement;
+    if (pl.kind === 'move') {
+      // 移動: 三角形 →
+      marker.setAttribute('viewBox', '0 0 10 10');
+      marker.setAttribute('refX', '5');
+      marker.setAttribute('refY', '5');
+      marker.setAttribute('markerWidth', '15');
+      marker.setAttribute('markerHeight', '15');
+      shape = document.createElementNS(SVG_NS, 'path');
+      shape.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+      shape.setAttribute('fill', pl.stroke);
+    } else if (pl.kind === 'support') {
+      // 支援: 中アキの丸（2倍 × 1.1倍）
+      marker.setAttribute('viewBox', '0 0 10 10');
+      marker.setAttribute('refX', '5');
+      marker.setAttribute('refY', '5');
+      marker.setAttribute('markerWidth', '33');
+      marker.setAttribute('markerHeight', '33');
+      shape = document.createElementNS(SVG_NS, 'circle');
+      shape.setAttribute('cx', '5');
+      shape.setAttribute('cy', '5');
+      shape.setAttribute('r', '3.5');
+      shape.setAttribute('fill', 'none');
+      shape.setAttribute('stroke', pl.stroke);
+      shape.setAttribute('stroke-width', '0.8');
+    } else {
+      // 輸送: ダイヤ ◇
+      marker.setAttribute('viewBox', '0 0 10 10');
+      marker.setAttribute('refX', '5');
+      marker.setAttribute('refY', '5');
+      marker.setAttribute('markerWidth', '15');
+      marker.setAttribute('markerHeight', '15');
+      shape = document.createElementNS(SVG_NS, 'path');
+      shape.setAttribute('d', 'M 5 0 L 10 5 L 5 10 L 0 5 z');
+      shape.setAttribute('fill', pl.stroke);
+    }
+    marker.appendChild(shape);
     group.appendChild(marker);
   }
 }
@@ -398,9 +431,9 @@ export function syncOrderPreviewOverlay(
   polylines: readonly OrderPreviewPolyline[],
 ): void {
   const drawable = polylines.filter((pl) => pl.points.length >= 2);
-  syncOrderPreviewMarkersByStroke(
+  syncOrderPreviewMarkers(
     svg,
-    drawable.map((pl) => pl.stroke),
+    drawable,
   );
 
   let g = svg.querySelector(`#${ORDER_PREVIEW_LAYER_ID}`) as SVGGElement | null;
@@ -467,11 +500,10 @@ export function syncOrderPreviewOverlay(
     path.setAttribute('stroke-width', pl.kind === 'convoy' ? '2.5' : '2.2');
     path.setAttribute('stroke-linecap', 'round');
     path.setAttribute('stroke-linejoin', 'round');
-    path.setAttribute('vector-effect', 'non-scaling-stroke');
     path.setAttribute('opacity', pl.kind === 'convoy' ? '0.95' : '0.9');
     path.setAttribute(
       'marker-end',
-      `url(#${markerElementIdForStroke(pl.stroke)})`,
+      `url(#${markerElementIdForStrokeAndKind(pl.stroke, pl.kind)})`,
     );
     if (pl.kind === 'support') {
       path.setAttribute('stroke-dasharray', '7 5');

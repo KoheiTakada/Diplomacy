@@ -679,6 +679,8 @@ export function clampViewBoxToMapExtent(v: ViewBox, extent: ViewBox): ViewBox {
  * @param mapEffects - スタンドオフ・コンボイなど盤面だけでは足りない演出
  * @param highlightedProvinceIds - 強調表示するプロヴィンスのセット（盤面修正パネル用）
  * @param disbandedUnitIds - 削減予定のユニットID（グレー表示）
+ * @param selectableProvinceIds - 選択可能なプロビンスID（枠線で強調表示）
+ * @param selectableUnitIds - 選択可能なユニットID（枠線で強調表示）
  */
 export function applyBoardOverlay(
   svg: SVGSVGElement,
@@ -691,12 +693,49 @@ export function applyBoardOverlay(
   highlightedProvinceIds?: ReadonlySet<string>,
   extraUnits?: readonly Pick<Unit, 'id' | 'type' | 'powerId' | 'provinceId'>[],
   disbandedUnitIds?: ReadonlySet<string>,
+  selectableProvinceIds?: ReadonlySet<string>,
+  selectableUnitIds?: ReadonlySet<string>,
 ): void {
+  // パルスアニメーション用の style を追加
+  let styleEl = svg.querySelector('style[data-pulse-animation]') as SVGStyleElement | null;
+  if (!styleEl) {
+    styleEl = document.createElementNS(SVG_NS, 'style');
+    styleEl.setAttribute('data-pulse-animation', 'true');
+    styleEl.textContent = `
+      @keyframes pulse-opacity {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+      }
+      .selectable-province-pulse {
+        animation: pulse-opacity 1.5s infinite;
+      }
+      .selectable-unit-pulse {
+        animation: pulse-opacity 1.5s infinite;
+      }
+    `;
+    svg.insertBefore(styleEl, svg.firstChild);
+  }
+
   applyProvinceOccupationFills(svg, board);
 
   const legacyEdges = svg.querySelector('#adjacency-edges');
   if (legacyEdges?.parentNode) {
     legacyEdges.parentNode.removeChild(legacyEdges);
+  }
+
+  // 選択可能なプロビンス用の overlay レイヤーを管理
+  let highlightLayer = svg.querySelector<SVGGElement>('#selectable-provinces-overlay');
+  if (!highlightLayer) {
+    highlightLayer = document.createElementNS(SVG_NS, 'g') as SVGGElement;
+    highlightLayer.setAttribute('id', 'selectable-provinces-overlay');
+    highlightLayer.setAttribute('class', 'map-overlay');
+    highlightLayer.style.setProperty('pointer-events', 'none');
+    svg.appendChild(highlightLayer);
+  }
+  // 既存の highlight を全削除
+  while (highlightLayer.firstChild) {
+    highlightLayer.removeChild(highlightLayer.firstChild);
   }
 
   svg.querySelectorAll<SVGCircleElement>('[data-supply]').forEach((c) => {
@@ -712,8 +751,13 @@ export function applyBoardOverlay(
 
     // 強調表示がある場合、優先的に適用
     if (highlightedProvinceIds?.has(id)) {
-      c.style.setProperty('stroke', '#f97316');
+      c.style.setProperty('stroke', '#000000');
       c.style.setProperty('stroke-width', '3');
+    } else if (selectableProvinceIds?.has(id)) {
+      // 選択可能なプロビンス（パルスアニメーション）
+      c.style.setProperty('stroke', '#FF1493');
+      c.style.setProperty('stroke-width', '2.5');
+      c.classList.add('selectable-province-pulse');
     } else {
       const strokeCol =
         meta?.homePowerId != null
@@ -726,6 +770,46 @@ export function applyBoardOverlay(
       c.style.setProperty('stroke-width', strokeW);
     }
   });
+
+  // 盤面修正パネル用: 既存 polygon の stroke を直接設定
+  svg.querySelectorAll<SVGPolygonElement>('polygon[data-province]').forEach((el) => {
+    const provinceId = el.getAttribute('data-province');
+    if (!provinceId) return;
+
+    if (highlightedProvinceIds?.has(provinceId)) {
+      // 盤面修正パネル用: 黒枠
+      el.style.setProperty('stroke', '#000000');
+      el.style.setProperty('stroke-width', '3');
+    } else {
+      // ハイライトなし
+      el.style.removeProperty('stroke');
+      el.style.removeProperty('stroke-width');
+    }
+  });
+
+  // 選択可能なプロビンスの overlay layer に複製 polygon を追加（最前面に来るようにする）
+  if (selectableProvinceIds && selectableProvinceIds.size > 0) {
+    svg.querySelectorAll<SVGPolygonElement>('polygon[data-province]').forEach((original) => {
+      const provinceId = original.getAttribute('data-province');
+      if (!provinceId || !selectableProvinceIds.has(provinceId)) {
+        return;
+      }
+      // polygon を複製して overlay に追加
+      const clone = original.cloneNode(true) as SVGPolygonElement;
+      clone.removeAttribute('id');
+      clone.removeAttribute('data-province');
+      clone.removeAttribute('data-area-type');
+      clone.removeAttribute('data-impassable');
+      clone.removeAttribute('class');
+      clone.style.setProperty('fill', 'none');
+      clone.style.setProperty('stroke', '#FF1493');
+      clone.style.setProperty('stroke-width', '2.5');
+      clone.style.setProperty('stroke-linejoin', 'round');
+      clone.style.setProperty('pointer-events', 'none');
+      clone.classList.add('selectable-province-pulse');
+      (highlightLayer as SVGGElement).appendChild(clone);
+    });
+  }
 
   let unitsLayer = svg.querySelector('#units-overlay');
   if (!unitsLayer) {
@@ -802,7 +886,7 @@ export function applyBoardOverlay(
         continue;
       }
       const convoyUnit = board.units.find((u) => u.id === e.convoyUnitId);
-      const stroke = POWER_COLORS[convoyUnit?.powerId ?? ''] ?? '#0ea5e9';
+      const stroke = '#000000';
       const path = document.createElementNS(SVG_NS, 'path');
       path.setAttribute('d', bezierPathDFromPoints(wps));
       path.setAttribute('fill', 'none');
@@ -810,7 +894,6 @@ export function applyBoardOverlay(
       path.setAttribute('stroke-width', '2.4');
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('stroke-linejoin', 'round');
-      path.setAttribute('vector-effect', 'non-scaling-stroke');
       path.setAttribute(
         'stroke-dasharray',
         e.tentative === true ? '6 5 2 5' : '10 5 2 5',
@@ -870,9 +953,23 @@ export function applyBoardOverlay(
       ring.setAttribute('cy', '0');
       ring.setAttribute('r', '13');
       ring.setAttribute('fill', 'none');
-      ring.setAttribute('stroke', '#f97316');
+      ring.setAttribute('stroke', '#000000');
       ring.setAttribute('stroke-width', '2.5');
       ring.setAttribute('opacity', '0.9');
+      g.insertBefore(ring, g.firstChild);
+    }
+
+    // 選択可能なユニットに濃いピンクのリング（パルスアニメーション）を追加
+    if (selectableUnitIds?.has(u.id)) {
+      const ring = document.createElementNS(SVG_NS, 'circle');
+      ring.setAttribute('cx', '0');
+      ring.setAttribute('cy', '0');
+      ring.setAttribute('r', '13');
+      ring.setAttribute('fill', 'none');
+      ring.setAttribute('stroke', '#FF1493');
+      ring.setAttribute('stroke-width', '2');
+      ring.setAttribute('opacity', '1');
+      ring.classList.add('selectable-unit-pulse');
       g.insertBefore(ring, g.firstChild);
     }
 
