@@ -279,7 +279,8 @@ export function MainDiplomacyHome() {
       disabled={
         (isRetreatPhase && !allPowersRetreatReady) ||
         (isAdjustmentPhasePanel && !allPowersAdjustmentReady) ||
-        (diplomacyPhase === 'orders' &&
+        (!isRetreatPhase && !isAdjustmentPhasePanel &&
+          diplomacyPhase === 'orders' &&
           (isOrderLocked || !allPowersMovementReady))
       }
       onClick={handlePhaseAction}
@@ -557,7 +558,8 @@ export function MainDiplomacyHome() {
                   disabled={
                     (isRetreatPhase && !allPowersRetreatReady) ||
                     (isAdjustmentPhasePanel && !allPowersAdjustmentReady) ||
-                    (diplomacyPhase === 'orders' &&
+                    (!isRetreatPhase && !isAdjustmentPhasePanel &&
+                      diplomacyPhase === 'orders' &&
                       (isOrderLocked || !allPowersMovementReady))
                   }
                   onClick={handlePhaseAction}
