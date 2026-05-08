@@ -13,7 +13,7 @@
  *   - 違反判定は一部種別（明示的に禁止しやすい条項）に限定する。
  */
 
-import { OrderType, Season, type BoardState } from '@/domain';
+import { OrderType, Season, UnitType, type BoardState } from '@/domain';
 import type { UnitOrderInput } from '@/diplomacy/gameHelpers';
 import { POWER_COLORS } from '@/mapViewConstants';
 
@@ -98,6 +98,7 @@ export type TreatyRecord = {
   visibleToPowerIds: string[];
   provinceIds: string[];
   primaryPowerId?: string;
+  primaryUnitId?: string;
   secondaryPowerId?: string;
   thirdPowerId?: string;
   unitText?: string;
@@ -141,6 +142,15 @@ export type TreatyMapVisuals = {
     provinceId: string;
     color: string;
     opacity: number;
+  }[];
+  unitArrows: {
+    fromProvinceId: string;
+    toProvinceId: string;
+    color: string;
+    opacity: number;
+  }[];
+  unitPulses: {
+    unitId: string;
   }[];
 };
 
@@ -214,9 +224,14 @@ export function treatyExpiryLabel(t: TreatyRecord): string {
 export function buildTreatyMapVisuals(
   treaties: TreatyRecord[],
   currentTurn: { year: number; season: Season },
+  board: BoardState,
+  unitOrders?: Record<string, UnitOrderInput>,
 ): TreatyMapVisuals {
   const fills: TreatyMapVisuals['provinceFills'] = [];
   const arrows: TreatyMapVisuals['provinceArrows'] = [];
+  const unitArrows: TreatyMapVisuals['unitArrows'] = [];
+  const unitPulses: TreatyMapVisuals['unitPulses'] = [];
+
   for (const t of treaties) {
     if (!isTreatyActive(t, currentTurn)) {
       continue;
@@ -224,19 +239,16 @@ export function buildTreatyMapVisuals(
     for (const clause of t.clauses) {
       if (clause === 'mutualNonAggression') {
         for (const provinceId of t.provinceIds) {
-          fills.push({ provinceId, color: '#9ca3af', opacity: 0.28 });
+          fills.push({ provinceId, color: '#6b7280', opacity: 0.45 });
         }
       }
-      if (
-        clause === 'mutualStandoff' ||
-        clause === 'moveSupport' ||
-        clause === 'convoySupport' ||
-        clause === 'holdSupport'
-      ) {
+
+      if (clause === 'mutualStandoff') {
         for (const provinceId of t.provinceIds) {
           arrows.push({ provinceId, color: '#9ca3af', opacity: 0.8 });
         }
       }
+
       if (clause === 'sphere') {
         const spherePower = t.primaryPowerId ?? t.participantPowerIds[0] ?? '';
         const sphereColor = POWER_COLORS[spherePower] ?? '#64748b';
@@ -244,9 +256,65 @@ export function buildTreatyMapVisuals(
           fills.push({ provinceId, color: sphereColor, opacity: 0.2 });
         }
       }
+
+      if (clause === 'routeSecure' && t.primaryUnitId) {
+        unitPulses.push({ unitId: t.primaryUnitId });
+      }
+
+      if ((clause === 'moveSupport' || clause === 'convoySupport') && t.primaryUnitId && t.provinceIds[0]) {
+        const unit = board.units.find((u) => u.id === t.primaryUnitId);
+        if (unit) {
+          const hasOrder = unitOrders && unitOrders[t.primaryUnitId];
+          if (!hasOrder || (hasOrder.type !== OrderType.Support && hasOrder.type !== OrderType.Convoy)) {
+            unitArrows.push({
+              fromProvinceId: unit.provinceId,
+              toProvinceId: t.provinceIds[0],
+              color: '#9ca3af',
+              opacity: 0.8,
+            });
+          }
+        }
+      }
+
+      if (clause === 'holdSupport' && t.primaryUnitId) {
+        const unit = board.units.find((u) => u.id === t.primaryUnitId);
+        if (unit) {
+          unitArrows.push({
+            fromProvinceId: unit.provinceId,
+            toProvinceId: unit.provinceId,
+            color: '#9ca3af',
+            opacity: 0.8,
+          });
+        }
+      }
+
+      if (clause === 'exchangeRetreat' && t.provinceIds[0]) {
+        const provinceId = t.provinceIds[0];
+        const unitsInProvince = board.units.filter(
+          (u) => u.provinceId === provinceId && t.participantPowerIds.includes(u.powerId),
+        );
+        for (const unit of unitsInProvince) {
+          unitPulses.push({ unitId: unit.id });
+        }
+      }
+
+      if (clause === 'noDeploy' && t.primaryPowerId && t.provinceIds[0] && t.unitText) {
+        const provinceId = t.provinceIds[0];
+        const targetUnitType = t.unitText === 'army' ? UnitType.Army : UnitType.Fleet;
+        const unitsInProvince = board.units.filter(
+          (u) =>
+            u.provinceId === provinceId &&
+            u.powerId === t.primaryPowerId &&
+            u.type === targetUnitType,
+        );
+        for (const unit of unitsInProvince) {
+          unitPulses.push({ unitId: unit.id });
+        }
+      }
     }
   }
-  return { provinceFills: fills, provinceArrows: arrows };
+
+  return { provinceFills: fills, provinceArrows: arrows, unitArrows, unitPulses };
 }
 
 /**

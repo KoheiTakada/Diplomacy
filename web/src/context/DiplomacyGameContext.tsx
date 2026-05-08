@@ -1252,8 +1252,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   >((powerId) => treaties.filter((t) => canPowerViewTreaty(t, powerId)), [treaties]);
 
   const treatyMapVisuals = useMemo(
-    () => buildTreatyMapVisuals(treaties, board.turn),
-    [treaties, board.turn],
+    () => buildTreatyMapVisuals(treaties, board.turn, board),
+    [treaties, board],
   );
 
   const addPendingTreatyOp = useCallback<

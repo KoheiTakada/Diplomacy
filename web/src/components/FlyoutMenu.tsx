@@ -1,6 +1,6 @@
 'use client';
 
-import { UnitType, type Unit } from '@/domain';
+import { UnitType, type Unit, type FleetCoast } from '@/domain';
 import { POWER_META } from '@/diplomacy/gameHelpers';
 import { useState, useRef, useEffect } from 'react';
 
@@ -19,7 +19,7 @@ export interface FlyoutMenuProps {
   unit: Unit | null;
 
   // UI ステップ（PowerPageClient によって制御される）
-  step?: 'menu' | 'moveSelect' | 'convoyedSelect';
+  step?: 'menu' | 'moveSelect' | 'convoyedSelect' | 'coastSelect';
 
   // 命令確定コールバック
   onHold: (unitId: string) => void;
@@ -31,6 +31,7 @@ export interface FlyoutMenuProps {
   onDisband: (unitId: string) => void;
   onBuild: (provinceId: string, unitType: UnitType) => void;
   onBuildTypeChange?: (unitId: string, newType: UnitType) => void;
+  onCoastSelect?: (coast: FleetCoast) => void;
 
   // 選択肢データ
   retreatOptions?: string[];
@@ -38,6 +39,7 @@ export interface FlyoutMenuProps {
   convoyableArmies?: Unit[];
   isDisbandPending?: boolean; // 削減フェーズで削除予定かどうか
   canConvoyedMove?: boolean; // 被輸送が可能かどうか
+  availableCoasts?: FleetCoast[]; // 利用可能な岸（coastSelect ステップで使用）
 }
 
 /**
@@ -62,16 +64,18 @@ export function FlyoutMenu({
   onDisband,
   onBuild,
   onBuildTypeChange,
+  onCoastSelect,
   retreatOptions = [],
   supportableUnits = [],
   convoyableArmies = [],
   isDisbandPending = false,
   canConvoyedMove = false,
+  availableCoasts = [],
 }: FlyoutMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuHeight, setMenuHeight] = useState(0);
   // controlledStep が提供されている場合はそれを使う、そうでなければ内部状態を使う
-  const [internalStep, setInternalStep] = useState<'menu' | 'moveSelect' | 'convoyedSelect'>('menu');
+  const [internalStep, setInternalStep] = useState<'menu' | 'moveSelect' | 'convoyedSelect' | 'coastSelect'>('menu');
   const step = controlledStep ?? internalStep;
   const setStep = controlledStep ? () => {} : setInternalStep;
 
@@ -206,6 +210,29 @@ export function FlyoutMenu({
               >
                 キャンセル
               </button>
+            </div>
+          )}
+
+          {/* 岸選択表示 */}
+          {step === 'coastSelect' && (
+            <div className="flex flex-col gap-1">
+              <div className="text-xs font-semibold text-zinc-600 px-3 py-2">岸を選択</div>
+              {availableCoasts.map((coast) => {
+                const coastLabel = coast === 'NC' ? '北岸' : coast === 'SC' ? '南岸' : '東岸';
+                return (
+                  <button
+                    key={coast}
+                    type="button"
+                    className={buttonClass}
+                    onClick={() => {
+                      onCoastSelect?.(coast);
+                      onClose();
+                    }}
+                  >
+                    {coastLabel}
+                  </button>
+                );
+              })}
             </div>
           )}
 

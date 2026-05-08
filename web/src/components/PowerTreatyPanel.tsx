@@ -1134,6 +1134,26 @@ export function PowerTreatyPanel(props: PowerTreatyPanelProps) {
 
     const title = buildAutoTitle(clause1Kind, clause1Vals, clause2Kind, clause2Vals);
 
+    // 条項に応じた追加フィールドを抽出
+    const UNIT_SLOT_CLAUSES: TreatyClauseKind[] = ['routeSecure', 'moveSupport', 'convoySupport', 'holdSupport'];
+    let primaryUnitId: string | undefined;
+    if (clause1Kind != null && UNIT_SLOT_CLAUSES.includes(clause1Kind)) {
+      const val = clause1Vals['unit'];
+      if (typeof val === 'string' && val) primaryUnitId = val;
+    }
+
+    let primaryPowerId: string | undefined;
+    if (clause1Kind === 'sphere' || clause1Kind === 'noDeploy') {
+      const val = clause1Vals['power'];
+      if (typeof val === 'string' && val) primaryPowerId = val;
+    }
+
+    let unitText: string | undefined;
+    if (clause1Kind === 'noDeploy') {
+      const val = clause1Vals['unitType'];
+      if (typeof val === 'string' && val) unitText = val;
+    }
+
     createTreaty({
       title,
       proposerPowerId: powerId,
@@ -1146,6 +1166,9 @@ export function PowerTreatyPanel(props: PowerTreatyPanelProps) {
       expiry: isInfo ? null : indefinite
         ? null
         : { year: expiryYear, season: expirySeason },
+      primaryUnitId,
+      primaryPowerId,
+      unitText,
     });
 
     setClause1Kind(null);

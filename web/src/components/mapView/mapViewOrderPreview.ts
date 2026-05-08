@@ -45,6 +45,7 @@ export type OrderPreviewPolyline = {
   points: Vec2[];
   dashed?: boolean;
   pathD?: string;
+  isFailing?: boolean;
 };
 
 /**
@@ -145,6 +146,102 @@ export function buildOrderPreviewPolylines(
       .filter((u) => u.type === UnitType.Fleet)
       .map((u) => [u.provinceId, u]),
   );
+
+  // ──── 失敗する命令の判定 ────
+  const failingUnitIds = new Set<string>();
+
+  // 1. スタンドオフ: 同じターゲットに複数の Move 命令
+  const movesByTarget = new Map<string, string[]>();
+  for (const [unitId, order] of Object.entries(mergedUnitOrders)) {
+    if (order.type === OrderType.Move && order.targetProvinceId) {
+      const target = order.targetProvinceId;
+      if (!movesByTarget.has(target)) movesByTarget.set(target, []);
+      movesByTarget.get(target)!.push(unitId);
+    }
+  }
+  for (const [_target, unitIds] of movesByTarget.entries()) {
+    if (unitIds.length >= 2) {
+      unitIds.forEach((uid) => failingUnitIds.add(uid));
+    }
+  }
+
+  // 2. 輸送なしで海域へ：陸軍が海に移動しようとしているが Convoy 命令がない
+  for (const [unitId, order] of Object.entries(mergedUnitOrders)) {
+    if (order.type === OrderType.Move) {
+      const unit = board.units.find((u) => u.id === unitId);
+      const targetProv = board.provinces.find((p) => p.id === order.targetProvinceId);
+      if (
+        unit &&
+        unit.type === UnitType.Army &&
+        targetProv &&
+        targetProv.areaType === 'Sea'
+      ) {
+        // 陸軍が海に移動 → Convoy 命令があるか確認
+        const hasConvoy = Object.entries(mergedUnitOrders).some(
+          ([fid, forder]) =>
+            forder.type === OrderType.Convoy &&
+            forder.convoyArmyId === unitId &&
+            forder.convoyToProvinceId === order.targetProvinceId,
+        );
+        if (!hasConvoy) {
+          failingUnitIds.add(unitId);
+        }
+      }
+    }
+  }
+
+  // 3. 支援失敗：支援先ユニットの命令と一致していない（全ユニット対象、想定行動ベース）
+  for (const [unitId, order] of Object.entries(mergedUnitOrders)) {
+    if (order.type === OrderType.Support && order.supportedUnitId) {
+      const supportedOrder = mergedUnitOrders[order.supportedUnitId];
+
+      // 支援先ユニットに命令がない → 失敗
+      if (!supportedOrder) {
+        failingUnitIds.add(unitId);
+        continue;
+      }
+
+      // 移動支援の場合、支援先ユニットの実際の移動先と一致しているか確認
+      if (order.supportToProvinceId) {
+        if (supportedOrder.type !== OrderType.Move ||
+            supportedOrder.targetProvinceId !== order.supportToProvinceId) {
+          failingUnitIds.add(unitId);
+        }
+      }
+      // 維持支援の場合、支援先ユニットが待機しているか確認
+      else {
+        if (supportedOrder.type === OrderType.Move) {
+          // 支援先ユニットが移動している場合は維持支援失敗
+          failingUnitIds.add(unitId);
+        }
+      }
+    }
+  }
+
+  // 4. 支援カット：支援元ユニットが敵に攻撃される（同じプロビンスに移動される）
+  for (const [unitId, order] of Object.entries(mergedUnitOrders)) {
+    if (order.type === OrderType.Support) {
+      const supporter = board.units.find((u) => u.id === unitId);
+      if (!supporter) continue;
+
+      // 他国のユニットが支援元ユニットを攻撃（同じプロビンスに移動）するかチェック
+      const isCut = Object.entries(mergedUnitOrders).some(([otherId, otherOrder]) => {
+        if (otherId === unitId) return false; // 自分自身は除外
+        const otherUnit = board.units.find((u) => u.id === otherId);
+        if (!otherUnit || otherUnit.powerId === supporter.powerId) return false; // 自国は除外
+
+        if (otherOrder.type !== OrderType.Move) return false;
+
+        // 支援元ユニットと同じプロビンスに移動する場合 → 支援カット
+        return otherOrder.targetProvinceId === supporter.provinceId;
+      });
+
+      if (isCut) {
+        failingUnitIds.add(unitId);
+      }
+    }
+  }
+
   const hasMatchingConvoyOrder = (
     fleetUnitId: string,
     armyUnitId: string,
@@ -267,7 +364,12 @@ export function buildOrderPreviewPolylines(
         }
       }
 
-      result.push({ kind: 'move', stroke, points: [from, to] });
+      result.push({
+        kind: 'move',
+        stroke,
+        points: [from, to],
+        isFailing: failingUnitIds.has(unit.id),
+      });
       continue;
     }
 
@@ -285,7 +387,12 @@ export function buildOrderPreviewPolylines(
       if (!to) {
         continue;
       }
-      result.push({ kind: 'support', stroke, points: [from, to] });
+      result.push({
+        kind: 'support',
+        stroke,
+        points: [from, to],
+        isFailing: failingUnitIds.has(unit.id),
+      });
       continue;
     }
 
@@ -452,6 +559,25 @@ export function syncOrderPreviewOverlay(
   while (g.firstChild) {
     g.removeChild(g.firstChild);
   }
+
+  // パルスアニメーション CSS を注入（失敗矢印用）
+  const pulseStyle = svg.querySelector('style[data-order-preview-pulse]');
+  if (!pulseStyle && drawable.some((pl) => pl.isFailing)) {
+    const style = document.createElementNS(SVG_NS, 'style');
+    style.setAttribute('data-order-preview-pulse', 'true');
+    style.textContent = `
+      @keyframes order-preview-pulse {
+        0%   { opacity: 0.9; }
+        50%  { opacity: 0.3; }
+        100% { opacity: 0.9; }
+      }
+      .order-preview-pulse {
+        animation: order-preview-pulse 1.5s infinite;
+      }
+    `;
+    svg.insertBefore(style, svg.firstChild);
+  }
+
   const pathDForPoints = (points: readonly Vec2[], curved: boolean): string => {
     if (points.length < 2) {
       return '';
@@ -509,6 +635,10 @@ export function syncOrderPreviewOverlay(
       path.setAttribute('stroke-dasharray', '7 5');
     } else if (pl.kind === 'convoy' && pl.dashed === true) {
       path.setAttribute('stroke-dasharray', '10 5 2 5');
+    }
+    // 失敗矢印にパルスクラス
+    if (pl.isFailing) {
+      path.setAttribute('class', 'order-preview-pulse');
     }
     g.appendChild(path);
   }

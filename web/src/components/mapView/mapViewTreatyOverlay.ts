@@ -8,9 +8,9 @@
  *   - 州の塗りは data-province の形状をクローンして重ねるため、地図 SVG の属性に依存する。
  */
 
-import { mapAnchorAlongConvoyPath } from '@/components/mapView/mapViewBoardOverlay';
+import { mapAnchorAlongConvoyPath, mapAnchorForUnit } from '@/components/mapView/mapViewBoardOverlay';
 import type { AnchorLayers } from '@/components/mapView/mapViewTypes';
-import type { BoardState } from '@/domain';
+import { UnitType, type BoardState } from '@/domain';
 import { SVG_NS } from '@/mapViewConstants';
 import type { TreatyMapVisuals } from '@/diplomacy/treaties';
 
@@ -108,5 +108,99 @@ export function syncTreatyOverlay(
     path.setAttribute('opacity', String(arrow.opacity));
     path.setAttribute('marker-end', `url(#${TREATY_MARKER_ID})`);
     overlay.appendChild(path);
+  }
+
+  // unitArrows: ユニット位置から位置への矢印（支援系）
+  for (const arrow of treatyVisuals.unitArrows) {
+    const fromAnchor = mapAnchorAlongConvoyPath(layers, board, arrow.fromProvinceId);
+    const toAnchor = mapAnchorAlongConvoyPath(layers, board, arrow.toProvinceId);
+    if (!fromAnchor || !toAnchor) {
+      continue;
+    }
+
+    // from === to の場合（holdSupport）: 小さな円弧矢印
+    if (arrow.fromProvinceId === arrow.toProvinceId) {
+      const x = fromAnchor.x;
+      const y = fromAnchor.y;
+      const r = 8;
+      const fromX = x - r;
+      const fromY = y;
+      const toX = x + r;
+      const toY = y;
+      const ctrlX = x;
+      const ctrlY = y - r * 1.5;
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute(
+        'd',
+        `M ${fromX} ${fromY} Q ${ctrlX} ${ctrlY} ${toX} ${toY}`,
+      );
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', arrow.color);
+      path.setAttribute('stroke-width', '1.5');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('vector-effect', 'non-scaling-stroke');
+      path.setAttribute('opacity', String(arrow.opacity));
+      path.setAttribute('marker-end', `url(#${TREATY_MARKER_ID})`);
+      overlay.appendChild(path);
+    } else {
+      // 通常の矢印: fromAnchor → toAnchor
+      const dx = toAnchor.x - fromAnchor.x;
+      const dy = toAnchor.y - fromAnchor.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const ctrlX = (fromAnchor.x + toAnchor.x) / 2 + dy * 0.1;
+      const ctrlY = (fromAnchor.y + toAnchor.y) / 2 - dx * 0.1;
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute(
+        'd',
+        `M ${fromAnchor.x} ${fromAnchor.y} Q ${ctrlX} ${ctrlY} ${toAnchor.x} ${toAnchor.y}`,
+      );
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', arrow.color);
+      path.setAttribute('stroke-width', '1.5');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('vector-effect', 'non-scaling-stroke');
+      path.setAttribute('opacity', String(arrow.opacity));
+      path.setAttribute('marker-end', `url(#${TREATY_MARKER_ID})`);
+      overlay.appendChild(path);
+    }
+  }
+
+  // unitPulses: ユニット位置のパルス強調
+  const pulseStyle = svg.querySelector('style[data-treaty-pulse-animation]');
+  if (treatyVisuals.unitPulses.length > 0 && !pulseStyle) {
+    const style = document.createElementNS(SVG_NS, 'style');
+    style.setAttribute('data-treaty-pulse-animation', 'true');
+    style.textContent = `
+      @keyframes treaty-pulse-opacity {
+        0%   { opacity: 1;   }
+        50%  { opacity: 0.5; }
+        100% { opacity: 1;   }
+      }
+      .treaty-unit-pulse {
+        animation: treaty-pulse-opacity 1.5s infinite;
+      }
+    `;
+    svg.insertBefore(style, svg.firstChild);
+  }
+
+  for (const pulse of treatyVisuals.unitPulses) {
+    const unit = board.units.find((u) => u.id === pulse.unitId);
+    if (!unit) {
+      continue;
+    }
+    const anchor = mapAnchorForUnit(layers, unit);
+    if (!anchor) {
+      continue;
+    }
+
+    const circle = document.createElementNS(SVG_NS, 'circle');
+    circle.setAttribute('cx', String(anchor.x));
+    circle.setAttribute('cy', String(anchor.y));
+    circle.setAttribute('r', '12');
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', '#FF1493');
+    circle.setAttribute('stroke-width', '2');
+    circle.setAttribute('class', 'treaty-unit-pulse');
+    overlay.appendChild(circle);
   }
 }
