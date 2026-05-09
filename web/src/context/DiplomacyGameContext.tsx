@@ -45,6 +45,7 @@ import {
   type BoardState,
   type Order,
   type Unit,
+  type MoveOrder,
 } from '@/domain';
 import { turnLabel } from '@/turnLabel';
 import {
@@ -618,6 +619,8 @@ export type DiplomacyGameContextValue = {
   >;
   pendingRetreats: DislodgedUnit[];
   setPendingRetreats: React.Dispatch<React.SetStateAction<DislodgedUnit[]>>;
+  standoffProvinces: Set<string>;
+  setStandoffProvinces: React.Dispatch<React.SetStateAction<Set<string>>>;
   isResolutionRevealing: boolean;
   powerOrderSaved: Record<string, boolean>;
   setPowerOrderSaved: React.Dispatch<
@@ -794,6 +797,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
   const [pendingRetreats, setPendingRetreats] = useState<DislodgedUnit[]>(
     defaultSnap.pendingRetreats,
   );
+  const [standoffProvinces, setStandoffProvinces] = useState<Set<string>>(new Set());
   const [isResolutionRevealing, setIsResolutionRevealing] = useState(false);
   /** ポーリングが解決演出中に古いスナップショットで上書きしないよう参照する */
   const isResolutionRevealingRef = useRef(false);
@@ -2275,6 +2279,19 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         setBoard(nextBoardState);
         setUnitOrders(buildDefaultOrders(nextBoardState));
         setPendingRetreats(result.dislodgedUnits);
+
+        // スタンドオフが起きたプロビンスを抽出
+        const standoffProvsSet = new Set<string>();
+        for (const resolution of result.orderResolutions) {
+          if (resolution.message.includes('スタンドオフ')) {
+            const order = resolution.order;
+            if (order.type === OrderType.Move) {
+              standoffProvsSet.add((order as MoveOrder).targetProvinceId);
+            }
+          }
+        }
+        setStandoffProvinces(standoffProvsSet);
+
         setRetreatTargets({});
         setPowerRetreatSaved({ ...emptyFlags });
         setIsRetreatPhase(true);
@@ -2684,6 +2701,8 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
       setRetreatTargets,
       pendingRetreats,
       setPendingRetreats,
+      standoffProvinces,
+      setStandoffProvinces,
       isResolutionRevealing,
       powerOrderSaved,
       setPowerOrderSaved,

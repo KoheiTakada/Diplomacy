@@ -28,7 +28,7 @@ import { PhaseTimeline } from '@/components/PhaseTimeline';
 import { HamburgerMenu } from '@/components/HamburgerMenu';
 import { FlyoutMenu } from '@/components/FlyoutMenu';
 import { useDiplomacyGame } from '@/context/DiplomacyGameContext';
-import { mergePowerPageOrderPreview, POWER_META, type UnitOrderInput, type BuildSlot, type DisbandSlot, getReachableProvinces, emptyOrder, disbandNeed, buildCapacity, countUnits } from '@/diplomacy/gameHelpers';
+import { mergePowerPageOrderPreview, POWER_META, type UnitOrderInput, type BuildSlot, type DisbandSlot, getReachableProvinces, getRetreatableProvinces, emptyOrder, disbandNeed, buildCapacity, countUnits } from '@/diplomacy/gameHelpers';
 import { OrderType, UnitType, type FleetCoast } from '@/domain';
 import { buildTreatyMapVisuals, canPowerViewTreaty } from '@/diplomacy/treaties';
 import { readOnlineSessionForPowerPageRestore } from '@/lib/onlineSessionBrowser';
@@ -78,6 +78,8 @@ export default function PowerPageClient() {
     buildPlan,
     disbandPlan,
     markPowerAdjustmentSaved,
+    pendingRetreats,
+    standoffProvinces,
   } = g;
   const [isRestoringSession, setIsRestoringSession] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -208,9 +210,13 @@ export default function PowerPageClient() {
 
   const retreatOptions = useMemo(() => {
     if (!currentUnit || !isRetreatPhase) return [];
-    // 後で retreat logic を実装
-    return [];
-  }, [currentUnit, isRetreatPhase]);
+    // 現在のユニットの dislodged を取得
+    const dislodged = pendingRetreats.find((d) => d.unit.id === currentUnit.id);
+    if (!dislodged) return [];
+    // 撤退可能プロビンスを取得（スタンドオフが起きたプロビンスは除外）
+    const retreatable = getRetreatableProvinces(board, dislodged, {});
+    return retreatable.filter((p) => !standoffProvinces.has(p.id));
+  }, [currentUnit, isRetreatPhase, pendingRetreats, board, standoffProvinces]);
 
   // 入力待ちフェーズに応じた選択可能なプロビンス・ユニット
   const selectableProvinceIds = useMemo(() => {
@@ -1016,7 +1022,7 @@ export default function PowerPageClient() {
           step={flyoutStep as any}
           supportableUnits={supportableUnits}
           convoyableArmies={convoyableArmies}
-          retreatOptions={retreatOptions}
+          retreatOptions={retreatOptions.map((p) => p.id)}
           isDisbandPending={
             isAdjustmentPhasePanel &&
             !flyout.unitId.startsWith('_new_') &&
