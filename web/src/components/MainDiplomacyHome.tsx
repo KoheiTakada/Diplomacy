@@ -42,6 +42,17 @@ import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 
 /**
+ * テキストを一定文字数で分割する
+ */
+function splitLogLine(text: string, maxLength: number = 20): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < text.length; i += maxLength) {
+    result.push(text.substring(i, i + maxLength));
+  }
+  return result.length === 0 ? [text] : result;
+}
+
+/**
  * メイン集約 UI。
  */
 export function MainDiplomacyHome() {
@@ -383,18 +394,24 @@ export function MainDiplomacyHome() {
                   </p>
                 ) : (
                   <ul className="space-y-0 text-[10px] leading-snug [scrollbar-width:thin]">
-                    {log.map((entry) => (
-                      <li
-                        key={entry.id}
-                        className={
-                          entry.line.startsWith('──')
-                            ? 'mt-1 first:mt-0 rounded bg-zinc-100/80 px-1.5 py-0.5 font-semibold text-zinc-800'
-                            : 'border-b border-zinc-100 py-0.5 last:border-0'
-                        }
-                      >
-                        {entry.line}
-                      </li>
-                    ))}
+                    {log.map((entry) => {
+                      const isHeader = entry.line.startsWith('──');
+                      const lines = splitLogLine(entry.line);
+                      return (
+                        <li
+                          key={entry.id}
+                          className={
+                            isHeader
+                              ? 'mt-1 first:mt-0 rounded bg-zinc-100/80 px-1.5 py-0.5 font-semibold text-zinc-800'
+                              : 'border-b border-zinc-100 py-0.5 last:border-0'
+                          }
+                        >
+                          {lines.map((line, idx) => (
+                            <div key={idx}>{line}</div>
+                          ))}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </section>
@@ -485,18 +502,24 @@ export function MainDiplomacyHome() {
                   </p>
                 ) : (
                   <ul className="space-y-0 text-[10px] leading-snug [scrollbar-width:thin]">
-                    {log.map((entry) => (
-                      <li
-                        key={entry.id}
-                        className={
-                          entry.line.startsWith('──')
-                            ? 'mt-1 first:mt-0 rounded bg-zinc-100/80 px-1.5 py-0.5 font-semibold text-zinc-800'
-                            : 'border-b border-zinc-100 py-0.5 last:border-0'
-                        }
-                      >
-                        {entry.line}
-                      </li>
-                    ))}
+                    {log.map((entry) => {
+                      const isHeader = entry.line.startsWith('──');
+                      const lines = splitLogLine(entry.line);
+                      return (
+                        <li
+                          key={entry.id}
+                          className={
+                            isHeader
+                              ? 'mt-1 first:mt-0 rounded bg-zinc-100/80 px-1.5 py-0.5 font-semibold text-zinc-800'
+                              : 'border-b border-zinc-100 py-0.5 last:border-0'
+                          }
+                        >
+                          {lines.map((line, idx) => (
+                            <div key={idx}>{line}</div>
+                          ))}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
