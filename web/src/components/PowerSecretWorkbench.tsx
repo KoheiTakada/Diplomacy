@@ -129,10 +129,7 @@ export function PowerSecretWorkbench(props: PowerSecretWorkbenchProps) {
     if (anchorKey == null) {
       return false;
     }
-    if (board.supplyCenterOwnership[anchorKey] !== powerId) {
-      return false;
-    }
-    if (p.homePowerId != null && p.homePowerId !== powerId) {
+    if (p.homePowerId !== powerId) {
       return false;
     }
     if (isProvinceOccupied(board, p.id)) {

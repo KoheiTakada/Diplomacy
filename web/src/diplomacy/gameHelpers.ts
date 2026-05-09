@@ -959,27 +959,6 @@ export function isPowerAdjustmentSlotsFilled(
       }
     }
   }
-  if (cap > 0) {
-    const slots = buildPlan[powerId] ?? [];
-    for (let i = 0; i < cap; i += 1) {
-      const slot = slots[i];
-      if (!slot?.provinceId) {
-        return false;
-      }
-      if (slot.unitType === UnitType.Fleet) {
-        if (!canBuildFleetAtProvince(board, slot.provinceId)) {
-          return false;
-        }
-      }
-      if (
-        slot.unitType === UnitType.Fleet &&
-        isSplitProvince(slot.provinceId) &&
-        asFleetCoast(slot.buildFleetCoast ?? '') == null
-      ) {
-        return false;
-      }
-    }
-  }
   return true;
 }
 
