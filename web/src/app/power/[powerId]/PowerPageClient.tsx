@@ -761,8 +761,12 @@ export default function PowerPageClient() {
                   } else if (awaitingInputFor === 'default' && !flyout) {
                     // フライアウトが閉じていてプロビンスをクリック → 増産フェーズなら開く
                     if (isAdjustmentPhasePanel && remainingBuildCapacity > 0) {
-                      // 空のプロビンス → フライアウト開く（陸軍/海軍を選択）
-                      setFlyout({ open: true, unitId: provinceId, anchorX: clientX, anchorY: clientY });
+                      // ホームプロビンスのみでフライアウトを開く
+                      const prov = board.provinces.find((p) => p.id === provinceId);
+                      if (prov && prov.homePowerId === powerId) {
+                        // 空のプロビンス → フライアウト開く（陸軍/海軍を選択）
+                        setFlyout({ open: true, unitId: provinceId, anchorX: clientX, anchorY: clientY });
+                      }
                     }
                   }
                   // awaitingInputFor === 'default' かつ flyout が開いている場合はクリック無視
