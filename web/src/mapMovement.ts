@@ -397,6 +397,7 @@ export function getReachableProvinceIdsForOrderUi(
  * 支援命令で「移動支援」の行き先として選べるプロヴィンス ID（交差集合）。
  *
  * 支援元の隣接先と、支援対象ユニットの移動可能先の共通部分。
+ * 支援対象が陸軍の場合はコンボイ到達可能先も含める。
  * 待機支援用の「対象の現在地」は含めない（UI 側で別オプションとして足す）。
  *
  * @param board 盤面
@@ -418,12 +419,21 @@ export function getSupportMoveDestinationProvinceIds(
     board,
     adjKeys,
   );
-  const supportedReach = getDirectMoveTargets(
+
+  // 支援対象の移動可能先（隣接移動）
+  let supportedReach = getDirectMoveTargets(
     supported,
     supported.provinceId,
     board,
     adjKeys,
   );
+
+  // 支援対象が陸軍の場合、コンボイ到達可能先も含める
+  if (supported.type === UnitType.Army) {
+    const convoyReach = getArmyConvoyReachableLandProvinceIds(board, supported, adjKeys);
+    supportedReach = new Set([...supportedReach, ...convoyReach]);
+  }
+
   const out = new Set<string>();
   for (const id of supportedReach) {
     if (supporterReach.has(id)) {

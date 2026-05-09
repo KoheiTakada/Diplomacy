@@ -125,7 +125,7 @@ describe('支援命令: canSupportTargetInSupportOrder', () => {
     expect(ok).toBe(true);
   });
 
-  it('移動支援の行き先候補には輸送経由のみで届く先を含めない', () => {
+  it('移動支援の行き先候補に輸送経由のみで届く先を含める', () => {
     const board = {
       ...MINI_MAP_INITIAL_STATE,
       units: [
@@ -142,7 +142,7 @@ describe('支援命令: canSupportTargetInSupportOrder', () => {
       supported,
       adjKeys,
     );
-    expect(ids.has('BEL')).toBe(false);
+    expect(ids.has('BEL')).toBe(true);
   });
 });
 
