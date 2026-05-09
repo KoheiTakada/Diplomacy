@@ -387,6 +387,13 @@ export default function PowerPageClient() {
   /** 命令フェーズ中の移動命令入力 */
   const showOrdersInput = isMovementPhase && diplomacyPhase === 'orders';
 
+  // 交渉フェーズが開始したとき、想定行動をリセット
+  useEffect(() => {
+    if (diplomacyPhase === 'negotiation' && hypotheticalIsLoaded) {
+      selectHypotheticalScenario(0);
+    }
+  }, [diplomacyPhase, hypotheticalIsLoaded, selectHypotheticalScenario]);
+
   // 交渉フェーズから命令フェーズへ移行したとき、自国の想定行動を unitOrders にコピー
   useEffect(() => {
     const prev = prevDiplomacyPhaseRef.current;
