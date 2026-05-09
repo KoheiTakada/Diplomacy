@@ -2204,9 +2204,6 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
         const appended = treatyViolationNotices.filter((n) => !existingIds.has(n.id));
         return appended.length > 0 ? prev.concat(appended) : prev;
       });
-      for (const notice of treatyViolationNotices) {
-        prependLogLine(`条約違反警告: ${notice.message}`);
-      }
     }
     appendOnlineDebugLog(
       'adjudicate_start',
