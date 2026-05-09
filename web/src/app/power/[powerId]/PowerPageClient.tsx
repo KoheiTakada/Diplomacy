@@ -85,6 +85,9 @@ export default function PowerPageClient() {
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
+  // 条約パネル表示/非表示（交渉フェーズでのみ使用）
+  const [hideTreatyPanel, setHideTreatyPanel] = useState(false);
+
   // スマートフォン版のタブ状態（"orders" or "treaties"）
   const [mobileCenterTabActive, setMobileCenterTabActive] = useState<'orders' | 'treaties'>('orders');
 
@@ -578,7 +581,7 @@ export default function PowerPageClient() {
                 isResolutionRevealing={isResolutionRevealing}
                 pendingMapEffectsRef={pendingMapEffectsRef}
                 orderPreviewMerged={orderPreviewMerged}
-                treatyVisuals={powerTreatyMapVisuals}
+                treatyVisuals={hideTreatyPanel ? null : powerTreatyMapVisuals}
                 extraUnits={isAdjustmentPhasePanel ? pendingBuildUnits : undefined}
                 disbandedUnitIds={isAdjustmentPhasePanel ? disbandedUnitIds : undefined}
                 selectableProvinceIds={selectableProvinceIds}
@@ -906,11 +909,41 @@ export default function PowerPageClient() {
               </div>
 
               {/* Right: Treaty panel (268px fixed) */}
-              <div className="flex w-[268px] shrink-0 flex-col min-h-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
-                <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
-                  <PowerTreatyPanel powerId={powerId} />
+              {!hideTreatyPanel && (
+                <div className="flex w-[268px] shrink-0 flex-col min-h-0 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+                  <div className="flex flex-col h-full">
+                    <div className="shrink-0 p-2 border-b border-zinc-200">
+                      <label className="flex items-center gap-2 text-xs text-zinc-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={hideTreatyPanel}
+                          onChange={(e) => setHideTreatyPanel(e.target.checked)}
+                          className="rounded cursor-pointer"
+                        />
+                        条約を非表示
+                      </label>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
+                      <PowerTreatyPanel powerId={powerId} />
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+              {hideTreatyPanel && (
+                <div className="flex w-[268px] shrink-0 flex-col min-h-0 rounded-2xl border border-zinc-200/70 bg-white shadow-md shadow-zinc-900/[0.06] ring-1 ring-black/[0.03]">
+                  <div className="flex items-center justify-center h-full p-2">
+                    <label className="flex items-center gap-2 text-xs text-zinc-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={hideTreatyPanel}
+                        onChange={(e) => setHideTreatyPanel(e.target.checked)}
+                        className="rounded cursor-pointer"
+                      />
+                      条約を表示
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Mobile: Tabbed content */}
@@ -985,11 +1018,37 @@ export default function PowerPageClient() {
                 </div>
               )}
 
-              {mobileCenterTabActive === 'treaties' && (
+              {mobileCenterTabActive === 'treaties' && !hideTreatyPanel && (
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                  <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
-                    <PowerTreatyPanel powerId={powerId} />
+                  <div className="flex flex-col h-full">
+                    <div className="shrink-0 p-2 border-b border-zinc-200">
+                      <label className="flex items-center gap-2 text-xs text-zinc-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={hideTreatyPanel}
+                          onChange={(e) => setHideTreatyPanel(e.target.checked)}
+                          className="rounded cursor-pointer"
+                        />
+                        条約を非表示
+                      </label>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin] sm:p-4">
+                      <PowerTreatyPanel powerId={powerId} />
+                    </div>
                   </div>
+                </div>
+              )}
+              {mobileCenterTabActive === 'treaties' && hideTreatyPanel && (
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center">
+                  <label className="flex items-center gap-2 text-xs text-zinc-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hideTreatyPanel}
+                      onChange={(e) => setHideTreatyPanel(e.target.checked)}
+                      className="rounded cursor-pointer"
+                    />
+                    条約を表示
+                  </label>
                 </div>
               )}
 
