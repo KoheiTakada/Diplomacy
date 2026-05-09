@@ -587,11 +587,6 @@ export default function PowerPageClient() {
                   // board に存在しないユニットは無視
                   if (!clickedUnit) return;
 
-                  // 移動先/輸送先プロビンス選択中はユニットクリックを無視
-                  if (awaitingInputFor === 'province') {
-                    return;
-                  }
-
                   // 自国ユニットの処理（移動フェーズなら常に開く）
                   if (clickedUnit.powerId === powerId) {
                     if (awaitingInputFor === 'unit' && awaitingUnitKind) {
@@ -626,6 +621,9 @@ export default function PowerPageClient() {
                         // 選択可能な範囲外 → 1ステップ戻す
                         backToFlyoutMenu();
                       }
+                    } else if (awaitingInputFor === 'province') {
+                      // プロビンス選択待ち中のユニットクリック → ユニット操作なし
+                      // ※支援/輸送対象選択中はコントローラ側で無視
                     } else if (awaitingInputFor === 'default' || isMovementPhase) {
                       // 通常: ユニットをクリックしてフライアウトを開く
                       // 移動フェーズなら常に開く（交渉フェーズでも自国入力可能）
@@ -637,11 +635,6 @@ export default function PowerPageClient() {
                       }
                     }
                   } else if (isMovementPhase) {
-                    // 他国の移動先/輸送先プロビンス選択中はユニットクリックを無視
-                    if (hypotheticalAwaitingInputFor === 'province') {
-                      return;
-                    }
-
                     // 他国ユニット（交渉フェーズまたは命令フェーズ、ローカル state のみ）
                     if (hypotheticalAwaitingInputFor === 'unit' && selectableUnitIds?.has(uid) && hypotheticalAwaitingUnitKind) {
                       // 支援対象や輸送対象ユニット選択中
@@ -1158,6 +1151,13 @@ export default function PowerPageClient() {
             setReachableProvinceIds(null);
           }}
           onBuild={(provId, unitType) => {
+            // ホームプロビンスであることをチェック
+            const province = board.provinces.find((p) => p.id === provId);
+            if (!province || province.homePowerId !== powerId) {
+              // ホームプロビンスでない場合は処理しない
+              setFlyout(null);
+              return;
+            }
             // 増産可能数をチェック
             if (remainingBuildCapacity <= 0) {
               // 増産可能数が0以下なら処理しない
