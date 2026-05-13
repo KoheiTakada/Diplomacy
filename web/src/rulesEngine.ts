@@ -82,6 +82,7 @@ function setEqualsByKey<T>(a: Set<T>, b: Set<T>, toKey: (x: T) => string): boole
  * @param moveOrders 全 Move 命令
  * @param movesByTarget 検証通過した移動のみ、目的地ごとの攻撃リスト
  * @param unitById ユニットID→ユニット
+ * @param supportStrength 支援強度マップ（各位置の hold strength を計算するため）
  * @returns 各移動命令の成否
  */
 function resolveMoveSuccessMap(
@@ -89,6 +90,7 @@ function resolveMoveSuccessMap(
   moveOrders: MoveOrder[],
   movesByTarget: Map<string, MoveAttack[]>,
   unitById: Map<string, Unit>,
+  supportStrength: Map<string, number>,
 ): Map<MoveOrder, boolean> {
   const validated = new Set<MoveOrder>();
   for (const arr of movesByTarget.values()) {
@@ -105,6 +107,9 @@ function resolveMoveSuccessMap(
       movePowerByOrder.set(x.order, x.power);
     }
   }
+
+  const defensePower = (target: string): number =>
+    supportStrength.get(`${target}->${target}`) ?? 1;
 
   for (let iter = 0; iter < 80; iter += 1) {
     let changed = false;
@@ -202,15 +207,15 @@ function resolveMoveSuccessMap(
           }
           let str: number | undefined;
           if (!om || om.targetProvinceId === target) {
-            str = 1;
+            str = defensePower(target);
           } else if (!validated.has(om)) {
-            str = 1;
+            str = defensePower(target);
           } else {
             const os = outcome.get(om);
             if (os === true) {
               str = 0;
             } else if (os === false) {
-              str = 1;
+              str = defensePower(target);
             } else {
               str = undefined;
             }
@@ -347,15 +352,15 @@ function resolveMoveSuccessMap(
           }
           let str: number | undefined;
           if (!om || om.targetProvinceId === target) {
-            str = 1;
+            str = defensePower(target);
           } else if (!validated.has(om)) {
-            str = 1;
+            str = defensePower(target);
           } else {
             const os = outcome.get(om);
             if (os === true) {
               str = 0;
             } else if (os === false) {
-              str = 1;
+              str = defensePower(target);
             } else {
               str = undefined;
             }
@@ -578,6 +583,8 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
     const m = new Map<string, number>();
     for (const unit of board.units) {
       m.set(unit.provinceId, 1);
+      // ホールド支援（待機支援）の初期値も設定（基本強度1）
+      m.set(`${unit.provinceId}->${unit.provinceId}`, 1);
     }
     for (const s of effectiveSupports) {
       if (cut.has(s)) {
@@ -627,6 +634,7 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
       moveOrders,
       movesByTargetForIter,
       unitById,
+      strengthForMoves,
     );
     const validatedMovesForIter = new Set<MoveOrder>();
     for (const arr of movesByTargetForIter.values()) {
@@ -878,6 +886,7 @@ export function adjudicateTurn(board: BoardState, orders: Order[]): Adjudication
     moveOrders,
     movesByTarget,
     unitById,
+    supportStrength,
   );
 
   /** 防御側がマスに残留したか（検証済みの退去移動が成功したときのみ空く） */

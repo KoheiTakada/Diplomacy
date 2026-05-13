@@ -696,5 +696,141 @@ describe('adjudicateTurn (MVP)', () => {
     expect(eng).toBeUndefined();
     expect(dislodgedEng).toBeDefined();
   });
+});
 
+describe('ホールド支援（待機支援）の防御力反映', () => {
+  it('ホールド支援がある防御者は同等の攻撃力ではスタンドオフになる', () => {
+    // PAR と BUR は隣接、BUR と MAR は隣接している
+    // PAR → BUR（PIC から支援、power=2）vs BUR（MAR からホールド支援、防御力=2）
+    const board = {
+      ...MINI_MAP_INITIAL_STATE,
+      units: [
+        { id: 'A-ATT', type: UnitType.Army, powerId: 'FRA', provinceId: 'PAR' },
+        { id: 'A-SUP', type: UnitType.Army, powerId: 'FRA', provinceId: 'PIC' },
+        { id: 'A-DEF', type: UnitType.Army, powerId: 'GER', provinceId: 'BUR' },
+        { id: 'A-HOLD', type: UnitType.Army, powerId: 'GER', provinceId: 'MAR' },
+      ],
+    };
+    const orders = [
+      {
+        type: OrderType.Move,
+        unitId: 'A-ATT',
+        sourceProvinceId: 'PAR',
+        targetProvinceId: 'BUR',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'A-SUP',
+        supportedUnitId: 'A-ATT',
+        fromProvinceId: 'PAR',
+        toProvinceId: 'BUR',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'A-HOLD',
+        supportedUnitId: 'A-DEF',
+        fromProvinceId: 'BUR',
+        toProvinceId: 'BUR',
+      } as const,
+    ];
+
+    const result = adjudicateTurn(board, orders);
+    const attacker = result.nextBoardState.units.find((u) => u.id === 'A-ATT');
+    const defender = result.nextBoardState.units.find((u) => u.id === 'A-DEF');
+    const resolution = result.orderResolutions.find((r) => r.order.unitId === 'A-ATT');
+
+    // 攻撃力2、防御力2 → スタンドオフになるべき
+    expect(attacker?.provinceId).toBe('PAR');
+    expect(defender?.provinceId).toBe('BUR');
+    expect(resolution?.success).toBe(false);
+    expect(resolution?.message).toContain('スタンドオフ');
+  });
+
+  it('ホールド支援がある防御者でも、攻撃力が上回れば押し出せる', () => {
+    const board = {
+      ...MINI_MAP_INITIAL_STATE,
+      units: [
+        { id: 'A-ATT-HS2', type: UnitType.Army, powerId: 'FRA', provinceId: 'PAR' },
+        { id: 'A-SUP1-HS2', type: UnitType.Army, powerId: 'FRA', provinceId: 'PIC' },
+        { id: 'A-SUP2-HS2', type: UnitType.Army, powerId: 'FRA', provinceId: 'GAS' },
+        { id: 'A-DEF-HS2', type: UnitType.Army, powerId: 'GER', provinceId: 'BUR' },
+        { id: 'A-HOLD-HS2', type: UnitType.Army, powerId: 'GER', provinceId: 'MAR' },
+      ],
+    };
+    const orders = [
+      {
+        type: OrderType.Move,
+        unitId: 'A-ATT-HS2',
+        sourceProvinceId: 'PAR',
+        targetProvinceId: 'BUR',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'A-SUP1-HS2',
+        supportedUnitId: 'A-ATT-HS2',
+        fromProvinceId: 'PAR',
+        toProvinceId: 'BUR',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'A-SUP2-HS2',
+        supportedUnitId: 'A-ATT-HS2',
+        fromProvinceId: 'PAR',
+        toProvinceId: 'BUR',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'A-HOLD-HS2',
+        supportedUnitId: 'A-DEF-HS2',
+        fromProvinceId: 'BUR',
+        toProvinceId: 'BUR',
+      } as const,
+    ];
+
+    const result = adjudicateTurn(board, orders);
+    const attacker = result.nextBoardState.units.find((u) => u.id === 'A-ATT-HS2');
+    const defenderOnBoard = result.nextBoardState.units.find((u) => u.id === 'A-DEF-HS2');
+    const dislodged = result.dislodgedUnits.find((d) => d.unit.id === 'A-DEF-HS2');
+
+    expect(attacker?.provinceId).toBe('BUR');
+    expect(defenderOnBoard).toBeUndefined();
+    expect(dislodged).toBeDefined();
+  });
+
+  it('ホールド支援がある防御者でも攻撃力が不足すれば押し出せない', () => {
+    // ホールド支援がある防御者（防御力=2）に対し、支援なしで攻撃（攻撃力=1）
+    // 期待値: 攻撃失敗
+    const board = {
+      ...MINI_MAP_INITIAL_STATE,
+      units: [
+        { id: 'A-ATT-HS3', type: UnitType.Army, powerId: 'FRA', provinceId: 'PAR' },
+        { id: 'A-DEF-HS3', type: UnitType.Army, powerId: 'GER', provinceId: 'PIC' },
+        { id: 'A-HOLD-HS3', type: UnitType.Army, powerId: 'GER', provinceId: 'BEL' },
+      ],
+    };
+    const orders = [
+      {
+        type: OrderType.Move,
+        unitId: 'A-ATT-HS3',
+        sourceProvinceId: 'PAR',
+        targetProvinceId: 'PIC',
+      } as const,
+      {
+        type: OrderType.Support,
+        unitId: 'A-HOLD-HS3',
+        supportedUnitId: 'A-DEF-HS3',
+        fromProvinceId: 'PIC',
+        toProvinceId: 'PIC',
+      } as const,
+    ];
+
+    const result = adjudicateTurn(board, orders);
+    const attacker = result.nextBoardState.units.find((u) => u.id === 'A-ATT-HS3');
+    const defenderOnBoard = result.nextBoardState.units.find((u) => u.id === 'A-DEF-HS3');
+    const resolution = result.orderResolutions.find((r) => r.order.unitId === 'A-ATT-HS3');
+
+    expect(attacker?.provinceId).toBe('PAR');
+    expect(defenderOnBoard?.provinceId).toBe('PIC');
+    expect(resolution?.success).toBe(false);
+  });
 });
