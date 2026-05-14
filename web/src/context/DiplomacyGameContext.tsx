@@ -684,7 +684,7 @@ export type DiplomacyGameContextValue = {
   nextLogIdRef: RefObject<number>;
   logListRef: RefObject<HTMLUListElement | null>;
   pendingMapEffectsRef: RefObject<MapVisualEffect[]>;
-  prependLogLine: (line: string) => void;
+  prependLogLine: (line: string, isFailure?: boolean) => void;
   isOrderLocked: boolean;
   isAdjustmentPhasePanel: boolean;
   orderAdjKeys: Set<string>;
@@ -924,11 +924,11 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
     window.URL.revokeObjectURL(url);
   }, []);
 
-  const prependLogLine = useCallback((line: string) => {
+  const prependLogLine = useCallback((line: string, isFailure?: boolean) => {
     setLog((prev) => {
       const id = nextLogIdRef.current;
       nextLogIdRef.current += 1;
-      return [{ id, line }, ...prev];
+      return [{ id, line, isFailure }, ...prev];
     });
   }, []);
 
@@ -2433,7 +2433,7 @@ export function DiplomacyGameProvider(props: { children: ReactNode }) {
           turn: currentTurn,
           units: workingUnits,
         });
-        prependLogLine(formatOrderResolutionLogLine(labelBoard, r));
+        prependLogLine(formatOrderResolutionLogLine(labelBoard, r), r.isFailure);
         if (i === timeline.length - 1) {
           finishReveal();
         }

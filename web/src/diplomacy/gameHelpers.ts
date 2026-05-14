@@ -590,6 +590,12 @@ export function formatOrderResolutionLogLine(
   labelBoard: BoardState,
   r: OrderResolution,
 ): string {
+  // メッセージが既に完全にフォーマットされている場合（✓または✗で始まる）はそのまま返す
+  if (r.message.startsWith('✓') || r.message.startsWith('✗')) {
+    return r.message;
+  }
+
+  // 後方互換性: レガシーメッセージの場合は従来通りフォーマット
   const pName = (id: string) => provinceName(labelBoard, id);
   const uLabelFn = (id: string) => unitLabel(labelBoard, id);
   const mark = r.success ? '✓' : '✗';
@@ -879,6 +885,7 @@ export const selectDisabledClass =
 export type ResolveLogEntry = {
   id: number;
   line: string;
+  isFailure?: boolean;
 };
 
 /**

@@ -453,7 +453,7 @@ describe('adjudicateTurn (MVP)', () => {
     const result = adjudicateTurn(board, orders);
     const convoyRes = result.orderResolutions.find((r) => r.order.type === OrderType.Convoy);
     expect(convoyRes?.success).toBe(false);
-    expect(convoyRes?.message).toContain('対応する陸軍移動命令');
+    expect(convoyRes?.message).toContain('命令不一致のため');
   });
 
   it('複数コンボイ経路の一部が妨害されても1経路生存で移動成功する', () => {
@@ -654,8 +654,8 @@ describe('adjudicateTurn (MVP)', () => {
     const h2 = result.orderResolutions.find(
       (r) => r.order.type === OrderType.Hold && r.order.unitId === 'H2',
     );
-    expect(h1?.message).toBe('維持成功');
-    expect(h2?.message).toBe('維持成功');
+    expect(h1?.message).toContain('✓ 維持成功');
+    expect(h2?.message).toContain('✓ 維持成功');
   });
 
   it('相互移動では、支援付き側が勝って押し出せる（SWE→NWY with SKA support）', () => {

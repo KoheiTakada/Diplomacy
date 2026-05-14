@@ -257,6 +257,13 @@ export interface OrderResolution {
   success: boolean;
   /** スタンドオフ・支援カットなどの理由メッセージ（ユーザー向け） */
   message: string;
+  /** ログの種類（UI表示時に利用） */
+  logType?: 'move_success' | 'move_failure' |
+            'support_success' | 'support_failure_mismatch' | 'support_failure_cut' |
+            'convoy_success' | 'convoy_failure_mismatch' | 'convoy_failure_cut' |
+            'hold_success' | 'retreat' | 'disband' | 'build';
+  /** 失敗ログとして赤色で表示するか */
+  isFailure?: boolean;
 }
 
 /**

@@ -403,6 +403,8 @@ export function MainDiplomacyHome() {
                           className={
                             isHeader
                               ? 'mt-1 first:mt-0 rounded bg-zinc-100/80 px-1.5 py-0.5 font-semibold text-zinc-800'
+                              : entry.isFailure
+                              ? 'border-b border-zinc-100 py-0.5 last:border-0 text-rose-600'
                               : 'border-b border-zinc-100 py-0.5 last:border-0'
                           }
                         >
@@ -511,6 +513,8 @@ export function MainDiplomacyHome() {
                           className={
                             isHeader
                               ? 'mt-1 first:mt-0 rounded bg-zinc-100/80 px-1.5 py-0.5 font-semibold text-zinc-800'
+                              : entry.isFailure
+                              ? 'border-b border-zinc-100 py-0.5 last:border-0 text-rose-600'
                               : 'border-b border-zinc-100 py-0.5 last:border-0'
                           }
                         >
